@@ -1,23 +1,8 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+
+from app.schemas import AlternativeResult, CalculateRequest
 
 app = FastAPI(title="Decision Matrix AI")
-
-
-class Criterion(BaseModel):
-    name: str
-    weight: float
-
-
-class CalculateRequest(BaseModel):
-    alternatives: list[str]
-    criteria: list[Criterion]
-    scores: dict[str, dict[str, float]]
-
-
-class AlternativeResult(BaseModel):
-    alternative: str
-    total_score: float
 
 
 @app.get("/health")
