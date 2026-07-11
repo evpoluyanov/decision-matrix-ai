@@ -1,9 +1,13 @@
 from fastapi import FastAPI
 
 from app.schemas import AlternativeResult, CalculateRequest
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="Decision Matrix AI")
 
+@app.get("/", response_class=FileResponse)
+def index():
+    return FileResponse("app/templates/index.html")
 
 @app.get("/health")
 def health_check():
