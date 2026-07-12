@@ -1,13 +1,28 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 from app.schemas import AlternativeResult, CalculateRequest
-from fastapi.responses import FileResponse
 
 app = FastAPI(title="Decision Matrix AI")
 
-@app.get("/", response_class=FileResponse)
-def index():
-    return FileResponse("app/templates/index.html")
+templates = Jinja2Templates(directory="app/templates")
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={},
+    )
+
+@app.post("/hello", response_class=HTMLResponse)
+def hello(request: Request, name: str = Form(...)):
+    return templates.TemplateResponse(
+        request=request,
+        name="hello.html",
+        context={"name": name},
+    )    
 
 @app.get("/health")
 def health_check():
