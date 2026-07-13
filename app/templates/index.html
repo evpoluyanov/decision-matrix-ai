@@ -5,20 +5,24 @@
 {% endblock %}
 
 {% block content %}
+<h2>Создание проекта</h2>
+
 <p>
-    Сервис для сравнения вариантов и поддержки принятия управленческих решений.
+    Создайте проект, в рамках которого будут сравниваться варианты
+    по выбранным критериям.
 </p>
 
-<form action="/hello" method="post">
-    <label for="name">Введите имя:</label>
+<form action="/projects" method="post">
+    <label for="project_name">Название проекта:</label>
 
     <input
         type="text"
-        id="name"
-        name="name"
+        id="project_name"
+        name="project_name"
+        placeholder="Например: выбор подрядчика"
         required
     >
 
-    <button type="submit">Поздороваться</button>
+    <button type="submit">Создать проект</button>
 </form>
 {% endblock %}

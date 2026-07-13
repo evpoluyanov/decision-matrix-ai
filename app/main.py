@@ -16,13 +16,16 @@ def index(request: Request):
         context={},
     )
 
-@app.post("/hello", response_class=HTMLResponse)
-def hello(request: Request, name: str = Form(...)):
+@app.post("/projects", response_class=HTMLResponse)
+def create_project(
+    request: Request,
+    project_name: str = Form(...),
+):
     return templates.TemplateResponse(
         request=request,
-        name="hello.html",
-        context={"name": name},
-    )    
+        name="project.html",
+        context={"project_name": project_name},
+    )
 
 @app.get("/health")
 def health_check():
