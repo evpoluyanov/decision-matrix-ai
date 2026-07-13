@@ -1,18 +1,15 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decision Matrix AI</title>
-</head>
-<body>
-    <h1>Decision Matrix AI</h1>
+{% extends "base.html" %}
 
-    <p>
-        Сервис для сравнения вариантов и поддержки принятия управленческих решений.
-    </p>
+{% block title %}
+Главная — Decision Matrix AI
+{% endblock %}
 
-    <form action="/hello" method="post">
+{% block content %}
+<p>
+    Сервис для сравнения вариантов и поддержки принятия управленческих решений.
+</p>
+
+<form action="/hello" method="post">
     <label for="name">Введите имя:</label>
 
     <input
@@ -24,5 +21,4 @@
 
     <button type="submit">Поздороваться</button>
 </form>
-</body>
-</html>
+{% endblock %}

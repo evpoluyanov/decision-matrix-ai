@@ -1,15 +1,15 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Приветствие — Decision Matrix AI</title>
-</head>
-<body>
-    <h1>Здравствуйте, {{ name }}!</h1>
+{% extends "base.html" %}
 
-    <p>Данные формы успешно переданы в FastAPI и возвращены в HTML.</p>
+{% block title %}
+Приветствие — Decision Matrix AI
+{% endblock %}
 
-    <a href="/">Вернуться на главную страницу</a>
-</body>
-</html>
+{% block content %}
+<h2>Здравствуйте, {{ name }}!</h2>
+
+<p>
+    Данные формы успешно переданы в FastAPI и возвращены в HTML.
+</p>
+
+<a href="/">Вернуться на главную страницу</a>
+{% endblock %}
