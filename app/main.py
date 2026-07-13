@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 
 from app.schemas import AlternativeResult, CalculateRequest
 
+from app.storage import projects
+
 app = FastAPI(title="Decision Matrix AI")
 
 templates = Jinja2Templates(directory="app/templates")
@@ -21,10 +23,24 @@ def create_project(
     request: Request,
     project_name: str = Form(...),
 ):
+    project = {
+        "id": len(projects) + 1,
+        "name": project_name,
+    }
+    projects.append(project)
+
     return templates.TemplateResponse(
         request=request,
         name="project.html",
-        context={"project_name": project_name},
+        context={"project": project},
+    )
+
+@app.get("/projects", response_class=HTMLResponse)
+def list_projects(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="projects.html",
+        context={"projects": projects},
     )
 
 @app.get("/health")

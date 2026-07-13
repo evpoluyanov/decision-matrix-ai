@@ -1,0 +1,1 @@
+projects: list[dict[str, str | int]] = []

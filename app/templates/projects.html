@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}
+Проекты — Decision Matrix AI
+{% endblock %}
+
+{% block content %}
+<h2>Проекты</h2>
+
+{% if projects %}
+    <ul>
+        {% for project in projects %}
+            <li>
+                №{{ project.id }} — {{ project.name }}
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>Проектов пока нет.</p>
+{% endif %}
+
+<a href="/">Создать новый проект</a>
+{% endblock %}
