@@ -1,14 +1,18 @@
-from fastapi import FastAPI, Form, Request
+
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-
 from app.schemas import AlternativeResult, CalculateRequest
-
-from app.storage import projects
+from fastapi import Depends, FastAPI, Form, Request
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from app import models
+from app.database import Base, engine, get_db
 
 app = FastAPI(title="Decision Matrix AI")
 
 templates = Jinja2Templates(directory="app/templates")
+
+Base.metadata.create_all(bind=engine)
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -22,12 +26,13 @@ def index(request: Request):
 def create_project(
     request: Request,
     project_name: str = Form(...),
+    db: Session = Depends(get_db),
 ):
-    project = {
-        "id": len(projects) + 1,
-        "name": project_name,
-    }
-    projects.append(project)
+    project = models.Project(name=project_name)
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
 
     return templates.TemplateResponse(
         request=request,
@@ -36,7 +41,14 @@ def create_project(
     )
 
 @app.get("/projects", response_class=HTMLResponse)
-def list_projects(request: Request):
+def list_projects(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    projects = db.scalars(
+        select(models.Project).order_by(models.Project.id)
+    ).all()
+
     return templates.TemplateResponse(
         request=request,
         name="projects.html",
