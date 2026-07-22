@@ -1,59 +1,16 @@
+from fastapi import FastAPI
 
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from app.schemas import AlternativeResult, CalculateRequest
-from fastapi import Depends, FastAPI, Form, Request
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 from app import models
-from app.database import Base, engine, get_db
+from app.database import Base, engine
+from app.routers import projects
+from app.schemas import AlternativeResult, CalculateRequest
+
 
 app = FastAPI(title="Decision Matrix AI")
 
-templates = Jinja2Templates(directory="app/templates")
-
 Base.metadata.create_all(bind=engine)
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={},
-    )
-
-@app.post("/projects", response_class=HTMLResponse)
-def create_project(
-    request: Request,
-    project_name: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    project = models.Project(name=project_name)
-
-    db.add(project)
-    db.commit()
-    db.refresh(project)
-
-    return templates.TemplateResponse(
-        request=request,
-        name="project.html",
-        context={"project": project},
-    )
-
-@app.get("/projects", response_class=HTMLResponse)
-def list_projects(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    projects = db.scalars(
-        select(models.Project).order_by(models.Project.id)
-    ).all()
-
-    return templates.TemplateResponse(
-        request=request,
-        name="projects.html",
-        context={"projects": projects},
-    )
+app.include_router(projects.router)
 
 @app.get("/health")
 def health_check():
