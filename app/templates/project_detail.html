@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>{{ project.name }}</h1>
+
+<h2>Альтернативы</h2>
+
+<ul>
+{% for alternative in alternatives %}
+    <li>{{ alternative.name }}</li>
+{% endfor %}
+</ul>
+
+<form action="/projects/{{ project.id }}/alternatives" method="post">
+
+    <input
+        type="text"
+        name="name"
+        placeholder="Название альтернативы"
+        required
+    >
+
+    <button type="submit">
+        Добавить
+    </button>
+
+</form>
+
+<br>
+
+<a href="/projects">
+Назад
+</a>
+
+{% endblock %}

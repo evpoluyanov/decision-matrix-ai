@@ -12,6 +12,9 @@
         {% for project in projects %}
             <li>
                 №{{ project.id }} — {{ project.name }}
+                <a href="/projects/{{ project.id }}">
+                    Открыть
+                </a>
             </li>
         {% endfor %}
     </ul>
