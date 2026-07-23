@@ -15,6 +15,11 @@ class Project(Base):
         cascade="all, delete-orphan",
     )
 
+    criteria: Mapped[list["Criterion"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+
 
 class Alternative(Base):
     __tablename__ = "alternatives"
@@ -29,4 +34,20 @@ class Alternative(Base):
 
     project: Mapped["Project"] = relationship(
         back_populates="alternatives",
+    )
+
+
+class Criterion(Base):
+    __tablename__ = "criteria"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id"),
+        nullable=False,
+    )
+
+    project: Mapped["Project"] = relationship(
+        back_populates="criteria",
     )

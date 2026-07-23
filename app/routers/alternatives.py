@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app import models
 from app.database import get_db
-from app.services import alternative_service
+from app.services import (
+    alternative_service,
+    criterion_service,
+    project_service,
+)
 
 router = APIRouter()
 
@@ -25,20 +29,25 @@ def project_detail(
         project_id,
     )
 
+    criteria = criterion_service.get_criteria(
+        db,
+        project_id,
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="project_detail.html",
         context={
             "project": project,
             "alternatives": alternatives,
+            "criteria": criteria,
         },
     )
 
 
 @router.post("/projects/{project_id}/alternatives")
-def add_alternative(
+def create_alternative(
     project_id: int,
-    request: Request,
     name: str = Form(...),
     db: Session = Depends(get_db),
 ):
@@ -48,4 +57,7 @@ def add_alternative(
         name,
     )
 
-    return project_detail(project_id, request, db)
+    return RedirectResponse(
+        url=f"/projects/{project_id}",
+        status_code=303,
+    )

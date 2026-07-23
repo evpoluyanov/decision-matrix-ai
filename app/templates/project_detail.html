@@ -29,6 +29,28 @@
 
 <br>
 
+<h2>Критерии</h2>
+
+<ul>
+    {% for criterion in criteria %}
+        <li>{{ criterion.name }}</li>
+    {% endfor %}
+</ul>
+
+<form method="post" action="/projects/{{ project.id }}/criteria">
+    <input
+        type="text"
+        name="name"
+        placeholder="Название критерия"
+        required
+    >
+    <button type="submit">
+        Добавить критерий
+    </button>
+</form>
+
+<br>
+
 <a href="/projects">
 Назад
 </a>

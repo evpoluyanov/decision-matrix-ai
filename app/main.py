@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from app import models
 from app.database import Base, engine
-from app.routers import projects
+from app.routers import projects, alternatives, criteria
 from app.schemas import AlternativeResult, CalculateRequest
 from app.routers import alternatives
 
@@ -12,6 +12,7 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(projects.router)
 app.include_router(alternatives.router)
+app.include_router(criteria.router)
 
 @app.get("/health")
 def health_check():
