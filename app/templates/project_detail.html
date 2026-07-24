@@ -33,9 +33,24 @@
 
 <ul>
     {% for criterion in criteria %}
-        <li>{{ criterion.name }}</li>
+        <li>
+            {{ criterion.name }} — {{ criterion.weight * 100 }} %
+        </li>
     {% endfor %}
 </ul>
+
+{% if weight_error %}
+    <p>
+        <strong>
+            Ошибка: сумма весов критериев не может превышать 100%.
+        </strong>
+    </p>
+{% endif %}
+
+<p>
+    Общий вес:
+    {{ (criteria | sum(attribute='weight') * 100) | round(1) }} %
+</p>
 
 <form method="post" action="/projects/{{ project.id }}/criteria">
     <input
@@ -44,6 +59,17 @@
         placeholder="Название критерия"
         required
     >
+
+    <input
+        type="number"
+        name="weight_percent"
+        placeholder="Вес, %"
+        min="0"
+        max="100"
+        step="0.1"
+        required
+    >
+
     <button type="submit">
         Добавить критерий
     </button>

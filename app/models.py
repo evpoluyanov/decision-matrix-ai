@@ -43,6 +43,11 @@ class Criterion(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
 
+    weight: Mapped[float] = mapped_column(
+        default=0.0,
+        nullable=False,
+    )
+
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id"),
         nullable=False,

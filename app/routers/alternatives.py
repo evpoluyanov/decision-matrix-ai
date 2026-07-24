@@ -21,6 +21,7 @@ def project_detail(
     project_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    weight_error: int | None = None,
 ):
     project = db.get(models.Project, project_id)
 
@@ -41,6 +42,7 @@ def project_detail(
             "project": project,
             "alternatives": alternatives,
             "criteria": criteria,
+            "weight_error": weight_error,
         },
     )
 
