@@ -32,3 +32,19 @@ def set_score(
     db.refresh(score)
 
     return score
+
+def get_scores(
+    db: Session,
+    project_id: int,
+) -> dict[tuple[int, int], float]:
+    scores = (
+        db.query(Score)
+        .join(Score.alternative)
+        .filter_by(project_id=project_id)
+        .all()
+    )
+
+    return {
+        (score.alternative_id, score.criterion_id): score.value
+        for score in scores
+    }

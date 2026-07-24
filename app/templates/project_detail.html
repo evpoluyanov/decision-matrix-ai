@@ -77,6 +77,60 @@
 
 <br>
 
+<h2>Матрица оценок</h2>
+
+{% if alternatives and criteria %}
+<form method="post" action="/projects/{{ project.id }}/scores">
+    <table border="1" cellpadding="8" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Альтернатива</th>
+
+                {% for criterion in criteria %}
+                    <th>
+                        {{ criterion.name }}
+                        <br>
+                        <small>{{ criterion.weight * 100 }} %</small>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for alternative in alternatives %}
+                <tr>
+                    <td>{{ alternative.name }}</td>
+
+                    {% for criterion in criteria %}
+                        <td>
+                            <input
+                                type="number"
+                                name="score_{{ alternative.id }}_{{ criterion.id }}"
+                                min="0"
+                                max="10"
+                                step="0.1"
+                                value="{{ scores.get((alternative.id, criterion.id), '') }}"
+                            >
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p>
+        <button type="submit">Сохранить матрицу</button>
+    </p>
+</form>
+{% else %}
+    <p>
+        Чтобы заполнить матрицу, сначала добавьте хотя бы одну альтернативу
+        и один критерий.
+    </p>
+{% endif %}
+
+<br>
+
 <a href="/projects">
 Назад
 </a>
