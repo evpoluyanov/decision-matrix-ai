@@ -131,6 +131,47 @@
 
 <br>
 
+<h2>Результаты</h2>
+
+{% if results %}
+<table border="1" cellpadding="8">
+    <thead>
+        <tr>
+            <th>Место</th>
+            <th>Альтернатива</th>
+
+            {% for criterion in criteria %}
+                <th>{{ criterion.name }}</th>
+            {% endfor %}
+
+            <th>Итог</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for result in results %}
+        <tr>
+            <td>{{ loop.index }}</td>
+
+            <td>
+                {{ result.alternative.name }}
+            </td>
+
+            {% for criterion in criteria %}
+                <td>
+                    {{ result.contributions.get(criterion.id, 0) }}
+                </td>
+            {% endfor %}
+
+            <td>
+                <strong>{{ result.total }}</strong>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
 <a href="/projects">
 Назад
 </a>

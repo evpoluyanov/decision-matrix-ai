@@ -10,6 +10,7 @@ from app.services import (
     criterion_service,
     project_service,
     score_service,
+    calculation_service,
 )
 
 router = APIRouter()
@@ -41,6 +42,11 @@ def project_detail(
         project_id,
     )
 
+    results = calculation_service.calculate_results(
+        db=db,
+        project_id=project_id,
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="project_detail.html",
@@ -49,6 +55,7 @@ def project_detail(
             "alternatives": alternatives,
             "criteria": criteria,
             "scores": scores,
+            "results": results,
             "weight_error": weight_error,
         },
     )
