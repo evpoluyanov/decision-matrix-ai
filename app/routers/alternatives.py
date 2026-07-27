@@ -77,3 +77,60 @@ def create_alternative(
         url=f"/projects/{project_id}",
         status_code=303,
     )
+
+
+@router.post("/alternatives/{alternative_id}/delete")
+def delete_alternative(
+    alternative_id: int,
+    db: Session = Depends(get_db),
+):
+    alternative = db.get(models.Alternative, alternative_id)
+
+    if alternative is None:
+        return RedirectResponse(
+            "/projects",
+            status_code=303,
+        )
+
+    project_id = alternative.project_id
+
+    alternative_service.delete_alternative(
+        db=db,
+        alternative_id=alternative_id,
+    )
+
+    return RedirectResponse(
+        url=f"/projects/{project_id}",
+        status_code=303,
+    )
+
+
+@router.post("/alternatives/{alternative_id}/edit")
+def edit_alternative(
+    alternative_id: int,
+    name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    alternative = db.get(
+        models.Alternative,
+        alternative_id,
+    )
+
+    if alternative is None:
+        return RedirectResponse(
+            url="/projects",
+            status_code=303,
+        )
+
+    project_id = alternative.project_id
+
+    alternative_service.update_alternative(
+        db=db,
+        alternative_id=alternative_id,
+        name=name,
+    )
+
+    return RedirectResponse(
+        url=f"/projects/{project_id}",
+        status_code=303,
+    )

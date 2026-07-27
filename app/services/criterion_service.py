@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
+from app.models import Criterion
 
 
 def get_criteria(db: Session, project_id: int):
@@ -43,6 +44,45 @@ def create_criterion(
     )
 
     db.add(criterion)
+    db.commit()
+    db.refresh(criterion)
+
+    return criterion
+
+
+def delete_criterion(
+    db: Session,
+    criterion_id: int,
+):
+    criterion = db.get(
+        Criterion,
+        criterion_id,
+    )
+
+    if criterion is None:
+        return
+
+    db.delete(criterion)
+    db.commit()
+
+
+def update_criterion(
+    db: Session,
+    criterion_id: int,
+    name: str,
+    weight_percent: float,
+):
+    criterion = db.get(
+        Criterion,
+        criterion_id,
+    )
+
+    if criterion is None:
+        return None
+
+    criterion.name = name.strip()
+    criterion.weight = weight_percent / 100
+
     db.commit()
     db.refresh(criterion)
 

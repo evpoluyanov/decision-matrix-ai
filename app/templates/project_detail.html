@@ -8,7 +8,30 @@
 
 <ul>
 {% for alternative in alternatives %}
-    <li>{{ alternative.name }}</li>
+<li>
+    <form
+        action="/alternatives/{{ alternative.id }}/edit"
+        method="post"
+        style="display:inline"
+    >
+        <input
+            type="text"
+            name="name"
+            value="{{ alternative.name }}"
+            required
+        >
+
+        <button type="submit">Сохранить</button>
+    </form>
+
+    <form
+        action="/alternatives/{{ alternative.id }}/delete"
+        method="post"
+        style="display:inline"
+    >
+        <button type="submit">🗑</button>
+    </form>
+</li>
 {% endfor %}
 </ul>
 
@@ -34,7 +57,42 @@
 <ul>
     {% for criterion in criteria %}
         <li>
-            {{ criterion.name }} — {{ criterion.weight * 100 }} %
+            <form
+                action="/criteria/{{ criterion.id }}/edit"
+                method="post"
+                style="display:inline"
+            >
+                <input
+                    type="text"
+                    name="name"
+                    value="{{ criterion.name }}"
+                    required
+                >
+
+                <input
+                    type="number"
+                    name="weight_percent"
+                    value="{{ (criterion.weight * 100) | round(1) }}"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    required
+                >
+
+                <button type="submit">
+                    Сохранить
+                </button>
+            </form>
+
+            <form
+                action="/criteria/{{ criterion.id }}/delete"
+                method="post"
+                style="display:inline"
+            >
+                <button type="submit">
+                    🗑
+                </button>
+            </form>
         </li>
     {% endfor %}
 </ul>
