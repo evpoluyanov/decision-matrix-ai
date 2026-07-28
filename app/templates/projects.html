@@ -5,22 +5,72 @@
 {% endblock %}
 
 {% block content %}
-<h2>Проекты</h2>
+
+<div class="d-flex justify-content-between align-items-end mb-4">
+    <div>
+        <h2 class="mb-1">Проекты</h2>
+        <p class="text-muted mb-0">
+            Выберите существующий проект или создайте новый.
+        </p>
+    </div>
+
+    <a
+        href="/"
+        class="btn btn-primary px-4"
+    >
+        Создать проект
+    </a>
+</div>
 
 {% if projects %}
-    <ul>
+
+    <div class="row g-4">
         {% for project in projects %}
-            <li>
-                №{{ project.id }} — {{ project.name }}
-                <a href="/projects/{{ project.id }}">
-                    Открыть
-                </a>
-            </li>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm">
+
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="card-title">
+                                {{ project.name }}
+                            </h5>
+
+                            <span class="badge text-bg-secondary">
+                                №{{ project.id }}
+                            </span>
+                        </div>
+
+                        <p class="card-text text-muted">
+                            Проект для сравнения альтернатив по выбранным критериям.
+                        </p>
+                    </div>
+
+                    <div class="card-footer bg-white border-0">
+                        <a
+                            href="/projects/{{ project.id }}"
+                            class="btn btn-outline-primary w-100"
+                        >
+                            Открыть проект
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+
         {% endfor %}
-    </ul>
+    </div>
+
 {% else %}
-    <p>Проектов пока нет.</p>
+
+    <div class="alert alert-light border">
+        Проектов пока нет.
+
+        <a href="/" class="alert-link">
+            Создайте первый проект
+        </a>.
+    </div>
+
 {% endif %}
 
-<a href="/">Создать новый проект</a>
 {% endblock %}

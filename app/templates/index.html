@@ -5,29 +5,57 @@
 {% endblock %}
 
 {% block content %}
-<h2>Создание проекта</h2>
 
-<p>
-    Создайте проект, в рамках которого будут сравниваться варианты
-    по выбранным критериям.
-</p>
+<div class="card shadow-sm">
 
-<form action="/projects" method="post">
-    <label for="project_name">Название проекта:</label>
+    <div class="card-body">
 
-    <input
-        type="text"
-        id="project_name"
-        name="project_name"
-        placeholder="Например: выбор подрядчика"
-        required
-    >
+        <h2 class="card-title">
+            Создание проекта
+        </h2>
 
-    <button type="submit">Создать проект</button>
-</form>
+        <p class="text-muted">
+            Создайте проект, в рамках которого будут сравниваться варианты по выбранным критериям.
+        </p>
 
-<p>
-    <a href="/projects">Перейти к проектам</a>
-</p>
+        <form
+            action="/projects"
+            method="post"
+        >
+            <div class="mb-3">
+                <label
+                    for="project-name"
+                    class="form-label"
+                >
+                    Название проекта
+                </label>
+
+                <input
+                    id="project-name"
+                    type="text"
+                    name="name"
+                    class="form-control"
+                    placeholder="Например: выбор подрядчика"
+                    required
+                >
+            </div>
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                Создать проект
+            </button>
+        </form>
+
+        <a
+            href="/projects"
+            class="btn btn-outline-secondary mt-3"
+        >
+            Перейти к проектам
+        </a>
+    </div>
+
+</div>
 
 {% endblock %}
