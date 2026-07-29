@@ -1,0 +1,642 @@
+[1mdiff --git a/app/routers/alternatives.py b/app/routers/alternatives.py[m
+[1mindex 1d840c6..d75819e 100644[m
+[1m--- a/app/routers/alternatives.py[m
+[1m+++ b/app/routers/alternatives.py[m
+[36m@@ -115,7 +115,7 @@[m [mdef copy_project([m
+         )[m
+ [m
+     return RedirectResponse([m
+[31m-        url=f"/projects/{new_project.id}",[m
+[32m+[m[32m        url="/projects",[m
+         status_code=303,[m
+     )[m
+ [m
+[1mdiff --git a/app/templates/base.html b/app/templates/base.html[m
+[1mindex c699600..899d233 100644[m
+[1m--- a/app/templates/base.html[m
+[1m+++ b/app/templates/base.html[m
+[36m@@ -3,59 +3,76 @@[m
+ <head>[m
+     <meta charset="UTF-8">[m
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">[m
+[32m+[m
+     <link[m
+         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"[m
+         rel="stylesheet"[m
+     >[m
+[32m+[m
+     <title>[m
+         {% block title %}Decision Matrix AI{% endblock %}[m
+     </title>[m
+ </head>[m
+[31m-<body>[m
+[32m+[m
+[32m+[m[32m<body class="d-flex flex-column min-vh-100 bg-light">[m
+[32m+[m
+     <header>[m
+[31m-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">[m
+[31m-            <div class="container-fluid">[m
+[32m+[m[32m        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">[m
+[32m+[m[32m            <div class="container">[m
+ [m
+                 <a class="navbar-brand" href="/">[m
+                     Decision Matrix AI[m
+                 </a>[m
+ [m
+[31m-                <div class="navbar-nav">[m
+[31m-                    <a class="nav-link" href="/">[m
+[31m-                        Главная[m
+[31m-                    </a>[m
+[32m+[m[32m                <button[m
+[32m+[m[32m                    class="navbar-toggler"[m
+[32m+[m[32m                    type="button"[m
+[32m+[m[32m                    data-bs-toggle="collapse"[m
+[32m+[m[32m                    data-bs-target="#mainNavbar"[m
+[32m+[m[32m                    aria-controls="mainNavbar"[m
+[32m+[m[32m                    aria-expanded="false"[m
+[32m+[m[32m                    aria-label="Переключить навигацию"[m
+[32m+[m[32m                >[m
+[32m+[m[32m                    <span class="navbar-toggler-icon"></span>[m
+[32m+[m[32m                </button>[m
+ [m
+[31m-                    <a class="nav-link" href="/projects">[m
+[31m-                        Проекты[m
+[31m-                    </a>[m
+[32m+[m[32m                <div[m
+[32m+[m[32m                    class="collapse navbar-collapse"[m
+[32m+[m[32m                    id="mainNavbar"[m
+[32m+[m[32m                >[m
+[32m+[m[32m                    <div class="navbar-nav ms-auto">[m
+[32m+[m[32m                        <a class="nav-link" href="/">[m
+[32m+[m[32m                            Главная[m
+[32m+[m[32m                        </a>[m
+[32m+[m
+[32m+[m[32m                        <a class="nav-link" href="/projects">[m
+[32m+[m[32m                            Проекты[m
+[32m+[m[32m                        </a>[m
+[32m+[m[32m                    </div>[m
+                 </div>[m
+ [m
+             </div>[m
+[31m-        </nav>        [m
+[32m+[m[32m        </nav>[m
+     </header>[m
+ [m
+[31m-    <hr>[m
+[31m-[m
+[31m-    <main>[m
+[31m-        <body>[m
+[31m-[m
+[31m-        <div class="container mt-4">[m
+[31m-[m
+[31m-        {% block content %}[m
+[31m-        {% endblock %}[m
+[31m-[m
+[32m+[m[32m    <main class="flex-grow-1">[m
+[32m+[m[32m        <div class="container py-4">[m
+[32m+[m[32m            {% block content %}[m
+[32m+[m[32m            {% endblock %}[m
+         </div>[m
+[31m-[m
+[31m-        </body>[m
+     </main>[m
+ [m
+[31m-    <hr>[m
+[31m-[m
+[31m-    <footer>[m
+[31m-        <p>Decision Matrix AI — сервис поддержки принятия решений.</p>[m
+[32m+[m[32m    <footer class="border-top bg-white mt-auto">[m
+[32m+[m[32m        <div class="container py-3">[m
+[32m+[m[32m            <p class="text-secondary small mb-0">[m
+[32m+[m[32m                Decision Matrix AI — сервис поддержки принятия решений.[m
+[32m+[m[32m            </p>[m
+[32m+[m[32m        </div>[m
+     </footer>[m
+[32m+[m
+     <script[m
+[31m-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">[m
+[31m-    </script>    [m
+[32m+[m[32m        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"[m
+[32m+[m[32m    ></script>[m
+[32m+[m
+ </body>[m
+ </html>[m
+\ No newline at end of file[m
+[1mdiff --git a/app/templates/project.html b/app/templates/project.html[m
+[1mindex 85236e3..9c46bf8 100644[m
+[1m--- a/app/templates/project.html[m
+[1m+++ b/app/templates/project.html[m
+[36m@@ -1,19 +1,74 @@[m
+ {% extends "base.html" %}[m
+ [m
+ {% block title %}[m
+[31m-{{ project.name }} — Decision Matrix AI[m
+[32m+[m[32mПроект создан — Decision Matrix AI[m
+ {% endblock %}[m
+ [m
+ {% block content %}[m
+[31m-<h2>{{ project.name }}</h2>[m
+[32m+[m[32m<div class="row justify-content-center">[m
+[32m+[m[32m    <div class="col-lg-7 col-xl-6">[m
+ [m
+[31m-<p>Проект создан.</p>[m
+[32m+[m[32m        <div class="card border-0 shadow-sm">[m
+[32m+[m[32m            <div class="card-body p-4 p-md-5">[m
+ [m
+[31m-<p>Идентификатор проекта: {{ project.id }}</p>[m
+[32m+[m[32m                <div class="text-center mb-4">[m
+[32m+[m[32m                    <div[m
+[32m+[m[32m                        class="d-inline-flex align-items-center justify-content-center[m
+[32m+[m[32m                               rounded-circle bg-success-subtle text-success mb-3"[m
+[32m+[m[32m                        style="width: 64px; height: 64px; font-size: 2rem;"[m
+[32m+[m[32m                    >[m
+[32m+[m[32m                        ✓[m
+[32m+[m[32m                    </div>[m
+ [m
+[31m-<p>[m
+[31m-    Следующим шагом здесь появится добавление вариантов для сравнения.[m
+[31m-</p>[m
+[32m+[m[32m                    <h1 class="h3 mb-2">[m
+[32m+[m[32m                        Проект создан[m
+[32m+[m[32m                    </h1>[m
+ [m
+[31m-<a href="/projects">Посмотреть все проекты</a>[m
+[32m+[m[32m                    <p class="text-secondary mb-0">[m
+[32m+[m[32m                        Новый проект успешно добавлен в систему.[m
+[32m+[m[32m                    </p>[m
+[32m+[m[32m                </div>[m
+[32m+[m
+[32m+[m[32m                <div class="bg-light rounded-3 p-3 mb-4">[m
+[32m+[m[32m                    <div class="mb-2">[m
+[32m+[m[32m                        <span class="text-secondary">[m
+[32m+[m[32m                            Название проекта[m
+[32m+[m[32m                        </span>[m
+[32m+[m[32m                    </div>[m
+[32m+[m
+[32m+[m[32m                    <div class="fw-semibold fs-5">[m
+[32m+[m[32m                        {{ project.name }}[m
+[32m+[m[32m                    </div>[m
+[32m+[m
+[32m+[m[32m                    <div class="small text-secondary mt-2">[m
+[32m+[m[32m                        Идентификатор проекта: {{ project.id }}[m
+[32m+[m[32m                    </div>[m
+[32m+[m[32m                </div>[m
+[32m+[m
+[32m+[m[32m                <p class="text-secondary">[m
+[32m+[m[32m                    Теперь можно открыть проект и добавить варианты,[m
+[32m+[m[32m                    критерии и оценки для проведения расчёта.[m
+[32m+[m[32m                </p>[m
+[32m+[m
+[32m+[m[32m                <div class="d-flex flex-column flex-sm-row gap-2 mt-4">[m
+[32m+[m[32m                    <a[m
+[32m+[m[32m                        href="/projects/{{ project.id }}"[m
+[32m+[m[32m                        class="btn btn-primary"[m
+[32m+[m[32m                    >[m
+[32m+[m[32m                        Открыть проект[m
+[32m+[m[32m                    </a>[m
+[32m+[m
+[32m+[m[32m                    <a[m
+[32m+[m[32m                        href="/projects"[m
+[32m+[m[32m                        class="btn btn-outline-secondary"[m
+[32m+[m[32m                    >[m
+[32m+[m[32m                        К списку проектов[m
+[32m+[m[32m                    </a>[m
+[32m+[m[32m                </div>[m
+[32m+[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m</div>[m
+ {% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/app/templates/project_detail.html b/app/templates/project_detail.html[m
+[1mindex c8bd515..4de5025 100644[m
+[1m--- a/app/templates/project_detail.html[m
+[1m+++ b/app/templates/project_detail.html[m
+[36m@@ -2,69 +2,73 @@[m
+ [m
+ {% block content %}[m
+ [m
+[31m-<div class="d-flex justify-content-between align-items-center mb-4">[m
+[31m-    <div>[m
+[31m-        <p class="text-muted mb-1">[m
+[32m+[m[32m<div class="mb-4">[m
+[32m+[m
+[32m+[m[32m    <div class="d-flex justify-content-between align-items-center gap-3 mb-2">[m
+[32m+[m[32m        <p class="text-muted mb-0">[m
+             Проект №{{ project.id }}[m
+         </p>[m
+ [m
+[31m-        <div class="d-flex gap-2 align-items-center">[m
+[31m-[m
+[31m-            <form[m
+[31m-                action="/projects/{{ project.id }}/edit"[m
+[31m-                method="post"[m
+[31m-                class="d-flex gap-2 align-items-center flex-grow-1"[m
+[31m-            >[m
+[31m-                <input[m
+[31m-                    type="text"[m
+[31m-                    name="project_name"[m
+[31m-                    value="{{ project.name }}"[m
+[31m-                    class="form-control form-control-lg"[m
+[31m-                    required[m
+[31m-                >[m
+[31m-[m
+[31m-                <button[m
+[31m-                    type="submit"[m
+[31m-                    class="btn btn-primary"[m
+[31m-                >[m
+[31m-                    Сохранить[m
+[31m-                </button>[m
+[31m-            </form>[m
+[32m+[m[32m        <a[m
+[32m+[m[32m            href="/projects"[m
+[32m+[m[32m            class="btn btn-outline-secondary btn-sm"[m
+[32m+[m[32m        >[m
+[32m+[m[32m            Назад к проектам[m
+[32m+[m[32m        </a>[m
+[32m+[m[32m    </div>[m
+ [m
+[31m-            <form[m
+[31m-                action="/projects/{{ project.id }}/copy"[m
+[31m-                method="post"[m
+[32m+[m[32m    <form[m
+[32m+[m[32m        action="/projects/{{ project.id }}/edit"[m
+[32m+[m[32m        method="post"[m
+[32m+[m[32m        class="row g-2 mb-3"[m
+[32m+[m[32m    >[m
+[32m+[m[32m        <div class="col-12 col-md">[m
+[32m+[m[32m            <input[m
+[32m+[m[32m                type="text"[m
+[32m+[m[32m                name="project_name"[m
+[32m+[m[32m                value="{{ project.name }}"[m
+[32m+[m[32m                class="form-control form-control-lg"[m
+[32m+[m[32m                required[m
+             >[m
+[31m-                <button[m
+[31m-                    type="submit"[m
+[31m-                    class="btn btn-outline-primary"[m
+[31m-                >[m
+[31m-                    Копировать[m
+[31m-                </button>[m
+[31m-            </form>[m
+[32m+[m[32m        </div>[m
+ [m
+[31m-            <form[m
+[31m-                action="/projects/{{ project.id }}/delete"[m
+[31m-                method="post"[m
+[31m-                onsubmit="return confirm('Удалить проект и все связанные данные?');"[m
+[32m+[m[32m        <div class="col-12 col-sm-auto">[m
+[32m+[m[32m            <button[m
+[32m+[m[32m                type="submit"[m
+[32m+[m[32m                class="btn btn-primary btn-lg w-100"[m
+             >[m
+[31m-                <button[m
+[31m-                    type="submit"[m
+[31m-                    class="btn btn-outline-danger"[m
+[31m-                >[m
+[31m-                    Удалить проект[m
+[31m-                </button>[m
+[31m-            </form>[m
+[31m-[m
+[32m+[m[32m                Сохранить[m
+[32m+[m[32m            </button>[m
+         </div>[m
+[32m+[m[32m    </form>[m
+[32m+[m
+[32m+[m[32m    <div class="d-flex flex-wrap gap-2">[m
+[32m+[m[32m        <form[m
+[32m+[m[32m            action="/projects/{{ project.id }}/copy"[m
+[32m+[m[32m            method="post"[m
+[32m+[m[32m        >[m
+[32m+[m[32m            <button[m
+[32m+[m[32m                type="submit"[m
+[32m+[m[32m                class="btn btn-outline-primary"[m
+[32m+[m[32m            >[m
+[32m+[m[32m                Копировать[m
+[32m+[m[32m            </button>[m
+[32m+[m[32m        </form>[m
+[32m+[m
+[32m+[m[32m        <form[m
+[32m+[m[32m            action="/projects/{{ project.id }}/delete"[m
+[32m+[m[32m            method="post"[m
+[32m+[m[32m            onsubmit="return confirm('Удалить проект и все связанные данные?');"[m
+[32m+[m[32m        >[m
+[32m+[m[32m            <button[m
+[32m+[m[32m                type="submit"[m
+[32m+[m[32m                class="btn btn-outline-danger"[m
+[32m+[m[32m            >[m
+[32m+[m[32m                Удалить проект[m
+[32m+[m[32m            </button>[m
+[32m+[m[32m        </form>[m
+     </div>[m
+ [m
+[31m-    <a[m
+[31m-        href="/projects"[m
+[31m-        class="btn btn-outline-secondary"[m
+[31m-    >[m
+[31m-        Назад к проектам[m
+[31m-    </a>[m
+ </div>[m
+ [m
+ [m
+[36m@@ -89,41 +93,49 @@[m
+                         {% for alternative in alternatives %}[m
+ [m
+                             <div class="border rounded p-2">[m
+[31m-                                <div class="d-flex gap-2">[m
+[32m+[m[32m                                <div class="row g-2">[m
+ [m
+[31m-                                    <form[m
+[31m-                                        action="/alternatives/{{ alternative.id }}/edit"[m
+[31m-                                        method="post"[m
+[31m-                                        class="d-flex gap-2 flex-grow-1"[m
+[31m-                                    >[m
+[31m-                                        <input[m
+[31m-                                            type="text"[m
+[31m-                                            name="name"[m
+[31m-                                            value="{{ alternative.name }}"[m
+[31m-                                            class="form-control"[m
+[31m-                                            required[m
+[32m+[m[32m                                    <div class="col-12 col-md">[m
+[32m+[m[32m                                        <form[m
+[32m+[m[32m                                            action="/alternatives/{{ alternative.id }}/edit"[m
+[32m+[m[32m                                            method="post"[m
+[32m+[m[32m                                            class="row g-2"[m
+                                         >[m
+[32m+[m[32m                                            <div class="col-12 col-sm">[m
+[32m+[m[32m                                                <input[m
+[32m+[m[32m                                                    type="text"[m
+[32m+[m[32m                                                    name="name"[m
+[32m+[m[32m                                                    value="{{ alternative.name }}"[m
+[32m+[m[32m                                                    class="form-control"[m
+[32m+[m[32m                                                    required[m
+[32m+[m[32m                                                >[m
+[32m+[m[32m                                            </div>[m
+ [m
+[31m-                                        <button[m
+[31m-                                            type="submit"[m
+[31m-                                            class="btn btn-outline-primary"[m
+[31m-                                        >[m
+[31m-                                            Сохранить[m
+[31m-                                        </button>[m
+[31m-                                    </form>[m
+[32m+[m[32m                                            <div class="col-12 col-sm-auto">[m
+[32m+[m[32m                                                <button[m
+[32m+[m[32m                                                    type="submit"[m
+[32m+[m[32m                                                    class="btn btn-outline-primary w-100"[m
+[32m+[m[32m                                                >[m
+[32m+[m[32m                                                    Сохранить[m
+[32m+[m[32m                                                </button>[m
+[32m+[m[32m                                            </div>[m
+[32m+[m[32m                                        </form>[m
+[32m+[m[32m                                    </div>[m
+ [m
+[31m-                                    <form[m
+[31m-                                        action="/alternatives/{{ alternative.id }}/delete"[m
+[31m-                                        method="post"[m
+[31m-                                    >[m
+[31m-                                        <button[m
+[31m-                                            type="submit"[m
+[31m-                                            class="btn btn-outline-danger"[m
+[31m-                                            title="Удалить альтернативу"[m
+[32m+[m[32m                                    <div class="col-auto">[m
+[32m+[m[32m                                        <form[m
+[32m+[m[32m                                            action="/alternatives/{{ alternative.id }}/delete"[m
+[32m+[m[32m                                            method="post"[m
+[32m+[m[32m                                            onsubmit="return confirm('Удалить альтернативу?');"[m
+                                         >[m
+[31m-                                            Удалить[m
+[31m-                                        </button>[m
+[31m-                                    </form>[m
+[32m+[m[32m                                            <button[m
+[32m+[m[32m                                                type="submit"[m
+[32m+[m[32m                                                class="btn btn-outline-danger"[m
+[32m+[m[32m                                            >[m
+[32m+[m[32m                                                Удалить[m
+[32m+[m[32m                                            </button>[m
+[32m+[m[32m                                        </form>[m
+[32m+[m[32m                                    </div>[m
+ [m
+                                 </div>[m
+                             </div>[m
+[36m@@ -212,68 +224,64 @@[m
+ [m
+                             <div class="border rounded p-2">[m
+ [m
+[31m-                                <div class="d-flex gap-2">[m
+[32m+[m[32m                                <form[m
+[32m+[m[32m                                    action="/criteria/{{ criterion.id }}/edit"[m
+[32m+[m[32m                                    method="post"[m
+[32m+[m[32m                                    class="row g-2"[m
+[32m+[m[32m                                >[m
+[32m+[m[32m                                    <div class="col-12 col-md">[m
+[32m+[m[32m                                        <input[m
+[32m+[m[32m                                            type="text"[m
+[32m+[m[32m                                            name="name"[m
+[32m+[m[32m                                            value="{{ criterion.name }}"[m
+[32m+[m[32m                                            class="form-control"[m
+[32m+[m[32m                                            required[m
+[32m+[m[32m                                        >[m
+[32m+[m[32m                                    </div>[m
+ [m
+[31m-                                    <form[m
+[31m-                                        action="/criteria/{{ criterion.id }}/edit"[m
+[31m-                                        method="post"[m
+[31m-                                        class="row g-2 align-items-center flex-grow-1"[m
+[31m-                                    >[m
+[31m-                                        <div class="col">[m
+[32m+[m[32m                                    <div class="col-12 col-sm-4 col-md-3">[m
+[32m+[m[32m                                        <div class="input-group">[m
+                                             <input[m
+[31m-                                                type="text"[m
+[31m-                                                name="name"[m
+[31m-                                                value="{{ criterion.name }}"[m
+[32m+[m[32m                                                type="number"[m
+[32m+[m[32m                                                name="weight_percent"[m
+[32m+[m[32m                                                value="{{ (criterion.weight * 100) | round(1) }}"[m
+[32m+[m[32m                                                min="0"[m
+[32m+[m[32m                                                max="100"[m
+[32m+[m[32m                                                step="0.1"[m
+                                                 class="form-control"[m
+                                                 required[m
+                                             >[m
+[31m-                                        </div>[m
+ [m
+[31m-                                        <div class="col-3">[m
+[31m-                                            <div class="input-group">[m
+[31m-                                                <input[m
+[31m-                                                    type="number"[m
+[31m-                                                    name="weight_percent"[m
+[31m-                                                    value="{{ (criterion.weight * 100) | round(1) }}"[m
+[31m-                                                    min="0"[m
+[31m-                                                    max="100"[m
+[31m-                                                    step="0.1"[m
+[31m-                                                    class="form-control"[m
+[31m-                                                    required[m
+[31m-                                                >[m
+[31m-[m
+[31m-                                                <span class="input-group-text">[m
+[31m-                                                    %[m
+[31m-                                                </span>[m
+[31m-                                            </div>[m
+[32m+[m[32m                                            <span class="input-group-text">[m
+[32m+[m[32m                                                %[m
+[32m+[m[32m                                            </span>[m
+                                         </div>[m
+[32m+[m[32m                                    </div>[m
+ [m
+[31m-                                        <div class="col-auto">[m
+[31m-                                            <button[m
+[31m-                                                type="submit"[m
+[31m-                                                class="btn btn-outline-primary"[m
+[31m-                                            >[m
+[31m-                                                Сохранить[m
+[31m-                                            </button>[m
+[31m-                                        </div>[m
+[31m-                                    </form>[m
+[31m-[m
+[31m-                                    <form[m
+[31m-                                        action="/criteria/{{ criterion.id }}/delete"[m
+[31m-                                        method="post"[m
+[31m-                                    >[m
+[32m+[m[32m                                    <div class="col-auto">[m
+                                         <button[m
+                                             type="submit"[m
+[31m-                                            class="btn btn-outline-danger"[m
+[31m-                                            title="Удалить критерий"[m
+[32m+[m[32m                                            class="btn btn-outline-primary"[m
+                                         >[m
+[31m-                                            Удалить[m
+[32m+[m[32m                                            Сохранить[m
+                                         </button>[m
+[31m-                                    </form>[m
+[32m+[m[32m                                    </div>[m
+[32m+[m[32m                                </form>[m
+ [m
+[31m-                                </div>                                [m
+[32m+[m[32m                                <form[m
+[32m+[m[32m                                    action="/criteria/{{ criterion.id }}/delete"[m
+[32m+[m[32m                                    method="post"[m
+[32m+[m[32m                                    class="mt-2"[m
+[32m+[m[32m                                    onsubmit="return confirm('Удалить критерий?');"[m
+[32m+[m[32m                                >[m
+[32m+[m[32m                                    <button[m
+[32m+[m[32m                                        type="submit"[m
+[32m+[m[32m                                        class="btn btn-outline-danger"[m
+[32m+[m[32m                                    >[m
+[32m+[m[32m                                        Удалить[m
+[32m+[m[32m                                    </button>[m
+[32m+[m[32m                                </form>[m
+ [m
+[31m-                                [m
+                             </div>[m
+ [m
+                         {% endfor %}[m
+[36m@@ -378,18 +386,25 @@[m
+             >[m
+ [m
+                 <div class="table-responsive">[m
+[31m-                    <table class="table table-bordered table-hover align-middle">[m
+[32m+[m[32m                    <table[m
+[32m+[m[32m                        class="table table-bordered table-hover align-middle mb-0"[m
+[32m+[m[32m                        style="min-width: 720px;"[m
+[32m+[m[32m                    >[m
+ [m
+                         <thead class="table-light">[m
+                             <tr>[m
+[31m-                                <th scope="col">[m
+[32m+[m[32m                                <th[m
+[32m+[m[32m                                    scope="col"[m
+[32m+[m[32m                                    style="min-width: 220px;"[m
+[32m+[m[32m                                >[m
+                                     Альтернатива[m
+                                 </th>[m
+ [m
+                                 {% for criterion in criteria %}[m
+                                     <th[m
+                                         scope="col"[m
+[31m-                                        class="text-center"[m
+[32m+[m[32m                                        class="text-center text-break"[m
+[32m+[m[32m                                        style="min-width: 170px;"[m
+                                     >[m
+                                         {{ criterion.name }}[m
+ [m
+[36m@@ -405,7 +420,10 @@[m
+                         <tbody>[m
+                             {% for alternative in alternatives %}[m
+                                 <tr>[m
+[31m-                                    <th scope="row">[m
+[32m+[m[32m                                    <th[m
+[32m+[m[32m                                        scope="row"[m
+[32m+[m[32m                                        class="text-break"[m
+[32m+[m[32m                                    >[m
+                                         {{ alternative.name }}[m
+                                     </th>[m
+ [m
+[36m@@ -465,20 +483,33 @@[m
+         {% if results %}[m
+ [m
+             <div class="table-responsive">[m
+[31m-                <table class="table table-bordered table-hover align-middle mb-0">[m
+[31m-[m
+[31m-                    <thead class="table-light">[m
+[32m+[m[32m                <table[m
+[32m+[m[32m                    class="table table-bordered table-hover align-middle mb-0"[m
+[32m+[m[32m                    style="min-width: 720px;"[m
+[32m+[m[32m                >[m
+[32m+[m[32m                     <thead class="table-light">[m
+                         <tr>[m
+[31m-                            <th scope="col" class="text-center">[m
+[32m+[m[32m                            <th[m
+[32m+[m[32m                                scope="col"[m
+[32m+[m[32m                                class="text-center"[m
+[32m+[m[32m                                style="width: 80px;"[m
+[32m+[m[32m                            >[m
+                                 Место[m
+                             </th>[m
+ [m
+[31m-                            <th scope="col">[m
+[32m+[m[32m                            <th[m
+[32m+[m[32m                                scope="col"[m
+[32m+[m[32m                                style="min-width: 220px;"[m
+[32m+[m[32m                            >[m
+                                 Альтернатива[m
+                             </th>[m
+ [m
+                             {% for criterion in criteria %}[m
+[31m-                                <th scope="col" class="text-center">[m
+[32m+[m[32m                                <th[m
+[32m+[m[32m                                    scope="col"[m
+[32m+[m[32m                                    class="text-center text-break"[m
+[32m+[m[32m                                    style="min-width: 170px;"[m
+[32m+[m[32m                                >[m
+                                     {{ criterion.name }}[m
+ [m
+                                     <div class="small text-muted fw-normal">[m
+[36m@@ -487,7 +518,11 @@[m
+                                 </th>[m
+                             {% endfor %}[m
+ [m
+[31m-                            <th scope="col" class="text-center">[m
+[32m+[m[32m                            <th[m
+[32m+[m[32m                                scope="col"[m
+[32m+[m[32m                                class="text-center"[m
+[32m+[m[32m                                style="min-width: 90px;"[m
+[32m+[m[32m                            >[m
+                                 Итог[m
+                             </th>[m
+                         </tr>[m
+[36m@@ -510,7 +545,10 @@[m
+                                     {% endif %}[m
+                                 </td>[m
+ [m
+[31m-                                <th scope="row">[m
+[32m+[m[32m                                <th[m
+[32m+[m[32m                                    scope="row"[m
+[32m+[m[32m                                    class="text-break"[m
+[32m+[m[32m                                >[m
+                                     {{ result.alternative.name }}[m
+ [m
+                                     {% if loop.first %}[m

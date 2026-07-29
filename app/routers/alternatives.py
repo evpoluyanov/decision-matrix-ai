@@ -115,7 +115,7 @@ def copy_project(
         )
 
     return RedirectResponse(
-        url=f"/projects/{new_project.id}",
+        url="/projects",
         status_code=303,
     )
 

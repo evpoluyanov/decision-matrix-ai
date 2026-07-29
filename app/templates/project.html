@@ -1,19 +1,74 @@
 {% extends "base.html" %}
 
 {% block title %}
-{{ project.name }} — Decision Matrix AI
+Проект создан — Decision Matrix AI
 {% endblock %}
 
 {% block content %}
-<h2>{{ project.name }}</h2>
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-xl-6">
 
-<p>Проект создан.</p>
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4 p-md-5">
 
-<p>Идентификатор проекта: {{ project.id }}</p>
+                <div class="text-center mb-4">
+                    <div
+                        class="d-inline-flex align-items-center justify-content-center
+                               rounded-circle bg-success-subtle text-success mb-3"
+                        style="width: 64px; height: 64px; font-size: 2rem;"
+                    >
+                        ✓
+                    </div>
 
-<p>
-    Следующим шагом здесь появится добавление вариантов для сравнения.
-</p>
+                    <h1 class="h3 mb-2">
+                        Проект создан
+                    </h1>
 
-<a href="/projects">Посмотреть все проекты</a>
+                    <p class="text-secondary mb-0">
+                        Новый проект успешно добавлен в систему.
+                    </p>
+                </div>
+
+                <div class="bg-light rounded-3 p-3 mb-4">
+                    <div class="mb-2">
+                        <span class="text-secondary">
+                            Название проекта
+                        </span>
+                    </div>
+
+                    <div class="fw-semibold fs-5">
+                        {{ project.name }}
+                    </div>
+
+                    <div class="small text-secondary mt-2">
+                        Идентификатор проекта: {{ project.id }}
+                    </div>
+                </div>
+
+                <p class="text-secondary">
+                    Теперь можно открыть проект и добавить варианты,
+                    критерии и оценки для проведения расчёта.
+                </p>
+
+                <div class="d-flex flex-column flex-sm-row gap-2 mt-4">
+                    <a
+                        href="/projects/{{ project.id }}"
+                        class="btn btn-primary"
+                    >
+                        Открыть проект
+                    </a>
+
+                    <a
+                        href="/projects"
+                        class="btn btn-outline-secondary"
+                    >
+                        К списку проектов
+                    </a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
 {% endblock %}

@@ -3,59 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
+
     <title>
         {% block title %}Decision Matrix AI{% endblock %}
     </title>
 </head>
-<body>
+
+<body class="d-flex flex-column min-vh-100 bg-light">
+
     <header>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-            <div class="container-fluid">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container">
 
                 <a class="navbar-brand" href="/">
                     Decision Matrix AI
                 </a>
 
-                <div class="navbar-nav">
-                    <a class="nav-link" href="/">
-                        Главная
-                    </a>
+                <button
+                    class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#mainNavbar"
+                    aria-controls="mainNavbar"
+                    aria-expanded="false"
+                    aria-label="Переключить навигацию"
+                >
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-                    <a class="nav-link" href="/projects">
-                        Проекты
-                    </a>
+                <div
+                    class="collapse navbar-collapse"
+                    id="mainNavbar"
+                >
+                    <div class="navbar-nav ms-auto">
+                        <a class="nav-link" href="/">
+                            Главная
+                        </a>
+
+                        <a class="nav-link" href="/projects">
+                            Проекты
+                        </a>
+                    </div>
                 </div>
 
             </div>
-        </nav>        
+        </nav>
     </header>
 
-    <hr>
-
-    <main>
-        <body>
-
-        <div class="container mt-4">
-
-        {% block content %}
-        {% endblock %}
-
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            {% block content %}
+            {% endblock %}
         </div>
-
-        </body>
     </main>
 
-    <hr>
-
-    <footer>
-        <p>Decision Matrix AI — сервис поддержки принятия решений.</p>
+    <footer class="border-top bg-white mt-auto">
+        <div class="container py-3">
+            <p class="text-secondary small mb-0">
+                Decision Matrix AI — сервис поддержки принятия решений.
+            </p>
+        </div>
     </footer>
+
     <script
-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
-    </script>    
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+    ></script>
+
 </body>
 </html>
