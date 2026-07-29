@@ -8,9 +8,55 @@
             Проект №{{ project.id }}
         </p>
 
-        <h1 class="mb-0">
-            {{ project.name }}
-        </h1>
+        <div class="d-flex gap-2 align-items-center">
+
+            <form
+                action="/projects/{{ project.id }}/edit"
+                method="post"
+                class="d-flex gap-2 align-items-center flex-grow-1"
+            >
+                <input
+                    type="text"
+                    name="project_name"
+                    value="{{ project.name }}"
+                    class="form-control form-control-lg"
+                    required
+                >
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Сохранить
+                </button>
+            </form>
+
+            <form
+                action="/projects/{{ project.id }}/copy"
+                method="post"
+            >
+                <button
+                    type="submit"
+                    class="btn btn-outline-primary"
+                >
+                    Копировать
+                </button>
+            </form>
+
+            <form
+                action="/projects/{{ project.id }}/delete"
+                method="post"
+                onsubmit="return confirm('Удалить проект и все связанные данные?');"
+            >
+                <button
+                    type="submit"
+                    class="btn btn-outline-danger"
+                >
+                    Удалить проект
+                </button>
+            </form>
+
+        </div>
     </div>
 
     <a

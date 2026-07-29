@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -60,6 +60,64 @@ def project_detail(
         },
     )
 
+@router.post("/projects/{project_id}/edit")
+def edit_project(
+    project_id: int,
+    project_name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    project = project_service.update_project(
+        db=db,
+        project_id=project_id,
+        project_name=project_name,
+    )
+
+    if project is None:
+        return RedirectResponse(
+            url="/projects",
+            status_code=303,
+        )
+
+    return RedirectResponse(
+        url=f"/projects/{project_id}",
+        status_code=303,
+    )
+
+@router.post("/projects/{project_id}/delete")
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    project_service.delete_project(
+        db=db,
+        project_id=project_id,
+    )
+
+    return RedirectResponse(
+        url="/projects",
+        status_code=303,
+    )
+
+@router.post("/projects/{project_id}/copy")
+def copy_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    new_project = project_service.copy_project(
+        db=db,
+        project_id=project_id,
+    )
+
+    if new_project is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Проект не найден",
+        )
+
+    return RedirectResponse(
+        url=f"/projects/{new_project.id}",
+        status_code=303,
+    )
 
 @router.post("/projects/{project_id}/alternatives")
 def create_alternative(
