@@ -2,236 +2,506 @@
 
 {% block content %}
 
-<h1>{{ project.name }}</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <p class="text-muted mb-1">
+            Проект №{{ project.id }}
+        </p>
 
-<h2>Альтернативы</h2>
+        <h1 class="mb-0">
+            {{ project.name }}
+        </h1>
+    </div>
 
-<ul>
-{% for alternative in alternatives %}
-<li>
-    <form
-        action="/alternatives/{{ alternative.id }}/edit"
-        method="post"
-        style="display:inline"
+    <a
+        href="/projects"
+        class="btn btn-outline-secondary"
     >
-        <input
-            type="text"
-            name="name"
-            value="{{ alternative.name }}"
-            required
-        >
+        Назад к проектам
+    </a>
+</div>
 
-        <button type="submit">Сохранить</button>
-    </form>
 
-    <form
-        action="/alternatives/{{ alternative.id }}/delete"
-        method="post"
-        style="display:inline"
-    >
-        <button type="submit">🗑</button>
-    </form>
-</li>
-{% endfor %}
-</ul>
+<div class="row g-4 mb-4">
 
-<form action="/projects/{{ project.id }}/alternatives" method="post">
+    <!-- Альтернативы -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
 
-    <input
-        type="text"
-        name="name"
-        placeholder="Название альтернативы"
-        required
-    >
+            <div class="card-header bg-white">
+                <h2 class="h5 mb-0">
+                    Альтернативы
+                </h2>
+            </div>
 
-    <button type="submit">
-        Добавить
-    </button>
+            <div class="card-body">
 
-</form>
+                {% if alternatives %}
 
-<br>
+                    <div class="d-flex flex-column gap-2 mb-4">
 
-<h2>Критерии</h2>
+                        {% for alternative in alternatives %}
 
-<ul>
-    {% for criterion in criteria %}
-        <li>
-            <form
-                action="/criteria/{{ criterion.id }}/edit"
-                method="post"
-                style="display:inline"
-            >
-                <input
-                    type="text"
-                    name="name"
-                    value="{{ criterion.name }}"
-                    required
+                            <div class="border rounded p-2">
+                                <div class="d-flex gap-2">
+
+                                    <form
+                                        action="/alternatives/{{ alternative.id }}/edit"
+                                        method="post"
+                                        class="d-flex gap-2 flex-grow-1"
+                                    >
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value="{{ alternative.name }}"
+                                            class="form-control"
+                                            required
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-primary"
+                                        >
+                                            Сохранить
+                                        </button>
+                                    </form>
+
+                                    <form
+                                        action="/alternatives/{{ alternative.id }}/delete"
+                                        method="post"
+                                    >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-danger"
+                                            title="Удалить альтернативу"
+                                        >
+                                            Удалить
+                                        </button>
+                                    </form>
+
+                                </div>
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                {% else %}
+
+                    <div class="alert alert-light border">
+                        Альтернатив пока нет.
+                    </div>
+
+                {% endif %}
+
+
+                <form
+                    action="/projects/{{ project.id }}/alternatives"
+                    method="post"
                 >
+                    <label
+                        for="alternative-name"
+                        class="form-label"
+                    >
+                        Новая альтернатива
+                    </label>
 
-                <input
-                    type="number"
-                    name="weight_percent"
-                    value="{{ (criterion.weight * 100) | round(1) }}"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    required
+                    <div class="input-group">
+                        <input
+                            id="alternative-name"
+                            type="text"
+                            name="name"
+                            class="form-control"
+                            placeholder="Например: Подрядчик А"
+                            required
+                        >
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            Добавить
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Критерии -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <h2 class="h5 mb-0">
+                        Критерии
+                    </h2>
+
+                    <span class="badge text-bg-secondary">
+                        Общий вес:
+                        {{ (criteria | sum(attribute='weight') * 100) | round(1) }}%
+                    </span>
+
+                </div>
+            </div>
+
+            <div class="card-body">
+
+                {% if weight_error %}
+                    <div class="alert alert-danger">
+                        Сумма весов критериев не может превышать 100%.
+                    </div>
+                {% endif %}
+
+
+                {% if criteria %}
+
+                    <div class="d-flex flex-column gap-2 mb-4">
+
+                        {% for criterion in criteria %}
+
+                            <div class="border rounded p-2">
+
+                                <div class="d-flex gap-2">
+
+                                    <form
+                                        action="/criteria/{{ criterion.id }}/edit"
+                                        method="post"
+                                        class="row g-2 align-items-center flex-grow-1"
+                                    >
+                                        <div class="col">
+                                            <input
+                                                type="text"
+                                                name="name"
+                                                value="{{ criterion.name }}"
+                                                class="form-control"
+                                                required
+                                            >
+                                        </div>
+
+                                        <div class="col-3">
+                                            <div class="input-group">
+                                                <input
+                                                    type="number"
+                                                    name="weight_percent"
+                                                    value="{{ (criterion.weight * 100) | round(1) }}"
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.1"
+                                                    class="form-control"
+                                                    required
+                                                >
+
+                                                <span class="input-group-text">
+                                                    %
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-auto">
+                                            <button
+                                                type="submit"
+                                                class="btn btn-outline-primary"
+                                            >
+                                                Сохранить
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <form
+                                        action="/criteria/{{ criterion.id }}/delete"
+                                        method="post"
+                                    >
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-danger"
+                                            title="Удалить критерий"
+                                        >
+                                            Удалить
+                                        </button>
+                                    </form>
+
+                                </div>                                
+
+                                
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                {% else %}
+
+                    <div class="alert alert-light border">
+                        Критериев пока нет.
+                    </div>
+
+                {% endif %}
+
+
+                <form
+                    method="post"
+                    action="/projects/{{ project.id }}/criteria"
                 >
+                    <div class="row g-2">
 
-                <button type="submit">
-                    Сохранить
-                </button>
-            </form>
-
-            <form
-                action="/criteria/{{ criterion.id }}/delete"
-                method="post"
-                style="display:inline"
-            >
-                <button type="submit">
-                    🗑
-                </button>
-            </form>
-        </li>
-    {% endfor %}
-</ul>
-
-{% if weight_error %}
-    <p>
-        <strong>
-            Ошибка: сумма весов критериев не может превышать 100%.
-        </strong>
-    </p>
-{% endif %}
-
-<p>
-    Общий вес:
-    {{ (criteria | sum(attribute='weight') * 100) | round(1) }} %
-</p>
-
-<form method="post" action="/projects/{{ project.id }}/criteria">
-    <input
-        type="text"
-        name="name"
-        placeholder="Название критерия"
-        required
-    >
-
-    <input
-        type="number"
-        name="weight_percent"
-        placeholder="Вес, %"
-        min="0"
-        max="100"
-        step="0.1"
-        required
-    >
-
-    <button type="submit">
-        Добавить критерий
-    </button>
-</form>
-
-<br>
-
-<h2>Матрица оценок</h2>
-
-{% if alternatives and criteria %}
-<form method="post" action="/projects/{{ project.id }}/scores">
-    <table border="1" cellpadding="8" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Альтернатива</th>
-
-                {% for criterion in criteria %}
-                    <th>
-                        {{ criterion.name }}
-                        <br>
-                        <small>{{ criterion.weight * 100 }} %</small>
-                    </th>
-                {% endfor %}
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for alternative in alternatives %}
-                <tr>
-                    <td>{{ alternative.name }}</td>
-
-                    {% for criterion in criteria %}
-                        <td>
-                            <input
-                                type="number"
-                                name="score_{{ alternative.id }}_{{ criterion.id }}"
-                                min="0"
-                                max="10"
-                                step="0.1"
-                                value="{{ scores.get((alternative.id, criterion.id), '') }}"
+                        <div class="col-md-7">
+                            <label
+                                for="criterion-name"
+                                class="form-label"
                             >
-                        </td>
-                    {% endfor %}
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                                Новый критерий
+                            </label>
 
-    <p>
-        <button type="submit">Сохранить матрицу</button>
-    </p>
-</form>
-{% else %}
-    <p>
-        Чтобы заполнить матрицу, сначала добавьте хотя бы одну альтернативу
-        и один критерий.
-    </p>
-{% endif %}
+                            <input
+                                id="criterion-name"
+                                type="text"
+                                name="name"
+                                class="form-control"
+                                placeholder="Например: Стоимость"
+                                required
+                            >
+                        </div>
 
-<br>
+                        <div class="col-md-5">
+                            <label
+                                for="criterion-weight"
+                                class="form-label"
+                            >
+                                Вес
+                            </label>
 
-<h2>Результаты</h2>
+                            <div class="input-group">
+                                <input
+                                    id="criterion-weight"
+                                    type="number"
+                                    name="weight_percent"
+                                    class="form-control"
+                                    placeholder="0"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    required
+                                >
 
-{% if results %}
-<table border="1" cellpadding="8">
-    <thead>
-        <tr>
-            <th>Место</th>
-            <th>Альтернатива</th>
+                                <span class="input-group-text">
+                                    %
+                                </span>
+                            </div>
+                        </div>
 
-            {% for criterion in criteria %}
-                <th>{{ criterion.name }}</th>
-            {% endfor %}
+                    </div>
 
-            <th>Итог</th>
-        </tr>
-    </thead>
+                    <button
+                        type="submit"
+                        class="btn btn-primary mt-3"
+                    >
+                        Добавить критерий
+                    </button>
+                </form>
 
-    <tbody>
-        {% for result in results %}
-        <tr>
-            <td>{{ loop.index }}</td>
+            </div>
+        </div>
+    </div>
 
-            <td>
-                {{ result.alternative.name }}
-            </td>
+</div>
 
-            {% for criterion in criteria %}
-                <td>
-                    {{ result.contributions.get(criterion.id, 0) }}
-                </td>
-            {% endfor %}
+<div class="card shadow-sm mb-4">
 
-            <td>
-                <strong>{{ result.total }}</strong>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+    <div class="card-header bg-white">
+        <h2 class="h5 mb-0">
+            Матрица оценок
+        </h2>
+    </div>
 
-<a href="/projects">
-Назад
-</a>
+    <div class="card-body">
+
+        {% if alternatives and criteria %}
+
+            <p class="text-muted">
+                Оцените каждую альтернативу по шкале от 0 до 10.
+            </p>
+
+            <form
+                method="post"
+                action="/projects/{{ project.id }}/scores"
+            >
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">
+                                    Альтернатива
+                                </th>
+
+                                {% for criterion in criteria %}
+                                    <th
+                                        scope="col"
+                                        class="text-center"
+                                    >
+                                        {{ criterion.name }}
+
+                                        <div class="small text-muted fw-normal">
+                                            Вес:
+                                            {{ (criterion.weight * 100) | round(1) }}%
+                                        </div>
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for alternative in alternatives %}
+                                <tr>
+                                    <th scope="row">
+                                        {{ alternative.name }}
+                                    </th>
+
+                                    {% for criterion in criteria %}
+                                        <td>
+                                            <input
+                                                type="number"
+                                                name="score_{{ alternative.id }}_{{ criterion.id }}"
+                                                min="0"
+                                                max="10"
+                                                step="0.1"
+                                                value="{{ scores.get((alternative.id, criterion.id), '') }}"
+                                                class="form-control text-center"
+                                                aria-label="Оценка альтернативы {{ alternative.name }} по критерию {{ criterion.name }}"
+                                            >
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+
+                    </table>
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Сохранить матрицу
+                </button>
+
+            </form>
+
+        {% else %}
+
+            <div class="alert alert-light border mb-0">
+                Чтобы заполнить матрицу, сначала добавьте хотя бы одну
+                альтернативу и один критерий.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-white">
+        <h2 class="h5 mb-0">
+            Результаты
+        </h2>
+    </div>
+
+    <div class="card-body">
+
+        {% if results %}
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="text-center">
+                                Место
+                            </th>
+
+                            <th scope="col">
+                                Альтернатива
+                            </th>
+
+                            {% for criterion in criteria %}
+                                <th scope="col" class="text-center">
+                                    {{ criterion.name }}
+
+                                    <div class="small text-muted fw-normal">
+                                        Вклад
+                                    </div>
+                                </th>
+                            {% endfor %}
+
+                            <th scope="col" class="text-center">
+                                Итог
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for result in results %}
+                            <tr
+                                {% if loop.first %}
+                                    class="table-success"
+                                {% endif %}
+                            >
+                                <td class="text-center">
+                                    {% if loop.first %}
+                                        <span class="badge text-bg-success">
+                                            1
+                                        </span>
+                                    {% else %}
+                                        {{ loop.index }}
+                                    {% endif %}
+                                </td>
+
+                                <th scope="row">
+                                    {{ result.alternative.name }}
+
+                                    {% if loop.first %}
+                                        <span class="badge text-bg-success ms-2">
+                                            Лучший результат
+                                        </span>
+                                    {% endif %}
+                                </th>
+
+                                {% for criterion in criteria %}
+                                    <td class="text-center">
+                                        {{ result.contributions.get(criterion.id, 0) }}
+                                    </td>
+                                {% endfor %}
+
+                                <td class="text-center">
+                                    <strong>
+                                        {{ result.total }}
+                                    </strong>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+
+        {% else %}
+
+            <div class="alert alert-light border mb-0">
+                Добавьте альтернативы, критерии и оценки, чтобы получить результаты.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
 
 {% endblock %}
