@@ -1,9 +1,10 @@
 import os
+
 from dotenv import load_dotenv
-
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.pool import NullPool
+
 
 load_dotenv()
 
@@ -20,7 +21,13 @@ if DATABASE_URL.startswith("sqlite"):
         },
     )
 else:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=NullPool,
+        connect_args={
+            "prepare_threshold": None,
+        },
+    )
 
 
 SessionLocal = sessionmaker(
@@ -32,6 +39,7 @@ SessionLocal = sessionmaker(
 
 class Base(DeclarativeBase):
     pass
+
 
 def get_db():
     db = SessionLocal()
