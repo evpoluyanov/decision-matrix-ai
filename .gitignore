@@ -8,3 +8,4 @@ venv/
 .idea/
 .vscode/
 decision_matrix.db
+alembic_*.db
