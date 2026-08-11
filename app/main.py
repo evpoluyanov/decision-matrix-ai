@@ -1,4 +1,8 @@
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.routers import (
     alternatives,
@@ -10,7 +14,34 @@ from app.routers import (
 from app.schemas import AlternativeResult, CalculateRequest
 
 
+load_dotenv(dotenv_path=".env")
+
+session_secret = os.getenv("SESSION_SECRET")
+
+if not session_secret:
+    raise RuntimeError(
+        "Не задана переменная SESSION_SECRET"
+    )
+
+session_https_only = (
+    os.getenv(
+        "SESSION_HTTPS_ONLY",
+        "false",
+    ).lower()
+    == "true"
+)
+
+
 app = FastAPI(title="Decision Matrix AI")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret,
+    session_cookie="decision_matrix_session",
+    max_age=60 * 60 * 24 * 14,
+    same_site="lax",
+    https_only=session_https_only,
+)
 
 app.include_router(projects.router)
 app.include_router(alternatives.router)

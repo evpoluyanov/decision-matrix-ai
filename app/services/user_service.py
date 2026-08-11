@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models
-from app.security import hash_password
+from app.security import hash_password, verify_password
 
 
 def get_user_by_email(
@@ -18,6 +18,19 @@ def get_user_by_email(
     )
 
     return db.scalar(statement)
+
+
+def get_user_by_id(
+    db: Session,
+    user_id: int,
+) -> models.User | None:
+    """
+    Ищет пользователя по его идентификатору.
+    """
+    return db.get(
+        models.User,
+        user_id,
+    )
 
 
 def create_user(
@@ -49,11 +62,37 @@ def create_user(
     try:
         db.commit()
     except IntegrityError:
-        # Уникальный индекс в самой базе дополнительно
-        # защищает от одновременной регистрации одного email.
         db.rollback()
         return None
 
     db.refresh(user)
+
+    return user
+
+
+def authenticate_user(
+    db: Session,
+    email: str,
+    password: str,
+) -> models.User | None:
+    """
+    Проверяет email и пароль пользователя.
+
+    Возвращает пользователя при успешной проверке
+    или None при неверных данных.
+    """
+    user = get_user_by_email(
+        db=db,
+        email=email,
+    )
+
+    if user is None:
+        return None
+
+    if not verify_password(
+        password,
+        user.password_hash,
+    ):
+        return None
 
     return user
