@@ -9,3 +9,4 @@ venv/
 .vscode/
 decision_matrix.db
 alembic_*.db
+decision_matrix_local.db

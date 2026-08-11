@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 
-from app.routers import alternatives, criteria, projects, scores
+from app.routers import (
+    alternatives,
+    auth,
+    criteria,
+    projects,
+    scores,
+)
 from app.schemas import AlternativeResult, CalculateRequest
 
 
@@ -10,6 +16,7 @@ app.include_router(projects.router)
 app.include_router(alternatives.router)
 app.include_router(criteria.router)
 app.include_router(scores.router)
+app.include_router(auth.router)
 
 
 @app.get("/health")
@@ -27,14 +34,23 @@ def about():
 
 
 @app.post("/calculate")
-def calculate(request: CalculateRequest) -> list[AlternativeResult]:
+def calculate(
+    request: CalculateRequest,
+) -> list[AlternativeResult]:
     results = []
 
     for alternative in request.alternatives:
-        alternative_scores = request.scores.get(alternative, {})
+        alternative_scores = request.scores.get(
+            alternative,
+            {},
+        )
 
         total_score = sum(
-            alternative_scores.get(criterion.name, 0) * criterion.weight
+            alternative_scores.get(
+                criterion.name,
+                0,
+            )
+            * criterion.weight
             for criterion in request.criteria
         )
 
