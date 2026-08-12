@@ -50,13 +50,13 @@ class Project(Base):
         nullable=False,
     )
 
-    owner_id: Mapped[int | None] = mapped_column(
+    owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
-        nullable=True,
+        nullable=False,
         index=True,
     )
 
-    owner: Mapped[User | None] = relationship(
+    owner: Mapped[User] = relationship(
         back_populates="projects",
     )
 
