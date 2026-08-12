@@ -2,28 +2,56 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app import models
+from app.auth_dependencies import require_project_owner
 from app.database import get_db
-from app.services import score_service
+from app.services import (
+    alternative_service,
+    criterion_service,
+    score_service,
+)
 
 
 router = APIRouter()
 
 
-@router.post("/projects/{project_id}/scores")
+@router.post(
+    "/projects/{project_id}/scores",
+)
 async def save_scores(
     project_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    project: models.Project = Depends(
+        require_project_owner
+    ),
 ):
     form_data = await request.form()
 
+    alternatives = alternative_service.get_alternatives(
+        db=db,
+        project_id=project.id,
+    )
+
+    criteria = criterion_service.get_criteria(
+        db=db,
+        project_id=project.id,
+    )
+
+    valid_alternative_ids = {
+        alternative.id
+        for alternative in alternatives
+    }
+
+    valid_criterion_ids = {
+        criterion.id
+        for criterion in criteria
+    }
+
     for field_name, raw_value in form_data.items():
-        # Нас интересуют только поля вида:
-        # score_1_2
         if not field_name.startswith("score_"):
             continue
 
-        # Пустые ячейки не сохраняем
         if raw_value == "":
             continue
 
@@ -39,7 +67,12 @@ async def save_scores(
         except ValueError:
             continue
 
-        # Дополнительная защита на стороне сервера
+        if alternative_id not in valid_alternative_ids:
+            continue
+
+        if criterion_id not in valid_criterion_ids:
+            continue
+
         if value < 0 or value > 10:
             continue
 
@@ -51,6 +84,6 @@ async def save_scores(
         )
 
     return RedirectResponse(
-        url=f"/projects/{project_id}",
+        url=f"/projects/{project.id}",
         status_code=303,
     )

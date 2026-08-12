@@ -4,37 +4,68 @@ from sqlalchemy.orm import Session
 from app import models
 
 
-def get_projects(db: Session) -> list[models.Project]:
-    statement = select(models.Project).order_by(models.Project.id)
+def get_project_for_owner(
+    db: Session,
+    project_id: int,
+    owner_id: int,
+) -> models.Project | None:
+    """
+    Возвращает проект только указанного владельца.
+    """
+    statement = select(models.Project).where(
+        models.Project.id == project_id,
+        models.Project.owner_id == owner_id,
+    )
 
-    return list(db.scalars(statement).all())
+    return db.scalar(statement)
+
+
+def get_projects(
+    db: Session,
+    owner_id: int,
+) -> list[models.Project]:
+    """
+    Возвращает проекты конкретного пользователя.
+    """
+    statement = (
+        select(models.Project)
+        .where(models.Project.owner_id == owner_id)
+        .order_by(models.Project.id)
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
 
 
 def create_project(
     db: Session,
     project_name: str,
+    owner_id: int,
 ) -> models.Project:
-    project = models.Project(name=project_name)
+    """
+    Создаёт проект и назначает ему владельца.
+    """
+    project = models.Project(
+        name=project_name.strip(),
+        owner_id=owner_id,
+    )
 
     db.add(project)
     db.commit()
     db.refresh(project)
 
     return project
-    
+
+
 def update_project(
     db: Session,
-    project_id: int,
+    project: models.Project,
     project_name: str,
-):
-    project = db.get(
-        models.Project,
-        project_id,
-    )
-
-    if project is None:
-        return None
-
+) -> models.Project:
+    """
+    Изменяет название уже проверенного проекта.
+    """
     project.name = project_name.strip()
 
     db.commit()
@@ -42,37 +73,29 @@ def update_project(
 
     return project
 
+
 def delete_project(
     db: Session,
-    project_id: int,
-) -> bool:
-    project = db.get(
-        models.Project,
-        project_id,
-    )
-
-    if project is None:
-        return False
-
+    project: models.Project,
+) -> None:
+    """
+    Удаляет уже проверенный проект.
+    """
     db.delete(project)
     db.commit()
 
-    return True
 
 def copy_project(
     db: Session,
-    project_id: int,
-):
-    source_project = db.get(
-        models.Project,
-        project_id,
-    )
-
-    if source_project is None:
-        return None
-
+    source_project: models.Project,
+) -> models.Project:
+    """
+    Создаёт полную копию проекта
+    с тем же владельцем.
+    """
     new_project = models.Project(
         name=f"{source_project.name} (копия)",
+        owner_id=source_project.owner_id,
     )
 
     db.add(new_project)
@@ -89,7 +112,9 @@ def copy_project(
         db.add(new_alternative)
         db.flush()
 
-        alternative_id_map[source_alternative.id] = new_alternative.id
+        alternative_id_map[
+            source_alternative.id
+        ] = new_alternative.id
 
     criterion_id_map = {}
 
@@ -103,7 +128,9 @@ def copy_project(
         db.add(new_criterion)
         db.flush()
 
-        criterion_id_map[source_criterion.id] = new_criterion.id
+        criterion_id_map[
+            source_criterion.id
+        ] = new_criterion.id
 
     for source_alternative in source_project.alternatives:
         for source_score in source_alternative.scores:

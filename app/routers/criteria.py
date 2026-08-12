@@ -3,58 +3,65 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app import models
+from app.auth_dependencies import (
+    require_criterion_owner,
+    require_project_owner,
+)
 from app.database import get_db
 from app.services import criterion_service
+
 
 router = APIRouter()
 
 
-@router.post("/projects/{project_id}/criteria")
-
-@router.post("/projects/{project_id}/criteria")
+@router.post(
+    "/projects/{project_id}/criteria",
+)
 def create_criterion(
     project_id: int,
     name: str = Form(...),
     weight_percent: float = Form(...),
     db: Session = Depends(get_db),
+    project: models.Project = Depends(
+        require_project_owner
+    ),
 ):
     try:
         criterion_service.create_criterion(
-            db,
-            project_id,
-            name,
-            weight_percent,
+            db=db,
+            project_id=project.id,
+            name=name,
+            weight_percent=weight_percent,
         )
     except ValueError:
         return RedirectResponse(
-            url=f"/projects/{project_id}?weight_error=1",
+            url=(
+                f"/projects/{project.id}"
+                "?weight_error=1"
+            ),
             status_code=303,
         )
 
     return RedirectResponse(
-        url=f"/projects/{project_id}",
+        url=f"/projects/{project.id}",
         status_code=303,
     )
 
 
-@router.post("/criteria/{criterion_id}/delete")
+@router.post(
+    "/criteria/{criterion_id}/delete",
+)
 def delete_criterion(
-    criterion_id: int,
     db: Session = Depends(get_db),
+    criterion: models.Criterion = Depends(
+        require_criterion_owner
+    ),
 ):
-    criterion = db.get(models.Criterion, criterion_id)
-
-    if criterion is None:
-        return RedirectResponse(
-            "/projects",
-            status_code=303,
-        )
-
     project_id = criterion.project_id
 
     criterion_service.delete_criterion(
         db=db,
-        criterion_id=criterion_id,
+        criterion_id=criterion.id,
     )
 
     return RedirectResponse(
@@ -63,29 +70,22 @@ def delete_criterion(
     )
 
 
-@router.post("/criteria/{criterion_id}/edit")
+@router.post(
+    "/criteria/{criterion_id}/edit",
+)
 def edit_criterion(
-    criterion_id: int,
     name: str = Form(...),
     weight_percent: float = Form(...),
     db: Session = Depends(get_db),
+    criterion: models.Criterion = Depends(
+        require_criterion_owner
+    ),
 ):
-    criterion = db.get(
-        models.Criterion,
-        criterion_id,
-    )
-
-    if criterion is None:
-        return RedirectResponse(
-            url="/projects",
-            status_code=303,
-        )
-
     project_id = criterion.project_id
 
     criterion_service.update_criterion(
         db=db,
-        criterion_id=criterion_id,
+        criterion_id=criterion.id,
         name=name,
         weight_percent=weight_percent,
     )
