@@ -10,3 +10,4 @@ venv/
 decision_matrix.db
 alembic_*.db
 decision_matrix_local.db
+.pytest_cache/
