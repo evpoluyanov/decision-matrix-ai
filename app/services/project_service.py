@@ -91,10 +91,11 @@ def copy_project(
 ) -> models.Project:
     """
     Создаёт полную копию проекта
-    с тем же владельцем.
+    с тем же владельцем и AI-метаданными.
     """
     new_project = models.Project(
         name=f"{source_project.name} (копия)",
+        description=source_project.description,
         owner_id=source_project.owner_id,
     )
 
@@ -106,6 +107,12 @@ def copy_project(
     for source_alternative in source_project.alternatives:
         new_alternative = models.Alternative(
             name=source_alternative.name,
+            ai_suggested_name=(
+                source_alternative.ai_suggested_name
+            ),
+            ai_explanation=(
+                source_alternative.ai_explanation
+            ),
             project_id=new_project.id,
         )
 
@@ -122,6 +129,18 @@ def copy_project(
         new_criterion = models.Criterion(
             name=source_criterion.name,
             weight=source_criterion.weight,
+            ai_suggested_name=(
+                source_criterion.ai_suggested_name
+            ),
+            ai_suggested_weight=(
+                source_criterion.ai_suggested_weight
+            ),
+            ai_criterion_explanation=(
+                source_criterion.ai_criterion_explanation
+            ),
+            ai_weight_explanation=(
+                source_criterion.ai_weight_explanation
+            ),
             project_id=new_project.id,
         )
 
@@ -136,6 +155,10 @@ def copy_project(
         for source_score in source_alternative.scores:
             new_score = models.Score(
                 value=source_score.value,
+                ai_value=source_score.ai_value,
+                ai_explanation=(
+                    source_score.ai_explanation
+                ),
                 alternative_id=alternative_id_map[
                     source_score.alternative_id
                 ],

@@ -4,6 +4,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     String,
+    Text,
     UniqueConstraint,
     text,
 )
@@ -50,6 +51,11 @@ class Project(Base):
         nullable=False,
     )
 
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
         nullable=False,
@@ -79,6 +85,16 @@ class Alternative(Base):
     name: Mapped[str] = mapped_column(
         String,
         nullable=False,
+    )
+
+    ai_suggested_name: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
+
+    ai_explanation: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     scores: Mapped[list["Score"]] = relationship(
@@ -111,6 +127,25 @@ class Criterion(Base):
         nullable=False,
     )
 
+    ai_suggested_name: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+    )
+
+    ai_suggested_weight: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    ai_criterion_explanation: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    ai_weight_explanation: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     scores: Mapped[list["Score"]] = relationship(
         back_populates="criterion",
         cascade="all, delete-orphan",
@@ -139,8 +174,21 @@ class Score(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    value: Mapped[float] = mapped_column(
-        nullable=False,
+    # Сохранённое пользователем значение.
+    # NULL означает, что пользователь ещё не подтвердил
+    # оценку кнопкой «Сохранить матрицу».
+    value: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    # Текущее независимое предложение ИИ.
+    ai_value: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    ai_explanation: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     alternative_id: Mapped[int] = mapped_column(
