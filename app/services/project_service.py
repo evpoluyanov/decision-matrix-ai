@@ -41,13 +41,24 @@ def get_projects(
 def create_project(
     db: Session,
     project_name: str,
+    project_description: str | None,
     owner_id: int,
 ) -> models.Project:
     """
     Создаёт проект и назначает ему владельца.
     """
+    description = (
+        project_description.strip()
+        if project_description
+        else None
+    )
+
+    if description == "":
+        description = None
+
     project = models.Project(
         name=project_name.strip(),
+        description=description,
         owner_id=owner_id,
     )
 
@@ -62,11 +73,23 @@ def update_project(
     db: Session,
     project: models.Project,
     project_name: str,
+    project_description: str | None,
 ) -> models.Project:
     """
-    Изменяет название уже проверенного проекта.
+    Изменяет название и описание
+    уже проверенного проекта.
     """
+    description = (
+        project_description.strip()
+        if project_description
+        else None
+    )
+
+    if description == "":
+        description = None
+
     project.name = project_name.strip()
+    project.description = description
 
     db.commit()
     db.refresh(project)

@@ -403,6 +403,9 @@ def test_new_project_gets_current_user_as_owner(
         "/projects",
         data={
             "project_name": "Новый личный проект",
+            "project_description": (
+                "Тестовое описание проекта"
+            ),
         },
     )
 
@@ -429,6 +432,10 @@ def test_new_project_gets_current_user_as_owner(
         test_environment[
             "user_1_id"
         ]
+    )
+
+    assert project.description == (
+        "Тестовое описание проекта"
     )
 
     db.close()

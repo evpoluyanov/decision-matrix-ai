@@ -78,6 +78,7 @@ def project_detail(
 def edit_project(
     project_id: int,
     project_name: str = Form(...),
+    project_description: str | None = Form(None),
     db: Session = Depends(get_db),
     project: models.Project = Depends(
         require_project_owner
@@ -87,6 +88,7 @@ def edit_project(
         db=db,
         project=project,
         project_name=project_name,
+        project_description=project_description,
     )
 
     return RedirectResponse(

@@ -60,12 +60,14 @@ def list_projects(
 def create_project(
     request: Request,
     project_name: str = Form(...),
+    project_description: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_user),
 ):
     project = project_service.create_project(
         db=db,
         project_name=project_name,
+        project_description=project_description,
         owner_id=current_user.id,
     )
 

@@ -20,28 +20,56 @@
     <form
         action="/projects/{{ project.id }}/edit"
         method="post"
-        class="row g-2 mb-3"
+        class="mb-3"
     >
-        <div class="col-12 col-md">
+        <div class="mb-2">
+            <label
+                for="project-name"
+                class="form-label small text-muted mb-1"
+            >
+                Наименование проекта
+            </label>
+
             <input
+                id="project-name"
                 type="text"
                 name="project_name"
                 value="{{ project.name }}"
-                class="form-control form-control-lg"
+                class="form-control"
                 required
             >
         </div>
 
-        <div class="col-12 col-sm-auto">
-            <button
-                type="submit"
-                class="btn btn-primary btn-lg w-100"
+        <div class="mb-2">
+            <label
+                for="project-description"
+                class="form-label small text-muted mb-1"
             >
-                Сохранить
-            </button>
-        </div>
-    </form>
+                Описание проекта для ИИ
+            </label>
 
+            <textarea
+                id="project-description"
+                name="project_description"
+                class="form-control"
+                rows="3"
+                placeholder="Опишите задачу, условия и ограничения"
+            >{{ project.description or '' }}</textarea>
+
+            <div class="form-text">
+                Описание используется ИИ для подготовки
+                альтернатив, критериев, весов и оценок.
+            </div>
+        </div>
+
+        <button
+            type="submit"
+            class="btn btn-primary btn-sm"
+        >
+            Сохранить проект
+        </button>
+    </form>
+    
     <div class="d-flex flex-wrap gap-2">
         <form
             action="/projects/{{ project.id }}/copy"
