@@ -6,6 +6,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import json
+
+from app.llm.schemas import (
+    LLMResponse,
+    LLMUsage,
+)
+from app.services import (
+    ai_alternative_service,
+)
 
 os.environ["SESSION_SECRET"] = (
     "test-session-secret-for-decision-matrix-ai"
@@ -437,5 +446,353 @@ def test_new_project_gets_current_user_as_owner(
     assert project.description == (
         "Тестовое описание проекта"
     )
+
+    db.close()
+
+def test_ai_alternatives_require_project_owner(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    foreign_project_id = (
+        test_environment["project_2_id"]
+    )
+
+    called = False
+
+    def fake_generate(*args, **kwargs):
+        nonlocal called
+        called = True
+
+        return LLMResponse(
+            content='{"s":"ok","i":[]}',
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=1,
+                output_tokens=1,
+                reasoning_tokens=0,
+                total_tokens=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{foreign_project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 404
+    assert called is False
+
+
+def test_ai_alternatives_return_insufficient_context(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["status"]
+        == "insufficient_context"
+    )
+
+    assert data["items"] == []
+
+
+def test_ai_alternatives_return_llm_suggestions(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор семейного автомобиля. "
+        "Бюджет до 4 млн рублей."
+    )
+
+    db.commit()
+    db.close()
+
+    def fake_generate(
+        *,
+        system_prompt,
+        user_prompt,
+        max_output_tokens,
+        temperature,
+        json_mode,
+    ):
+        assert json_mode is True
+        assert "семейного автомобиля" in (
+            user_prompt
+        )
+
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "s": "ok",
+                    "i": [
+                        {
+                            "n": "Toyota Camry",
+                            "r": (
+                                "Надёжный семейный "
+                                "автомобиль."
+                            ),
+                        },
+                        {
+                            "n": (
+                                "Альтернатива "
+                                "пользователя 1"
+                            ),
+                            "r": (
+                                "Дубликат уже "
+                                "существующего варианта."
+                            ),
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            provider="test-provider",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=100,
+                output_tokens=50,
+                reasoning_tokens=10,
+                total_tokens=150,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+
+    assert data["items"] == [
+        {
+            "name": "Toyota Camry",
+            "explanation": (
+                "Надёжный семейный "
+                "автомобиль."
+            ),
+        }
+    ]
+
+    assert (
+        data["usage"]["provider"]
+        == "test-provider"
+    )
+
+    assert (
+        data["usage"]["total_tokens"]
+        == 150
+    )
+
+
+def test_accept_ai_alternatives_saves_ai_metadata(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives/accept"
+        ),
+        json={
+            "items": [
+                {
+                    "name": "Toyota Camry",
+                    "explanation": (
+                        "Надёжный семейный "
+                        "автомобиль."
+                    ),
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "status": "ok",
+        "created": 1,
+    }
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    alternative = (
+        db.query(models.Alternative)
+        .filter(
+            models.Alternative.name
+            == "Toyota Camry"
+        )
+        .one()
+    )
+
+    assert (
+        alternative.project_id
+        == project_id
+    )
+
+    assert (
+        alternative.ai_suggested_name
+        == "Toyota Camry"
+    )
+
+    assert (
+        alternative.ai_explanation
+        == (
+            "Надёжный семейный "
+            "автомобиль."
+        )
+    )
+
+    db.close()
+
+
+def test_accept_ai_alternatives_does_not_duplicate_existing(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives/accept"
+        ),
+        json={
+            "items": [
+                {
+                    "name": (
+                        "Альтернатива "
+                        "пользователя 1"
+                    ),
+                    "explanation": (
+                        "Попытка создать "
+                        "дубликат."
+                    ),
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "status": "ok",
+        "created": 0,
+    }
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    count = (
+        db.query(models.Alternative)
+        .filter(
+            models.Alternative.project_id
+            == project_id,
+            models.Alternative.name
+            == (
+                "Альтернатива "
+                "пользователя 1"
+            ),
+        )
+        .count()
+    )
+
+    assert count == 1
 
     db.close()

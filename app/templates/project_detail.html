@@ -106,66 +106,111 @@
     <div class="col-lg-6">
         <div class="card shadow-sm h-100">
 
-            <div class="card-header bg-white">
+            <div
+                class="card-header bg-white
+                    d-flex justify-content-between
+                    align-items-center"
+            >
                 <h2 class="h5 mb-0">
                     Альтернативы
                 </h2>
+
+                <button
+                    id="ai-alternatives-button"
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    title="Предложить альтернативы с ИИ"
+                    aria-label="Предложить альтернативы с ИИ"
+                >
+                    ✦
+                </button>
             </div>
 
             <div class="card-body">
 
+                <div
+                    id="ai-alternatives-status"
+                    class="small text-muted mb-2 d-none"
+                ></div>
+
                 {% if alternatives %}
 
-                    <div class="d-flex flex-column gap-2 mb-4">
+                    <div class="d-flex flex-column gap-2 mb-3">
 
                         {% for alternative in alternatives %}
 
-                            <div class="border rounded p-2">
-                                <div class="row g-2">
+                            <div
+                                class="d-flex gap-1
+                                    align-items-center"
+                            >
+                                <form
+                                    action="/alternatives/{{ alternative.id }}/edit"
+                                    method="post"
+                                    class="d-flex gap-1 flex-grow-1"
+                                >
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value="{{ alternative.name }}"
+                                        class="form-control form-control-sm"
+                                        required
+                                    >
 
-                                    <div class="col-12 col-md">
-                                        <form
-                                            action="/alternatives/{{ alternative.id }}/edit"
-                                            method="post"
-                                            class="row g-2"
-                                        >
-                                            <div class="col-12 col-sm">
-                                                <input
-                                                    type="text"
-                                                    name="name"
-                                                    value="{{ alternative.name }}"
-                                                    class="form-control"
-                                                    required
-                                                >
-                                            </div>
+                                    <button
+                                        type="submit"
+                                        class="btn btn-outline-primary btn-sm"
+                                        title="Сохранить"
+                                        aria-label="Сохранить"
+                                    >
+                                        ✓
+                                    </button>
+                                </form>
 
-                                            <div class="col-12 col-sm-auto">
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-outline-primary w-100"
-                                                >
-                                                    Сохранить
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    data-bs-toggle="popover"
+                                    data-bs-trigger="focus"
+                                    data-bs-placement="top"
+                                    data-bs-html="true"
+                                    title="Информация об альтернативе"
+                                    data-bs-content="
+                                        <strong>Текущее название:</strong><br>
+                                        {{ alternative.name | e }}
+                                        <br><br>
+                                        {% if alternative.ai_suggested_name %}
+                                            <strong>Предложение ИИ:</strong><br>
+                                            {{ alternative.ai_suggested_name | e }}
+                                            <br><br>
+                                            <strong>Обоснование:</strong><br>
+                                            {{ alternative.ai_explanation | e }}
+                                        {% else %}
+                                            Альтернатива создана
+                                            пользователем вручную.
+                                            <br>
+                                            Обоснование ИИ отсутствует.
+                                        {% endif %}
+                                    "
+                                    aria-label="Информация"
+                                >
+                                    ?
+                                </button>
 
-                                    <div class="col-auto">
-                                        <form
-                                            action="/alternatives/{{ alternative.id }}/delete"
-                                            method="post"
-                                            onsubmit="return confirm('Удалить альтернативу?');"
-                                        >
-                                            <button
-                                                type="submit"
-                                                class="btn btn-outline-danger"
-                                            >
-                                                Удалить
-                                            </button>
-                                        </form>
-                                    </div>
+                                <form
+                                    action="/alternatives/{{ alternative.id }}/delete"
+                                    method="post"
+                                    onsubmit="return confirm('Удалить альтернативу?');"
+                                >
+                                    <button
+                                        type="submit"
+                                        class="btn btn-outline-danger btn-sm"
+                                        title="Удалить"
+                                        aria-label="Удалить"
+                                    >
+                                        ×
+                                    </button>
+                                </form>
 
-                                </div>
                             </div>
 
                         {% endfor %}
@@ -174,41 +219,34 @@
 
                 {% else %}
 
-                    <div class="alert alert-light border">
+                    <div class="small text-muted mb-3">
                         Альтернатив пока нет.
                     </div>
 
                 {% endif %}
 
-
                 <form
                     action="/projects/{{ project.id }}/alternatives"
                     method="post"
+                    class="d-flex gap-1"
                 >
-                    <label
-                        for="alternative-name"
-                        class="form-label"
+                    <input
+                        id="alternative-name"
+                        type="text"
+                        name="name"
+                        class="form-control form-control-sm"
+                        placeholder="Новая альтернатива"
+                        required
                     >
-                        Новая альтернатива
-                    </label>
 
-                    <div class="input-group">
-                        <input
-                            id="alternative-name"
-                            type="text"
-                            name="name"
-                            class="form-control"
-                            placeholder="Например: Подрядчик А"
-                            required
-                        >
-
-                        <button
-                            type="submit"
-                            class="btn btn-primary"
-                        >
-                            Добавить
-                        </button>
-                    </div>
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-sm"
+                        title="Добавить альтернативу"
+                        aria-label="Добавить альтернативу"
+                    >
+                        +
+                    </button>
                 </form>
 
             </div>
@@ -615,5 +653,424 @@
     </div>
 </div>
 
+<div
+    class="modal fade"
+    id="aiAlternativesModal"
+    tabindex="-1"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Предложения ИИ
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Закрыть"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                    id="ai-alternatives-loading"
+                    class="text-center py-4"
+                >
+                    <div
+                        class="spinner-border"
+                        role="status"
+                    ></div>
+
+                    <div class="mt-3">
+                        ИИ формирует предложения…
+                    </div>
+
+                    <div class="small text-muted">
+                        Обычно это занимает
+                        15–30 секунд.
+                    </div>
+                </div>
+
+                <div
+                    id="ai-alternatives-message"
+                    class="alert alert-light border d-none"
+                ></div>
+
+                <div
+                    id="ai-alternatives-list"
+                    class="d-none"
+                ></div>
+
+            </div>
+
+            <div
+                id="ai-alternatives-footer"
+                class="modal-footer d-none"
+            >
+                <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    data-bs-dismiss="modal"
+                >
+                    Отмена
+                </button>
+
+                <button
+                    id="accept-ai-alternatives"
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                >
+                    Добавить выбранные
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        document
+            .querySelectorAll(
+                '[data-bs-toggle="popover"]'
+            )
+            .forEach(
+                element => {
+                    new bootstrap.Popover(
+                        element
+                    );
+                }
+            );
+
+        const button = document.getElementById(
+            "ai-alternatives-button"
+        );
+
+        const modalElement =
+            document.getElementById(
+                "aiAlternativesModal"
+            );
+
+        const modal =
+            new bootstrap.Modal(
+                modalElement
+            );
+
+        const loading =
+            document.getElementById(
+                "ai-alternatives-loading"
+            );
+
+        const message =
+            document.getElementById(
+                "ai-alternatives-message"
+            );
+
+        const list =
+            document.getElementById(
+                "ai-alternatives-list"
+            );
+
+        const footer =
+            document.getElementById(
+                "ai-alternatives-footer"
+            );
+
+        const acceptButton =
+            document.getElementById(
+                "accept-ai-alternatives"
+            );
+
+        let suggestions = [];
+
+        function resetModal() {
+            loading.classList.remove(
+                "d-none"
+            );
+
+            message.classList.add(
+                "d-none"
+            );
+
+            list.classList.add(
+                "d-none"
+            );
+
+            footer.classList.add(
+                "d-none"
+            );
+
+            list.innerHTML = "";
+            suggestions = [];
+        }
+
+        function showMessage(text) {
+            loading.classList.add(
+                "d-none"
+            );
+
+            message.textContent = text;
+
+            message.classList.remove(
+                "d-none"
+            );
+        }
+
+        function showSuggestions(items) {
+            loading.classList.add(
+                "d-none"
+            );
+
+            list.innerHTML = "";
+
+            suggestions = items;
+
+            items.forEach(
+                (item, index) => {
+                    const wrapper =
+                        document.createElement(
+                            "div"
+                        );
+
+                    wrapper.className =
+                        "border rounded p-2 mb-2";
+
+                    const row =
+                        document.createElement(
+                            "div"
+                        );
+
+                    row.className =
+                        "form-check";
+
+                    const checkbox =
+                        document.createElement(
+                            "input"
+                        );
+
+                    checkbox.type =
+                        "checkbox";
+
+                    checkbox.className =
+                        "form-check-input";
+
+                    checkbox.id =
+                        `ai-alt-${index}`;
+
+                    checkbox.dataset.index =
+                        index;
+
+                    checkbox.checked =
+                        true;
+
+                    const label =
+                        document.createElement(
+                            "label"
+                        );
+
+                    label.className =
+                        "form-check-label";
+
+                    label.htmlFor =
+                        checkbox.id;
+
+                    const name =
+                        document.createElement(
+                            "strong"
+                        );
+
+                    name.textContent =
+                        item.name;
+
+                    const reason =
+                        document.createElement(
+                            "div"
+                        );
+
+                    reason.className =
+                        "small text-muted mt-1";
+
+                    reason.textContent =
+                        item.explanation;
+
+                    label.appendChild(
+                        name
+                    );
+
+                    label.appendChild(
+                        reason
+                    );
+
+                    row.appendChild(
+                        checkbox
+                    );
+
+                    row.appendChild(
+                        label
+                    );
+
+                    wrapper.appendChild(
+                        row
+                    );
+
+                    list.appendChild(
+                        wrapper
+                    );
+                }
+            );
+
+            list.classList.remove(
+                "d-none"
+            );
+
+            footer.classList.remove(
+                "d-none"
+            );
+        }
+
+        button.addEventListener(
+            "click",
+            async () => {
+                resetModal();
+
+                button.disabled = true;
+
+                modal.show();
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/alternatives",
+                            {
+                                method: "POST",
+                            }
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        data.status ===
+                        "insufficient_context"
+                    ) {
+                        showMessage(
+                            data.message
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        !response.ok
+                        || data.status === "error"
+                    ) {
+                        showMessage(
+                            data.message
+                            || "Не удалось получить предложения ИИ."
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        !data.items
+                        || data.items.length === 0
+                    ) {
+                        showMessage(
+                            "ИИ не нашёл дополнительных вариантов."
+                        );
+
+                        return;
+                    }
+
+                    showSuggestions(
+                        data.items
+                    );
+
+                } catch (error) {
+                    showMessage(
+                        "Не удалось получить предложения ИИ. Попробуйте ещё раз."
+                    );
+
+                } finally {
+                    button.disabled =
+                        false;
+                }
+            }
+        );
+
+        acceptButton.addEventListener(
+            "click",
+            async () => {
+                const selected =
+                    Array.from(
+                        list.querySelectorAll(
+                            "input[type=checkbox]:checked"
+                        )
+                    ).map(
+                        checkbox =>
+                            suggestions[
+                                Number(
+                                    checkbox.dataset.index
+                                )
+                            ]
+                    );
+
+                if (
+                    selected.length === 0
+                ) {
+                    return;
+                }
+
+                acceptButton.disabled =
+                    true;
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/alternatives/accept",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                                body:
+                                    JSON.stringify(
+                                        {
+                                            items:
+                                                selected,
+                                        }
+                                    ),
+                            }
+                        );
+
+                    if (!response.ok) {
+                        throw new Error();
+                    }
+
+                    window.location.reload();
+
+                } catch (error) {
+                    showMessage(
+                        "Не удалось сохранить выбранные альтернативы."
+                    );
+
+                } finally {
+                    acceptButton.disabled =
+                        false;
+                }
+            }
+        );
+    }
+);
+</script>
 
 {% endblock %}

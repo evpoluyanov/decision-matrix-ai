@@ -2,16 +2,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
-from app.models import Alternative
 
-def get_alternatives(db: Session, project_id: int):
+
+def get_alternatives(
+    db: Session,
+    project_id: int,
+):
     statement = (
         select(models.Alternative)
-        .where(models.Alternative.project_id == project_id)
+        .where(
+            models.Alternative.project_id
+            == project_id
+        )
         .order_by(models.Alternative.id)
     )
 
-    return list(db.scalars(statement))
+    return list(
+        db.scalars(statement)
+    )
 
 
 def create_alternative(
@@ -19,8 +27,11 @@ def create_alternative(
     project_id: int,
     name: str,
 ):
+    """
+    Создаёт альтернативу вручную.
+    """
     alternative = models.Alternative(
-        name=name,
+        name=name.strip(),
         project_id=project_id,
     )
 
@@ -29,6 +40,66 @@ def create_alternative(
     db.refresh(alternative)
 
     return alternative
+
+
+def create_ai_alternatives(
+    db: Session,
+    project_id: int,
+    suggestions: list[dict[str, str]],
+) -> list[models.Alternative]:
+    """
+    Сохраняет выбранные пользователем
+    предложения ИИ.
+    """
+
+    existing_names = {
+        alternative.name.strip().casefold()
+        for alternative in get_alternatives(
+            db,
+            project_id,
+        )
+    }
+
+    created = []
+
+    for suggestion in suggestions:
+        name = suggestion["name"].strip()
+        explanation = (
+            suggestion["explanation"].strip()
+        )
+
+        normalized_name = name.casefold()
+
+        if (
+            not name
+            or normalized_name
+            in existing_names
+        ):
+            continue
+
+        alternative = models.Alternative(
+            name=name,
+            ai_suggested_name=name,
+            ai_explanation=explanation,
+            project_id=project_id,
+        )
+
+        db.add(alternative)
+
+        existing_names.add(
+            normalized_name
+        )
+
+        created.append(
+            alternative
+        )
+
+    db.commit()
+
+    for alternative in created:
+        db.refresh(alternative)
+
+    return created
 
 
 def delete_alternative(
@@ -53,7 +124,7 @@ def update_alternative(
     name: str,
 ):
     alternative = db.get(
-        Alternative,
+        models.Alternative,
         alternative_id,
     )
 

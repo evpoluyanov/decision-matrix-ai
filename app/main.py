@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.routers import (
+    ai,
     alternatives,
     auth,
     criteria,
@@ -44,6 +45,7 @@ app.add_middleware(
 )
 
 app.include_router(projects.router)
+app.include_router(ai.router)
 app.include_router(alternatives.router)
 app.include_router(criteria.router)
 app.include_router(scores.router)
