@@ -14,6 +14,7 @@ from app.llm.schemas import (
 )
 from app.services import (
     ai_alternative_service,
+    ai_criterion_service,
 )
 
 os.environ["SESSION_SECRET"] = (
@@ -794,5 +795,384 @@ def test_accept_ai_alternatives_does_not_duplicate_existing(
     )
 
     assert count == 1
+
+    db.close()
+
+
+def test_ai_criteria_require_project_owner(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    foreign_project_id = (
+        test_environment["project_2_id"]
+    )
+
+    called = False
+
+    def fake_generate(*args, **kwargs):
+        nonlocal called
+        called = True
+
+        return LLMResponse(
+            content='{"s":"ok","i":[]}',
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=1,
+                output_tokens=1,
+                reasoning_tokens=0,
+                total_tokens=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_criterion_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{foreign_project_id}"
+            "/ai/criteria"
+        )
+    )
+
+    assert response.status_code == 404
+    assert called is False
+
+
+def test_ai_criteria_return_insufficient_context(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/criteria"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["status"]
+        == "insufficient_context"
+    )
+
+    assert data["items"] == []
+
+
+def test_ai_criteria_return_llm_suggestions(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор семейного автомобиля. "
+        "Важны безопасность и стоимость владения."
+    )
+
+    existing_criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    existing_criterion.weight = 0.3
+    
+    db.commit()
+    db.close()
+
+    def fake_generate(
+        *,
+        system_prompt,
+        user_prompt,
+        max_output_tokens,
+        temperature,
+        json_mode,
+    ):
+        assert json_mode is True
+
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "s": "ok",
+                    "i": [
+                        {
+                            "n": "Безопасность",
+                            "w": 40,
+                            "cr": (
+                                "Ключевой фактор "
+                                "для семейного автомобиля."
+                            ),
+                            "wr": (
+                                "Высокий вес из-за "
+                                "приоритета безопасности."
+                            ),
+                        },
+                        {
+                            "n": (
+                                "Критерий "
+                                "пользователя 1"
+                            ),
+                            "w": 10,
+                            "cr": "Дубликат.",
+                            "wr": "Дубликат.",
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            provider="test-provider",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=120,
+                output_tokens=80,
+                reasoning_tokens=20,
+                total_tokens=200,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_criterion_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/criteria"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+
+    assert data["items"] == [
+        {
+            "name": "Безопасность",
+            "weight_percent": 40.0,
+            "criterion_explanation": (
+                "Ключевой фактор "
+                "для семейного автомобиля."
+            ),
+            "weight_explanation": (
+                "Высокий вес из-за "
+                "приоритета безопасности."
+            ),
+        }
+    ]
+
+    assert (
+        data["usage"]["total_tokens"]
+        == 200
+    )
+
+
+def test_accept_ai_criteria_preserves_original_ai_weight(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    existing_criterion = db.get(
+        models.Criterion,
+        test_environment["criterion_1_id"],
+    )
+
+    existing_criterion.weight = 0.2
+
+    db.commit()
+    db.close()
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/criteria/accept"
+        ),
+        json={
+            "items": [
+                {
+                    "name": "Безопасность",
+                    "weight_percent": 35,
+                    "ai_suggested_weight_percent": 25,
+                    "criterion_explanation": (
+                        "Важный фактор "
+                        "для семейного автомобиля."
+                    ),
+                    "weight_explanation": (
+                        "ИИ предложил вес 25%."
+                    ),
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "status": "ok",
+        "created": 1,
+    }
+
+    db = TestingSessionLocal()
+
+    criterion = (
+        db.query(models.Criterion)
+        .filter(
+            models.Criterion.name
+            == "Безопасность"
+        )
+        .one()
+    )
+
+    assert criterion.weight == 0.35
+    assert (
+        criterion.ai_suggested_weight
+        == 0.25
+    )
+
+    assert (
+        criterion.ai_suggested_name
+        == "Безопасность"
+    )
+
+    db.close()
+
+
+def test_edit_criterion_cannot_exceed_total_weight(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    second = models.Criterion(
+        name="Второй критерий",
+        weight=0.6,
+        project_id=project_id,
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        criterion_id,
+    )
+
+    criterion.weight = 0.4
+
+    db.add(second)
+    db.commit()
+    db.close()
+
+    response = client.post(
+        (
+            f"/criteria/{criterion_id}"
+            "/edit"
+        ),
+        data={
+            "name": "Первый критерий",
+            "weight_percent": 50,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+    assert (
+        response.headers["location"]
+        == (
+            f"/projects/{project_id}"
+            "?weight_error=1"
+        )
+    )
+
+    db = TestingSessionLocal()
+
+    criterion = db.get(
+        models.Criterion,
+        criterion_id,
+    )
+
+    assert criterion.weight == 0.4
 
     db.close()

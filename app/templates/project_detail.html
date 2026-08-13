@@ -258,93 +258,140 @@
     <div class="col-lg-6">
         <div class="card shadow-sm h-100">
 
-            <div class="card-header bg-white">
-                <div class="d-flex justify-content-between align-items-center">
-
+            <div
+                class="card-header bg-white
+                    d-flex justify-content-between
+                    align-items-center"
+            >
+                <div class="d-flex align-items-center gap-2">
                     <h2 class="h5 mb-0">
                         Критерии
                     </h2>
 
                     <span class="badge text-bg-secondary">
-                        Общий вес:
                         {{ (criteria | sum(attribute='weight') * 100) | round(1) }}%
                     </span>
-
                 </div>
+
+                <button
+                    id="ai-criteria-button"
+                    type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    title="Предложить критерии с ИИ"
+                    aria-label="Предложить критерии с ИИ"
+                >
+                    ✦
+                </button>
             </div>
 
             <div class="card-body">
 
                 {% if weight_error %}
-                    <div class="alert alert-danger">
-                        Сумма весов критериев не может превышать 100%.
+                    <div class="alert alert-danger py-2">
+                        Сумма весов критериев
+                        не может превышать 100%.
                     </div>
                 {% endif %}
 
-
                 {% if criteria %}
 
-                    <div class="d-flex flex-column gap-2 mb-4">
+                    <div class="d-flex flex-column gap-2 mb-3">
 
                         {% for criterion in criteria %}
 
-                            <div class="border rounded p-2">
+                            <div class="d-flex gap-1 align-items-center">
 
                                 <form
                                     action="/criteria/{{ criterion.id }}/edit"
                                     method="post"
-                                    class="row g-2"
+                                    class="d-flex gap-1 flex-grow-1"
                                 >
-                                    <div class="col-12 col-md">
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value="{{ criterion.name }}"
+                                        class="form-control form-control-sm"
+                                        required
+                                    >
+
+                                    <div
+                                        class="input-group input-group-sm"
+                                        style="max-width: 105px;"
+                                    >
                                         <input
-                                            type="text"
-                                            name="name"
-                                            value="{{ criterion.name }}"
+                                            type="number"
+                                            name="weight_percent"
+                                            value="{{ (criterion.weight * 100) | round(1) }}"
+                                            min="0"
+                                            max="100"
+                                            step="0.1"
                                             class="form-control"
                                             required
                                         >
+
+                                        <span class="input-group-text">
+                                            %
+                                        </span>
                                     </div>
 
-                                    <div class="col-12 col-sm-4 col-md-3">
-                                        <div class="input-group">
-                                            <input
-                                                type="number"
-                                                name="weight_percent"
-                                                value="{{ (criterion.weight * 100) | round(1) }}"
-                                                min="0"
-                                                max="100"
-                                                step="0.1"
-                                                class="form-control"
-                                                required
-                                            >
-
-                                            <span class="input-group-text">
-                                                %
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-auto">
-                                        <button
-                                            type="submit"
-                                            class="btn btn-outline-primary"
-                                        >
-                                            Сохранить
-                                        </button>
-                                    </div>
+                                    <button
+                                        type="submit"
+                                        class="btn btn-outline-primary btn-sm"
+                                        title="Сохранить"
+                                        aria-label="Сохранить"
+                                    >
+                                        ✓
+                                    </button>
                                 </form>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    data-bs-toggle="popover"
+                                    data-bs-trigger="focus"
+                                    data-bs-placement="top"
+                                    data-bs-html="true"
+                                    title="Информация о критерии"
+                                    data-bs-content="
+                                        <strong>Текущее название:</strong><br>
+                                        {{ criterion.name | e }}
+                                        <br><br>
+                                        <strong>Установленный вес:</strong><br>
+                                        {{ (criterion.weight * 100) | round(1) }}%
+                                        <br><br>
+                                        {% if criterion.ai_suggested_name %}
+                                            <strong>Предложение ИИ:</strong><br>
+                                            {{ criterion.ai_suggested_name | e }}
+                                            — {{ (criterion.ai_suggested_weight * 100) | round(1) }}%
+                                            <br><br>
+                                            <strong>Обоснование критерия:</strong><br>
+                                            {{ criterion.ai_criterion_explanation | e }}
+                                            <br><br>
+                                            <strong>Обоснование веса:</strong><br>
+                                            {{ criterion.ai_weight_explanation | e }}
+                                        {% else %}
+                                            Критерий создан пользователем вручную.
+                                            <br>
+                                            Обоснования ИИ отсутствуют.
+                                        {% endif %}
+                                    "
+                                    aria-label="Информация"
+                                >
+                                    ?
+                                </button>
 
                                 <form
                                     action="/criteria/{{ criterion.id }}/delete"
                                     method="post"
-                                    class="mt-2"
                                     onsubmit="return confirm('Удалить критерий?');"
                                 >
                                     <button
                                         type="submit"
-                                        class="btn btn-outline-danger"
+                                        class="btn btn-outline-danger btn-sm"
+                                        title="Удалить"
+                                        aria-label="Удалить"
                                     >
-                                        Удалить
+                                        ×
                                     </button>
                                 </form>
 
@@ -356,71 +403,52 @@
 
                 {% else %}
 
-                    <div class="alert alert-light border">
+                    <div class="small text-muted mb-3">
                         Критериев пока нет.
                     </div>
 
                 {% endif %}
 
-
                 <form
                     method="post"
                     action="/projects/{{ project.id }}/criteria"
+                    class="d-flex gap-1"
                 >
-                    <div class="row g-2">
+                    <input
+                        type="text"
+                        name="name"
+                        class="form-control form-control-sm"
+                        placeholder="Новый критерий"
+                        required
+                    >
 
-                        <div class="col-md-7">
-                            <label
-                                for="criterion-name"
-                                class="form-label"
-                            >
-                                Новый критерий
-                            </label>
+                    <div
+                        class="input-group input-group-sm"
+                        style="max-width: 105px;"
+                    >
+                        <input
+                            type="number"
+                            name="weight_percent"
+                            class="form-control"
+                            placeholder="0"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            required
+                        >
 
-                            <input
-                                id="criterion-name"
-                                type="text"
-                                name="name"
-                                class="form-control"
-                                placeholder="Например: Стоимость"
-                                required
-                            >
-                        </div>
-
-                        <div class="col-md-5">
-                            <label
-                                for="criterion-weight"
-                                class="form-label"
-                            >
-                                Вес
-                            </label>
-
-                            <div class="input-group">
-                                <input
-                                    id="criterion-weight"
-                                    type="number"
-                                    name="weight_percent"
-                                    class="form-control"
-                                    placeholder="0"
-                                    min="0"
-                                    max="100"
-                                    step="0.1"
-                                    required
-                                >
-
-                                <span class="input-group-text">
-                                    %
-                                </span>
-                            </div>
-                        </div>
-
+                        <span class="input-group-text">
+                            %
+                        </span>
                     </div>
 
                     <button
                         type="submit"
-                        class="btn btn-primary mt-3"
+                        class="btn btn-primary btn-sm"
+                        title="Добавить критерий"
+                        aria-label="Добавить критерий"
                     >
-                        Добавить критерий
+                        +
                     </button>
                 </form>
 
@@ -650,6 +678,86 @@
 
         {% endif %}
 
+    </div>
+</div>
+
+<div
+    class="modal fade"
+    id="aiCriteriaModal"
+    tabindex="-1"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Предложения критериев ИИ
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Закрыть"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                    id="ai-criteria-loading"
+                    class="text-center py-4"
+                >
+                    <div
+                        class="spinner-border"
+                        role="status"
+                    ></div>
+
+                    <div class="mt-3">
+                        ИИ формирует критерии и веса…
+                    </div>
+
+                    <div class="small text-muted">
+                        Обычно это занимает
+                        15–30 секунд.
+                    </div>
+                </div>
+
+                <div
+                    id="ai-criteria-message"
+                    class="alert alert-light border d-none"
+                ></div>
+
+                <div
+                    id="ai-criteria-list"
+                    class="d-none"
+                ></div>
+
+            </div>
+
+            <div
+                id="ai-criteria-footer"
+                class="modal-footer d-none"
+            >
+                <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    data-bs-dismiss="modal"
+                >
+                    Отмена
+                </button>
+
+                <button
+                    id="accept-ai-criteria"
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                >
+                    Добавить выбранные
+                </button>
+            </div>
+
+        </div>
     </div>
 </div>
 
@@ -1066,6 +1174,311 @@ document.addEventListener(
                 } finally {
                     acceptButton.disabled =
                         false;
+                }
+            }
+        );
+    }
+);
+</script>
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        const button =
+            document.getElementById(
+                "ai-criteria-button"
+            );
+
+        const modal =
+            new bootstrap.Modal(
+                document.getElementById(
+                    "aiCriteriaModal"
+                )
+            );
+
+        const loading =
+            document.getElementById(
+                "ai-criteria-loading"
+            );
+
+        const message =
+            document.getElementById(
+                "ai-criteria-message"
+            );
+
+        const list =
+            document.getElementById(
+                "ai-criteria-list"
+            );
+
+        const footer =
+            document.getElementById(
+                "ai-criteria-footer"
+            );
+
+        const acceptButton =
+            document.getElementById(
+                "accept-ai-criteria"
+            );
+
+        let suggestions = [];
+
+        function resetModal() {
+            loading.classList.remove("d-none");
+            message.classList.add("d-none");
+            list.classList.add("d-none");
+            footer.classList.add("d-none");
+            list.innerHTML = "";
+            suggestions = [];
+        }
+
+        function showMessage(text) {
+            loading.classList.add("d-none");
+            message.textContent = text;
+            message.classList.remove("d-none");
+        }
+
+        function showSuggestions(items) {
+            loading.classList.add("d-none");
+            list.innerHTML = "";
+            suggestions = items;
+
+            items.forEach((item, index) => {
+                const wrapper =
+                    document.createElement("div");
+
+                wrapper.className =
+                    "border rounded p-2 mb-2";
+
+                wrapper.innerHTML = `
+                    <div class="d-flex gap-2 align-items-start">
+                        <input
+                            class="form-check-input mt-2"
+                            type="checkbox"
+                            id="ai-criterion-${index}"
+                            data-index="${index}"
+                            checked
+                        >
+
+                        <div class="flex-grow-1">
+                            <label
+                                for="ai-criterion-${index}"
+                                class="fw-semibold"
+                            ></label>
+
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span class="small text-muted">
+                                    Вес:
+                                </span>
+
+                                <div
+                                    class="input-group input-group-sm"
+                                    style="max-width: 115px;"
+                                >
+                                    <input
+                                        type="number"
+                                        class="form-control ai-criterion-weight"
+                                        data-index="${index}"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                    >
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+
+                            <div
+                                class="small text-muted mt-2 criterion-reason"
+                            ></div>
+
+                            <div
+                                class="small text-muted mt-1 weight-reason"
+                            ></div>
+                        </div>
+                    </div>
+                `;
+
+                wrapper.querySelector(
+                    "label"
+                ).textContent = item.name;
+
+                wrapper.querySelector(
+                    ".ai-criterion-weight"
+                ).value =
+                    item.weight_percent;
+
+                wrapper.querySelector(
+                    ".criterion-reason"
+                ).textContent =
+                    "Критерий: "
+                    + item.criterion_explanation;
+
+                wrapper.querySelector(
+                    ".weight-reason"
+                ).textContent =
+                    "Вес: "
+                    + item.weight_explanation;
+
+                list.appendChild(wrapper);
+            });
+
+            list.classList.remove("d-none");
+            footer.classList.remove("d-none");
+        }
+
+        button.addEventListener(
+            "click",
+            async () => {
+                resetModal();
+                button.disabled = true;
+                modal.show();
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/criteria",
+                            {
+                                method: "POST",
+                            }
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        data.status
+                        === "insufficient_context"
+                        || data.status
+                        === "no_weight_capacity"
+                    ) {
+                        showMessage(
+                            data.message
+                        );
+                        return;
+                    }
+
+                    if (
+                        !response.ok
+                        || data.status === "error"
+                    ) {
+                        showMessage(
+                            data.message
+                            || "Не удалось получить предложения ИИ."
+                        );
+                        return;
+                    }
+
+                    if (
+                        !data.items
+                        || data.items.length === 0
+                    ) {
+                        showMessage(
+                            "ИИ не нашёл дополнительных критериев."
+                        );
+                        return;
+                    }
+
+                    showSuggestions(
+                        data.items
+                    );
+
+                } catch (error) {
+                    showMessage(
+                        "Не удалось получить предложения ИИ. Попробуйте ещё раз."
+                    );
+
+                } finally {
+                    button.disabled = false;
+                }
+            }
+        );
+
+        acceptButton.addEventListener(
+            "click",
+            async () => {
+                const selected = [];
+
+                list.querySelectorAll(
+                    "input[type=checkbox]:checked"
+                ).forEach(
+                    checkbox => {
+                        const index = Number(
+                            checkbox.dataset.index
+                        );
+
+                        const item =
+                            suggestions[index];
+
+                        const weightInput =
+                            list.querySelector(
+                                `.ai-criterion-weight[data-index="${index}"]`
+                            );
+
+                        selected.push(
+                            {
+                                name: item.name,
+                                weight_percent:
+                                    Number(
+                                        weightInput.value
+                                    ),
+                                ai_suggested_weight_percent:
+                                    item.weight_percent,
+                                criterion_explanation:
+                                    item.criterion_explanation,
+                                weight_explanation:
+                                    item.weight_explanation,
+                            }
+                        );
+                    }
+                );
+
+                if (selected.length === 0) {
+                    return;
+                }
+
+                acceptButton.disabled = true;
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/criteria/accept",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                                body:
+                                    JSON.stringify(
+                                        {
+                                            items:
+                                                selected,
+                                        }
+                                    ),
+                            }
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (!response.ok) {
+                        showMessage(
+                            data.message
+                            || "Не удалось сохранить критерии."
+                        );
+                        return;
+                    }
+
+                    window.location.reload();
+
+                } catch (error) {
+                    showMessage(
+                        "Не удалось сохранить выбранные критерии."
+                    );
+
+                } finally {
+                    acceptButton.disabled = false;
                 }
             }
         );

@@ -83,12 +83,22 @@ def edit_criterion(
 ):
     project_id = criterion.project_id
 
-    criterion_service.update_criterion(
-        db=db,
-        criterion_id=criterion.id,
-        name=name,
-        weight_percent=weight_percent,
-    )
+    try:
+        criterion_service.update_criterion(
+            db=db,
+            criterion_id=criterion.id,
+            name=name,
+            weight_percent=weight_percent,
+        )
+
+    except ValueError:
+        return RedirectResponse(
+            url=(
+                f"/projects/{project_id}"
+                "?weight_error=1"
+            ),
+            status_code=303,
+        )
 
     return RedirectResponse(
         url=f"/projects/{project_id}",
