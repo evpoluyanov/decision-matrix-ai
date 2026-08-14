@@ -53,6 +53,18 @@ def project_detail(
         project.id,
     )
 
+    score_summary = (
+        score_service.get_score_summary(
+            scores=scores,
+            alternatives_count=len(
+                alternatives
+            ),
+            criteria_count=len(
+                criteria
+            ),
+        )
+    )
+
     results = calculation_service.calculate_results(
         db=db,
         project_id=project.id,
@@ -66,6 +78,7 @@ def project_detail(
             "alternatives": alternatives,
             "criteria": criteria,
             "scores": scores,
+            "score_summary": score_summary,
             "results": results,
             "weight_error": weight_error,
         },

@@ -502,6 +502,35 @@
                 — установленное или изменённое вами.
             </div>
 
+            {% if score_summary.total > 0 %}
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+
+                    <span class="badge text-bg-dark">
+                        Подтверждено:
+                        {{ score_summary.confirmed }}
+                        из
+                        {{ score_summary.total }}
+                    </span>
+
+                    {% if score_summary.ai_only > 0 %}
+                        <span class="badge text-bg-secondary">
+                            Предложения ИИ:
+                            {{ score_summary.ai_only }}
+                        </span>
+                    {% endif %}
+
+                    {% if score_summary.empty > 0 %}
+                        <span class="badge text-bg-light border text-dark">
+                            Не заполнено:
+                            {{ score_summary.empty }}
+                        </span>
+                    {% endif %}
+
+                </div>
+
+            {% endif %}
+
             <div
                 id="ai-scores-status"
                 class="small text-muted mb-3 d-none"
@@ -668,6 +697,43 @@
 
     <div class="card-body">
 
+        {% if score_summary.total > 0 %}
+
+            {% if score_summary.has_unconfirmed_ai %}
+
+                <div class="alert alert-warning py-2">
+                    <strong>
+                        Предварительный результат.
+                    </strong>
+
+                    В расчёте используются
+                    неподтверждённые оценки ИИ:
+                    {{ score_summary.ai_only }}.
+
+                    Проверьте их и нажмите
+                    «Сохранить матрицу»,
+                    чтобы подтвердить значения.
+                </div>
+
+            {% elif score_summary.empty > 0 %}
+
+                <div class="alert alert-light border py-2">
+                    Матрица заполнена не полностью:
+                    осталось оценить
+                    {{ score_summary.empty }}
+                    ячеек.
+                </div>
+
+            {% elif score_summary.is_fully_confirmed %}
+
+                <div class="alert alert-success py-2">
+                    Все оценки матрицы подтверждены.
+                </div>
+
+            {% endif %}
+
+        {% endif %}
+
         {% if results %}
 
             <div class="table-responsive">
@@ -719,8 +785,10 @@
                     <tbody>
                         {% for result in results %}
                             <tr
-                                {% if loop.first %}
+                                {% if loop.first and score_summary.is_fully_confirmed %}
                                     class="table-success"
+                                {% elif loop.first %}
+                                    class="table-light"
                                 {% endif %}
                             >
                                 <td class="text-center">
@@ -740,9 +808,15 @@
                                     {{ result.alternative.name }}
 
                                     {% if loop.first %}
-                                        <span class="badge text-bg-success ms-2">
-                                            Лучший результат
-                                        </span>
+                                        {% if score_summary.is_fully_confirmed %}
+                                            <span class="badge text-bg-success ms-2">
+                                                Лучший результат
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary ms-2">
+                                                Предварительно лучший
+                                            </span>
+                                        {% endif %}
                                     {% endif %}
                                 </th>
 

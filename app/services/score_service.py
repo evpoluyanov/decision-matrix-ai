@@ -171,3 +171,77 @@ def get_scores(
         ): score
         for score in scores
     }
+
+def get_score_summary(
+    *,
+    scores: dict[tuple[int, int], Score],
+    alternatives_count: int,
+    criteria_count: int,
+) -> dict:
+    """
+    Возвращает состояние заполнения матрицы.
+
+    confirmed:
+        есть сохранённое value.
+
+    ai_only:
+        value отсутствует, но есть ai_value.
+
+    empty:
+        нет ни value, ни ai_value.
+    """
+
+    total_cells = (
+        alternatives_count
+        * criteria_count
+    )
+
+    confirmed = 0
+    ai_only = 0
+
+    for score in scores.values():
+        if score.value is not None:
+            confirmed += 1
+
+        elif score.ai_value is not None:
+            ai_only += 1
+
+    filled = confirmed + ai_only
+
+    empty = max(
+        0,
+        total_cells - filled,
+    )
+
+    confirmed_percent = (
+        round(
+            confirmed
+            / total_cells
+            * 100,
+            1,
+        )
+        if total_cells
+        else 0.0
+    )
+
+    return {
+        "total": total_cells,
+        "confirmed": confirmed,
+        "ai_only": ai_only,
+        "empty": empty,
+        "confirmed_percent": (
+            confirmed_percent
+        ),
+        "has_unconfirmed_ai": (
+            ai_only > 0
+        ),
+        "is_complete": (
+            total_cells > 0
+            and empty == 0
+        ),
+        "is_fully_confirmed": (
+            total_cells > 0
+            and confirmed
+            == total_cells
+        ),
+    }

@@ -1568,3 +1568,126 @@ def test_saving_matrix_confirms_ai_value(
     )
 
     db.close()
+
+def test_score_summary_counts_matrix_states():
+    scores = {
+        (1, 1): models.Score(
+            value=8.0,
+            ai_value=7.0,
+        ),
+        (1, 2): models.Score(
+            value=None,
+            ai_value=6.0,
+        ),
+    }
+
+    summary = (
+        score_service.get_score_summary(
+            scores=scores,
+            alternatives_count=2,
+            criteria_count=2,
+        )
+    )
+
+    assert summary["total"] == 4
+    assert summary["confirmed"] == 1
+    assert summary["ai_only"] == 1
+    assert summary["empty"] == 2
+
+    assert (
+        summary["has_unconfirmed_ai"]
+        is True
+    )
+
+    assert (
+        summary["is_complete"]
+        is False
+    )
+
+    assert (
+        summary["is_fully_confirmed"]
+        is False
+    )
+
+
+def test_score_summary_detects_fully_confirmed_matrix():
+    scores = {
+        (1, 1): models.Score(
+            value=8.0,
+            ai_value=7.0,
+        ),
+        (1, 2): models.Score(
+            value=6.0,
+            ai_value=None,
+        ),
+        (2, 1): models.Score(
+            value=9.0,
+            ai_value=8.0,
+        ),
+        (2, 2): models.Score(
+            value=5.0,
+            ai_value=6.0,
+        ),
+    }
+
+    summary = (
+        score_service.get_score_summary(
+            scores=scores,
+            alternatives_count=2,
+            criteria_count=2,
+        )
+    )
+
+    assert summary["total"] == 4
+    assert summary["confirmed"] == 4
+    assert summary["ai_only"] == 0
+    assert summary["empty"] == 0
+
+    assert (
+        summary["confirmed_percent"]
+        == 100.0
+    )
+
+    assert (
+        summary["has_unconfirmed_ai"]
+        is False
+    )
+
+    assert (
+        summary["is_complete"]
+        is True
+    )
+
+    assert (
+        summary["is_fully_confirmed"]
+        is True
+    )
+
+
+def test_score_summary_handles_empty_matrix():
+    summary = (
+        score_service.get_score_summary(
+            scores={},
+            alternatives_count=0,
+            criteria_count=0,
+        )
+    )
+
+    assert summary["total"] == 0
+    assert summary["confirmed"] == 0
+    assert summary["ai_only"] == 0
+    assert summary["empty"] == 0
+    assert (
+        summary["confirmed_percent"]
+        == 0.0
+    )
+
+    assert (
+        summary["is_complete"]
+        is False
+    )
+
+    assert (
+        summary["is_fully_confirmed"]
+        is False
+    )
