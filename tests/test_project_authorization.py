@@ -15,6 +15,9 @@ from app.llm.schemas import (
 from app.services import (
     ai_alternative_service,
     ai_criterion_service,
+    ai_score_service,
+    score_service,
+    calculation_service,
 )
 
 os.environ["SESSION_SECRET"] = (
@@ -1174,5 +1177,394 @@ def test_edit_criterion_cannot_exceed_total_weight(
     )
 
     assert criterion.weight == 0.4
+
+    db.close()
+
+def test_ai_scores_require_project_owner(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    foreign_project_id = (
+        test_environment["project_2_id"]
+    )
+
+    called = False
+
+    def fake_generate(*args, **kwargs):
+        nonlocal called
+        called = True
+
+        return LLMResponse(
+            content='{"s":"ok","i":[]}',
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=1,
+                output_tokens=1,
+                reasoning_tokens=0,
+                total_tokens=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_score_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{foreign_project_id}"
+            "/ai/scores"
+        )
+    )
+
+    assert response.status_code == 404
+    assert called is False
+
+
+def test_ai_scores_do_not_send_existing_scores_to_llm(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    alternative_id = (
+        test_environment[
+            "alternative_1_id"
+        ]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Тестовый проект для выбора варианта."
+    )
+
+    score = models.Score(
+        alternative_id=alternative_id,
+        criterion_id=criterion_id,
+        value=9.0,
+        ai_value=3.0,
+        ai_explanation="Старая оценка ИИ.",
+    )
+
+    db.add(score)
+    db.commit()
+    db.close()
+
+    def fake_generate(
+        *,
+        system_prompt,
+        user_prompt,
+        max_output_tokens,
+        temperature,
+        json_mode,
+    ):
+        assert "9.0" not in user_prompt
+        assert "3.0" not in user_prompt
+        assert "Старая оценка ИИ" not in user_prompt
+
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "s": "ok",
+                    "i": [
+                        {
+                            "a": alternative_id,
+                            "c": criterion_id,
+                            "v": 7,
+                            "r": "Новая независимая оценка.",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=100,
+                output_tokens=50,
+                reasoning_tokens=10,
+                total_tokens=160,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_score_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/scores"
+        )
+    )
+
+    assert response.status_code == 200
+
+    db = TestingSessionLocal()
+
+    score = (
+        db.query(models.Score)
+        .filter(
+            models.Score.alternative_id
+            == alternative_id,
+            models.Score.criterion_id
+            == criterion_id,
+        )
+        .one()
+    )
+
+    assert score.value == 9.0
+    assert score.ai_value == 7.0
+    assert (
+        score.ai_explanation
+        == "Новая независимая оценка."
+    )
+
+    db.close()
+
+
+def test_ai_score_is_used_when_value_is_not_confirmed(
+    test_environment,
+):
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    alternative_id = (
+        test_environment[
+            "alternative_1_id"
+        ]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    criterion = db.get(
+        models.Criterion,
+        criterion_id,
+    )
+
+    criterion.weight = 1.0
+
+    score = models.Score(
+        alternative_id=alternative_id,
+        criterion_id=criterion_id,
+        value=None,
+        ai_value=7.5,
+        ai_explanation="Предложение ИИ.",
+    )
+
+    db.add(score)
+    db.commit()
+
+    results = (
+        calculation_service
+        .calculate_results(
+            db=db,
+            project_id=project_id,
+        )
+    )
+
+    result = next(
+        item
+        for item in results
+        if item["alternative"].id
+        == alternative_id
+    )
+
+    assert result["total"] == 7.5
+
+    db.close()
+
+
+def test_confirmed_value_has_priority_over_ai_value(
+    test_environment,
+):
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    alternative_id = (
+        test_environment[
+            "alternative_1_id"
+        ]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    criterion = db.get(
+        models.Criterion,
+        criterion_id,
+    )
+
+    criterion.weight = 1.0
+
+    score = models.Score(
+        alternative_id=alternative_id,
+        criterion_id=criterion_id,
+        value=9.0,
+        ai_value=4.0,
+        ai_explanation="Предложение ИИ.",
+    )
+
+    db.add(score)
+    db.commit()
+
+    results = (
+        calculation_service
+        .calculate_results(
+            db=db,
+            project_id=project_id,
+        )
+    )
+
+    result = next(
+        item
+        for item in results
+        if item["alternative"].id
+        == alternative_id
+    )
+
+    assert result["total"] == 9.0
+
+    db.close()
+
+
+def test_saving_matrix_confirms_ai_value(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    alternative_id = (
+        test_environment[
+            "alternative_1_id"
+        ]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    score = models.Score(
+        alternative_id=alternative_id,
+        criterion_id=criterion_id,
+        value=None,
+        ai_value=7.0,
+        ai_explanation="Предложение ИИ.",
+    )
+
+    db.add(score)
+    db.commit()
+    db.close()
+
+    response = client.post(
+        f"/projects/{project_id}/scores",
+        data={
+            (
+                f"score_{alternative_id}_"
+                f"{criterion_id}"
+            ): "7"
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+    db = TestingSessionLocal()
+
+    score = (
+        db.query(models.Score)
+        .filter(
+            models.Score.alternative_id
+            == alternative_id,
+            models.Score.criterion_id
+            == criterion_id,
+        )
+        .one()
+    )
+
+    assert score.value == 7.0
+    assert score.ai_value == 7.0
+    assert (
+        score.ai_explanation
+        == "Предложение ИИ."
+    )
 
     db.close()

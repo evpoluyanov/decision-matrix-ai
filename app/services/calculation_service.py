@@ -9,7 +9,9 @@ def calculate_results(
 ) -> list[dict]:
     alternatives = (
         db.query(Alternative)
-        .filter_by(project_id=project_id)
+        .filter_by(
+            project_id=project_id
+        )
         .all()
     )
 
@@ -18,23 +20,43 @@ def calculate_results(
     for alternative in alternatives:
         total = 0.0
         contributions = {}
+        has_scores = False
 
         for score in alternative.scores:
+            effective_value = (
+                score.value
+                if score.value is not None
+                else score.ai_value
+            )
+
+            if effective_value is None:
+                continue
+
+            has_scores = True
+
             contribution = round(
-                score.value * score.criterion.weight,
+                effective_value
+                * score.criterion.weight,
                 2,
             )
 
-            contributions[score.criterion_id] = contribution
+            contributions[
+                score.criterion_id
+            ] = contribution
+
             total += contribution
 
-        results.append(
-            {
-                "alternative": alternative,
-                "contributions": contributions,
-                "total": round(total, 2),
-            }
-        )
+        if has_scores:
+            results.append(
+                {
+                    "alternative":
+                        alternative,
+                    "contributions":
+                        contributions,
+                    "total":
+                        round(total, 2),
+                }
+            )
 
     results.sort(
         key=lambda item: item["total"],

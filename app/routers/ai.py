@@ -17,6 +17,8 @@ from app.services import (
     alternative_service,
     ai_criterion_service,
     criterion_service,
+    ai_score_service,
+    score_service,
 )
 
 
@@ -258,4 +260,71 @@ def accept_criteria(
     return {
         "status": "ok",
         "created": len(created),
+    }
+
+@router.post(
+    "/projects/{project_id}/ai/scores"
+)
+def suggest_scores(
+    project_id: int,
+    db: Session = Depends(get_db),
+    project: models.Project = Depends(
+        require_project_owner
+    ),
+):
+    alternatives = (
+        alternative_service
+        .get_alternatives(
+            db,
+            project.id,
+        )
+    )
+
+    criteria = (
+        criterion_service
+        .get_criteria(
+            db,
+            project.id,
+        )
+    )
+
+    try:
+        result = (
+            ai_score_service
+            .generate_score_suggestions(
+                project=project,
+                alternatives=alternatives,
+                criteria=criteria,
+            )
+        )
+
+    except RuntimeError:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "message": (
+                    "Не удалось получить "
+                    "оценки ИИ. "
+                    "Попробуйте ещё раз."
+                ),
+            },
+        )
+
+    if result["status"] != "ok":
+        return result
+
+    updated = (
+        score_service
+        .set_ai_scores(
+            db=db,
+            suggestions=(
+                result["items"]
+            ),
+        )
+    )
+
+    return {
+        **result,
+        "updated": updated,
     }

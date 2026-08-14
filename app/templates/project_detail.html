@@ -460,10 +460,26 @@
 
 <div class="card shadow-sm mb-4">
 
-    <div class="card-header bg-white">
+    <div
+        class="card-header bg-white
+            d-flex justify-content-between
+            align-items-center"
+    >
         <h2 class="h5 mb-0">
             Матрица оценок
         </h2>
+
+        {% if alternatives and criteria %}
+            <button
+                id="ai-scores-button"
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                title="Оценить матрицу с ИИ"
+                aria-label="Оценить матрицу с ИИ"
+            >
+                ✦
+            </button>
+        {% endif %}
     </div>
 
     <div class="card-body">
@@ -473,6 +489,23 @@
             <p class="text-muted">
                 Оцените каждую альтернативу по шкале от 0 до 10.
             </p>
+
+            <div class="small mb-3">
+                <span class="text-secondary">
+                    Серое значение
+                </span>
+                — предложение ИИ, ещё не подтверждённое.
+
+                <span class="ms-2">
+                    Чёрное значение
+                </span>
+                — установленное или изменённое вами.
+            </div>
+
+            <div
+                id="ai-scores-status"
+                class="small text-muted mb-3 d-none"
+            ></div>
 
             <form
                 method="post"
@@ -522,17 +555,78 @@
                                     </th>
 
                                     {% for criterion in criteria %}
+                                        {% set score = scores.get(
+                                            (alternative.id, criterion.id)
+                                        ) %}
                                         <td>
-                                            <input
-                                                type="number"
-                                                name="score_{{ alternative.id }}_{{ criterion.id }}"
-                                                min="0"
-                                                max="10"
-                                                step="0.1"
-                                                value="{{ scores.get((alternative.id, criterion.id), '') }}"
-                                                class="form-control text-center"
-                                                aria-label="Оценка альтернативы {{ alternative.name }} по критерию {{ criterion.name }}"
-                                            >
+                                            {% set confirmed_value =
+                                                score.value
+                                                if score and score.value is not none
+                                                else none
+                                            %}
+
+                                            {% set ai_value =
+                                                score.ai_value
+                                                if score and score.ai_value is not none
+                                                else none
+                                            %}
+
+                                            {% set displayed_value =
+                                                confirmed_value
+                                                if confirmed_value is not none
+                                                else ai_value
+                                            %}
+
+                                            <div class="d-flex gap-1 align-items-center">
+
+                                                <input
+                                                    type="number"
+                                                    name="score_{{ alternative.id }}_{{ criterion.id }}"
+                                                    min="0"
+                                                    max="10"
+                                                    step="0.1"
+                                                    value="{% if displayed_value is not none %}{{ displayed_value }}{% endif %}"
+                                                    class="form-control form-control-sm text-center score-input{% if confirmed_value is none and ai_value is not none %} text-secondary ai-score-value{% endif %}"
+                                                    data-ai-only="{% if confirmed_value is none and ai_value is not none %}true{% else %}false{% endif %}"
+                                                    aria-label="Оценка альтернативы {{ alternative.name }} по критерию {{ criterion.name }}"
+                                                >
+
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline-secondary btn-sm"
+                                                    data-bs-toggle="popover"
+                                                    data-bs-trigger="focus"
+                                                    data-bs-placement="top"
+                                                    data-bs-html="true"
+                                                    title="Информация об оценке"
+                                                    data-bs-content="
+                                                        <strong>Установленное значение:</strong><br>
+                                                        {% if confirmed_value is not none %}
+                                                            {{ confirmed_value }} из 10
+                                                        {% else %}
+                                                            Нет
+                                                        {% endif %}
+                                                        <br><br>
+                                                        <strong>Предложение ИИ:</strong><br>
+                                                        {% if ai_value is not none %}
+                                                            {{ ai_value }} из 10
+                                                        {% else %}
+                                                            Нет
+                                                        {% endif %}
+                                                        <br><br>
+                                                        <strong>Обоснование:</strong><br>
+                                                        {% if score and score.ai_explanation %}
+                                                            {{ score.ai_explanation | e }}
+                                                        {% else %}
+                                                            Обоснование ИИ отсутствует.
+                                                        {% endif %}
+                                                    "
+                                                    aria-label="Информация об оценке"
+                                                >
+                                                    ?
+                                                </button>
+
+                                            </div>
                                         </td>
                                     {% endfor %}
                                 </tr>
@@ -1479,6 +1573,102 @@ document.addEventListener(
 
                 } finally {
                     acceptButton.disabled = false;
+                }
+            }
+        );
+    }
+);
+</script>
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        document
+            .querySelectorAll(
+                ".score-input"
+            )
+            .forEach(input => {
+                input.addEventListener(
+                    "input",
+                    () => {
+                        input.classList.remove(
+                            "text-secondary",
+                            "ai-score-value"
+                        );
+
+                        input.dataset.aiOnly =
+                            "false";
+                    }
+                );
+            });
+
+        const button =
+            document.getElementById(
+                "ai-scores-button"
+            );
+
+        if (!button) {
+            return;
+        }
+
+        const status =
+            document.getElementById(
+                "ai-scores-status"
+            );
+
+        button.addEventListener(
+            "click",
+            async () => {
+                button.disabled = true;
+
+                status.classList.remove(
+                    "d-none"
+                );
+
+                status.textContent =
+                    "ИИ оценивает матрицу… "
+                    + "Обычно это занимает "
+                    + "15–30 секунд.";
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/scores",
+                            {
+                                method: "POST",
+                            }
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (!response.ok) {
+                        status.textContent =
+                            data.message
+                            || "Не удалось получить оценки ИИ.";
+
+                        return;
+                    }
+
+                    if (
+                        data.status !== "ok"
+                    ) {
+                        status.textContent =
+                            data.message;
+
+                        return;
+                    }
+
+                    window.location.reload();
+
+                } catch (error) {
+                    status.textContent =
+                        "Не удалось получить оценки ИИ. "
+                        + "Попробуйте ещё раз.";
+
+                } finally {
+                    button.disabled = false;
                 }
             }
         );
