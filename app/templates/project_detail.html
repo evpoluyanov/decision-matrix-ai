@@ -689,10 +689,25 @@
 
 <div class="card shadow-sm mb-4">
 
-    <div class="card-header bg-white">
+    <div
+        class="card-header bg-white
+            d-flex justify-content-between
+            align-items-center"
+    >
         <h2 class="h5 mb-0">
             Результаты
         </h2>
+
+        {% if results %}
+            <button
+                id="ai-result-button"
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                title="Объяснить результат с помощью ИИ"
+            >
+                ✦ Объяснить
+            </button>
+        {% endif %}
     </div>
 
     <div class="card-body">
@@ -847,6 +862,104 @@
         {% endif %}
 
     </div>
+
+    <div
+        id="ai-result-explanation"
+        class="mt-4 d-none"
+    >
+        <hr>
+
+        <div
+            class="d-flex justify-content-between
+                align-items-center mb-3"
+        >
+            <h3 class="h6 mb-0">
+                Объяснение результата
+            </h3>
+
+            <span
+                id="ai-result-preliminary"
+                class="badge text-bg-secondary d-none"
+            >
+                Предварительное
+            </span>
+        </div>
+
+        <div
+            id="ai-result-summary"
+            class="mb-3"
+        ></div>
+
+        <div
+            id="ai-result-factors-block"
+            class="mb-3 d-none"
+        >
+            <div class="fw-semibold mb-1">
+                Что сильнее всего повлияло на результат
+            </div>
+
+            <ul
+                id="ai-result-factors"
+                class="mb-0"
+            ></ul>
+        </div>
+
+        <div class="row g-3 mb-3">
+
+            <div
+                id="ai-result-strengths-block"
+                class="col-md-6 d-none"
+            >
+                <div class="fw-semibold mb-1">
+                    Сильные стороны лидера
+                </div>
+
+                <ul
+                    id="ai-result-strengths"
+                    class="mb-0"
+                ></ul>
+            </div>
+
+            <div
+                id="ai-result-weaknesses-block"
+                class="col-md-6 d-none"
+            >
+                <div class="fw-semibold mb-1">
+                    Слабые стороны лидера
+                </div>
+
+                <ul
+                    id="ai-result-weaknesses"
+                    class="mb-0"
+                ></ul>
+            </div>
+
+        </div>
+
+        <div
+            id="ai-result-competitor-block"
+            class="mb-3 d-none"
+        >
+            <div class="fw-semibold mb-1">
+                Ближайший конкурент
+            </div>
+
+            <div
+                id="ai-result-competitor"
+            ></div>
+        </div>
+
+        <div
+            id="ai-result-caveat"
+            class="alert alert-light border py-2 d-none"
+        ></div>
+    </div>
+
+    <div
+        id="ai-result-status"
+        class="small text-muted mt-3 d-none"
+    ></div>
+
 </div>
 
 <div
@@ -1739,6 +1852,214 @@ document.addEventListener(
                 } catch (error) {
                     status.textContent =
                         "Не удалось получить оценки ИИ. "
+                        + "Попробуйте ещё раз.";
+
+                } finally {
+                    button.disabled = false;
+                }
+            }
+        );
+    }
+);
+</script>
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        const button =
+            document.getElementById(
+                "ai-result-button"
+            );
+
+        if (!button) {
+            return;
+        }
+
+        const status =
+            document.getElementById(
+                "ai-result-status"
+            );
+
+        const explanation =
+            document.getElementById(
+                "ai-result-explanation"
+            );
+
+        const summary =
+            document.getElementById(
+                "ai-result-summary"
+            );
+
+        const preliminary =
+            document.getElementById(
+                "ai-result-preliminary"
+            );
+
+        function fillList(
+            blockId,
+            listId,
+            values
+        ) {
+            const block =
+                document.getElementById(
+                    blockId
+                );
+
+            const list =
+                document.getElementById(
+                    listId
+                );
+
+            list.innerHTML = "";
+
+            if (
+                !values
+                || values.length === 0
+            ) {
+                block.classList.add(
+                    "d-none"
+                );
+                return;
+            }
+
+            values.forEach(value => {
+                const li =
+                    document.createElement(
+                        "li"
+                    );
+
+                li.textContent = value;
+                list.appendChild(li);
+            });
+
+            block.classList.remove(
+                "d-none"
+            );
+        }
+
+        button.addEventListener(
+            "click",
+            async () => {
+                button.disabled = true;
+
+                explanation.classList.add(
+                    "d-none"
+                );
+
+                status.classList.remove(
+                    "d-none"
+                );
+
+                status.textContent =
+                    "ИИ анализирует результат… "
+                    + "Обычно это занимает "
+                    + "15–30 секунд.";
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/result-explanation",
+                            {
+                                method: "POST",
+                            }
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        !response.ok
+                        || data.status !== "ok"
+                    ) {
+                        status.textContent =
+                            data.message
+                            || "Не удалось подготовить объяснение.";
+
+                        return;
+                    }
+
+                    summary.textContent =
+                        data.summary;
+
+                    fillList(
+                        "ai-result-factors-block",
+                        "ai-result-factors",
+                        data.factors
+                    );
+
+                    fillList(
+                        "ai-result-strengths-block",
+                        "ai-result-strengths",
+                        data.strengths
+                    );
+
+                    fillList(
+                        "ai-result-weaknesses-block",
+                        "ai-result-weaknesses",
+                        data.weaknesses
+                    );
+
+                    const competitorBlock =
+                        document.getElementById(
+                            "ai-result-competitor-block"
+                        );
+
+                    const competitor =
+                        document.getElementById(
+                            "ai-result-competitor"
+                        );
+
+                    if (data.competitor) {
+                        competitor.textContent =
+                            data.competitor;
+
+                        competitorBlock
+                            .classList.remove(
+                                "d-none"
+                            );
+                    } else {
+                        competitorBlock
+                            .classList.add(
+                                "d-none"
+                            );
+                    }
+
+                    const caveat =
+                        document.getElementById(
+                            "ai-result-caveat"
+                        );
+
+                    if (data.caveat) {
+                        caveat.textContent =
+                            data.caveat;
+
+                        caveat.classList.remove(
+                            "d-none"
+                        );
+                    } else {
+                        caveat.classList.add(
+                            "d-none"
+                        );
+                    }
+
+                    preliminary.classList.toggle(
+                        "d-none",
+                        !data.preliminary
+                    );
+
+                    status.classList.add(
+                        "d-none"
+                    );
+
+                    explanation.classList.remove(
+                        "d-none"
+                    );
+
+                } catch (error) {
+                    status.textContent =
+                        "Не удалось подготовить "
+                        + "объяснение результата. "
                         + "Попробуйте ещё раз.";
 
                 } finally {

@@ -19,6 +19,8 @@ from app.services import (
     criterion_service,
     ai_score_service,
     score_service,
+    ai_result_service,
+    calculation_service,
 )
 
 
@@ -328,3 +330,86 @@ def suggest_scores(
         **result,
         "updated": updated,
     }
+
+@router.post(
+    "/projects/{project_id}/ai/result-explanation"
+)
+def explain_result(
+    project_id: int,
+    db: Session = Depends(get_db),
+    project: models.Project = Depends(
+        require_project_owner
+    ),
+):
+    alternatives = (
+        alternative_service
+        .get_alternatives(
+            db,
+            project.id,
+        )
+    )
+
+    criteria = (
+        criterion_service
+        .get_criteria(
+            db,
+            project.id,
+        )
+    )
+
+    scores = (
+        score_service
+        .get_scores(
+            db,
+            project.id,
+        )
+    )
+
+    score_summary = (
+        score_service
+        .get_score_summary(
+            scores=scores,
+            alternatives_count=len(
+                alternatives
+            ),
+            criteria_count=len(
+                criteria
+            ),
+        )
+    )
+
+    results = (
+        calculation_service
+        .calculate_results(
+            db=db,
+            project_id=project.id,
+        )
+    )
+
+    try:
+        result = (
+            ai_result_service
+            .generate_result_explanation(
+                project=project,
+                alternatives=alternatives,
+                criteria=criteria,
+                scores=scores,
+                results=results,
+                score_summary=score_summary,
+            )
+        )
+
+    except RuntimeError:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "message": (
+                    "Не удалось подготовить "
+                    "объяснение результата. "
+                    "Попробуйте ещё раз."
+                ),
+            },
+        )
+
+    return result

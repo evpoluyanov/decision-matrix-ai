@@ -18,6 +18,7 @@ from app.services import (
     ai_score_service,
     score_service,
     calculation_service,
+    ai_result_service,
 )
 
 os.environ["SESSION_SECRET"] = (
@@ -1690,4 +1691,416 @@ def test_score_summary_handles_empty_matrix():
     assert (
         summary["is_fully_confirmed"]
         is False
+    )
+
+def test_ai_result_explanation_requires_project_owner(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    foreign_project_id = (
+        test_environment["project_2_id"]
+    )
+
+    called = False
+
+    def fake_generate(*args, **kwargs):
+        nonlocal called
+        called = True
+
+        return LLMResponse(
+            content='{"summary":"test"}',
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=1,
+                output_tokens=1,
+                reasoning_tokens=0,
+                total_tokens=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_result_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{foreign_project_id}"
+            "/ai/result-explanation"
+        )
+    )
+
+    assert response.status_code == 404
+    assert called is False
+
+
+def test_ai_result_explanation_rejects_incomplete_matrix(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    alternative_id = (
+        test_environment[
+            "alternative_1_id"
+        ]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Тестовый проект."
+    )
+
+    first_criterion = db.get(
+        models.Criterion,
+        criterion_id,
+    )
+
+    first_criterion.weight = 0.5
+
+    second_criterion = models.Criterion(
+        name="Второй критерий",
+        weight=0.5,
+        project_id=project_id,
+    )
+
+    db.add(second_criterion)
+    db.flush()
+
+    score = models.Score(
+        alternative_id=alternative_id,
+        criterion_id=criterion_id,
+        value=8.0,
+        ai_value=None,
+    )
+
+    db.add(score)
+
+    db.commit()
+    db.close()
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/result-explanation"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["status"]
+        == "incomplete_matrix"
+    )
+
+
+def test_ai_result_explanation_uses_calculated_ranking(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор лучшего варианта."
+    )
+
+    alternative = db.get(
+        models.Alternative,
+        test_environment[
+            "alternative_1_id"
+        ],
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 1.0
+
+    score = models.Score(
+        alternative_id=alternative.id,
+        criterion_id=criterion.id,
+        value=8.0,
+        ai_value=5.0,
+        ai_explanation="Старое предложение ИИ.",
+    )
+
+    db.add(score)
+    db.commit()
+    db.close()
+
+    def fake_generate(
+        *,
+        system_prompt,
+        user_prompt,
+        max_output_tokens,
+        temperature,
+        json_mode,
+    ):
+        assert json_mode is True
+
+        assert '"total": 8.0' in user_prompt
+        assert '"v": 8.0' in user_prompt
+        assert '"w": 100.0' in user_prompt
+
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "summary": (
+                        "Лидер определяется "
+                        "расчётом матрицы."
+                    ),
+                    "factors": [
+                        "Основной вклад дал "
+                        "единственный критерий."
+                    ],
+                    "strengths": [
+                        "Высокая итоговая оценка."
+                    ],
+                    "weaknesses": [],
+                    "competitor": "",
+                    "caveat": "",
+                },
+                ensure_ascii=False,
+            ),
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=100,
+                output_tokens=50,
+                reasoning_tokens=10,
+                total_tokens=160,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_result_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/result-explanation"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+
+    assert (
+        data["summary"]
+        == (
+            "Лидер определяется "
+            "расчётом матрицы."
+        )
+    )
+
+    assert (
+        data["preliminary"]
+        is False
+    )
+
+
+def test_ai_result_explanation_marks_ai_only_matrix_preliminary(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Тестовый проект."
+    )
+
+    alternative = db.get(
+        models.Alternative,
+        test_environment[
+            "alternative_1_id"
+        ],
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 1.0
+
+    score = models.Score(
+        alternative_id=alternative.id,
+        criterion_id=criterion.id,
+        value=None,
+        ai_value=7.0,
+        ai_explanation="Предложение ИИ.",
+    )
+
+    db.add(score)
+    db.commit()
+    db.close()
+
+    def fake_generate(**kwargs):
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "summary": (
+                        "Предварительный результат."
+                    ),
+                    "factors": [],
+                    "strengths": [],
+                    "weaknesses": [],
+                    "competitor": "",
+                    "caveat": (
+                        "Оценка пока не подтверждена."
+                    ),
+                },
+                ensure_ascii=False,
+            ),
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=50,
+                output_tokens=30,
+                reasoning_tokens=5,
+                total_tokens=85,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_result_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/result-explanation"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+
+    assert (
+        data["preliminary"]
+        is True
+    )
+
+
+def test_ai_result_explanation_requires_description(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/result-explanation"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["status"]
+        == "insufficient_context"
     )
