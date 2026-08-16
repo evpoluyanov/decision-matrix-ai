@@ -19,6 +19,7 @@ from app.services import (
     score_service,
     calculation_service,
     ai_result_service,
+    risk_service,
 )
 
 os.environ["SESSION_SECRET"] = (
@@ -2104,3 +2105,192 @@ def test_ai_result_explanation_requires_description(
         data["status"]
         == "insufficient_context"
     )
+
+def test_risk_analysis_detects_incomplete_weights():
+    criteria = [
+        models.Criterion(
+            name="Цена",
+            weight=0.5,
+        ),
+        models.Criterion(
+            name="Качество",
+            weight=0.3,
+        ),
+    ]
+
+    analysis = (
+        risk_service.analyze_decision_risks(
+            criteria=criteria,
+            results=[],
+            score_summary={
+                "ai_only": 0,
+                "empty": 0,
+            },
+        )
+    )
+
+    codes = {
+        risk["code"]
+        for risk in analysis["risks"]
+    }
+
+    assert "weights_incomplete" in codes
+    assert (
+        analysis["total_weight_percent"]
+        == 80.0
+    )
+
+
+def test_risk_analysis_detects_weight_concentration():
+    criteria = [
+        models.Criterion(
+            name="Цена",
+            weight=0.5,
+        ),
+        models.Criterion(
+            name="Качество",
+            weight=0.5,
+        ),
+    ]
+
+    analysis = (
+        risk_service.analyze_decision_risks(
+            criteria=criteria,
+            results=[],
+            score_summary={
+                "ai_only": 0,
+                "empty": 0,
+            },
+        )
+    )
+
+    weight_risks = [
+        risk
+        for risk in analysis["risks"]
+        if (
+            risk["code"]
+            == "weight_concentration"
+        )
+    ]
+
+    assert len(weight_risks) == 2
+
+    assert any(
+        "Цена"
+        in risk["message"]
+        for risk in weight_risks
+    )
+
+
+def test_risk_analysis_detects_narrow_lead():
+    first = models.Alternative(
+        name="Вариант А",
+    )
+
+    second = models.Alternative(
+        name="Вариант Б",
+    )
+
+    analysis = (
+        risk_service.analyze_decision_risks(
+            criteria=[],
+            results=[
+                {
+                    "alternative": first,
+                    "total": 8.2,
+                },
+                {
+                    "alternative": second,
+                    "total": 7.9,
+                },
+            ],
+            score_summary={
+                "ai_only": 0,
+                "empty": 0,
+            },
+        )
+    )
+
+    codes = {
+        risk["code"]
+        for risk in analysis["risks"]
+    }
+
+    assert "narrow_lead" in codes
+
+
+def test_risk_analysis_detects_ai_and_empty_scores():
+    analysis = (
+        risk_service.analyze_decision_risks(
+            criteria=[],
+            results=[],
+            score_summary={
+                "ai_only": 3,
+                "empty": 2,
+            },
+        )
+    )
+
+    codes = {
+        risk["code"]
+        for risk in analysis["risks"]
+    }
+
+    assert (
+        "unconfirmed_ai_scores"
+        in codes
+    )
+
+    assert (
+        "incomplete_matrix"
+        in codes
+    )
+
+
+def test_risk_analysis_can_return_no_risks():
+    criteria = [
+        models.Criterion(
+            name="Цена",
+            weight=0.34,
+        ),
+        models.Criterion(
+            name="Качество",
+            weight=0.33,
+        ),
+        models.Criterion(
+            name="Срок",
+            weight=0.33,
+        ),
+    ]
+
+    first = models.Alternative(
+        name="Вариант А",
+    )
+
+    second = models.Alternative(
+        name="Вариант Б",
+    )
+
+    analysis = (
+        risk_service.analyze_decision_risks(
+            criteria=criteria,
+            results=[
+                {
+                    "alternative": first,
+                    "total": 8.5,
+                },
+                {
+                    "alternative": second,
+                    "total": 7.5,
+                },
+            ],
+            score_summary={
+                "ai_only": 0,
+                "empty": 0,
+            },
+        )
+    )
+
+    assert analysis["risks"] == []
+    assert analysis["count"] == 0
+    assert analysis["has_risks"] is False

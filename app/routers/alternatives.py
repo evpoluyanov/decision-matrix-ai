@@ -15,6 +15,7 @@ from app.services import (
     criterion_service,
     project_service,
     score_service,
+    risk_service,
 )
 
 
@@ -70,6 +71,14 @@ def project_detail(
         project_id=project.id,
     )
 
+    risk_analysis = (
+        risk_service.analyze_decision_risks(
+            criteria=criteria,
+            results=results,
+            score_summary=score_summary,
+        )
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="project_detail.html",
@@ -80,6 +89,7 @@ def project_detail(
             "scores": scores,
             "score_summary": score_summary,
             "results": results,
+            "risk_analysis": risk_analysis,
             "weight_error": weight_error,
         },
     )

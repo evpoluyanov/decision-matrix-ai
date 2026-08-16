@@ -962,6 +962,74 @@
 
 </div>
 
+<div class="card shadow-sm mb-4">
+
+    <div
+        class="card-header bg-white
+               d-flex justify-content-between
+               align-items-center"
+    >
+        <h2 class="h5 mb-0">
+            Риски решения
+        </h2>
+
+        {% if risk_analysis.has_risks %}
+            <span class="badge text-bg-warning">
+                {{ risk_analysis.count }}
+            </span>
+        {% else %}
+            <span class="badge text-bg-success">
+                Нет явных рисков
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="card-body">
+
+        {% if risk_analysis.has_risks %}
+
+            <div class="d-flex flex-column gap-2">
+
+                {% for risk in risk_analysis.risks %}
+
+                    <div
+                        class="
+                            alert
+                            {% if risk.level == 'danger' %}
+                                alert-danger
+                            {% else %}
+                                alert-warning
+                            {% endif %}
+                            py-2 mb-0
+                        "
+                    >
+                        <div class="fw-semibold">
+                            {{ risk.title }}
+                        </div>
+
+                        <div class="small">
+                            {{ risk.message }}
+                        </div>
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="text-muted">
+                По текущей модели явных факторов,
+                снижающих устойчивость решения,
+                не обнаружено.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
 <div
     class="modal fade"
     id="aiCriteriaModal"
