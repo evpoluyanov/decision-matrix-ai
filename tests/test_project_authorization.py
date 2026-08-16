@@ -20,6 +20,7 @@ from app.services import (
     calculation_service,
     ai_result_service,
     risk_service,
+    ai_decision_risk_service,
 )
 
 os.environ["SESSION_SECRET"] = (
@@ -2460,4 +2461,422 @@ def test_user_can_change_password(
     assert (
         new_password_response.status_code
         == 303
+    )
+
+def test_ai_decision_risks_require_project_owner(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    foreign_project_id = (
+        test_environment["project_2_id"]
+    )
+
+    called = False
+
+    def fake_generate(*args, **kwargs):
+        nonlocal called
+        called = True
+
+        return LLMResponse(
+            content='{"s":"ok","i":[]}',
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=1,
+                output_tokens=1,
+                reasoning_tokens=0,
+                total_tokens=2,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_decision_risk_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{foreign_project_id}"
+            "/ai/decision-risks"
+        )
+    )
+
+    assert response.status_code == 404
+    assert called is False
+
+
+def test_ai_decision_risks_reject_incomplete_matrix(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    alternative_id = (
+        test_environment[
+            "alternative_1_id"
+        ]
+    )
+
+    criterion_id = (
+        test_environment[
+            "criterion_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор варианта."
+    )
+
+    first_criterion = db.get(
+        models.Criterion,
+        criterion_id,
+    )
+
+    first_criterion.weight = 0.5
+
+    second_criterion = models.Criterion(
+        name="Второй критерий",
+        weight=0.5,
+        project_id=project_id,
+    )
+
+    db.add(second_criterion)
+    db.flush()
+
+    db.add(
+        models.Score(
+            alternative_id=alternative_id,
+            criterion_id=criterion_id,
+            value=8.0,
+            ai_value=None,
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/decision-risks"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["status"]
+        == "incomplete_matrix"
+    )
+
+
+def test_ai_decision_risks_distinguish_matrix_and_hypothesis(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор подрядчика."
+    )
+
+    alternative = db.get(
+        models.Alternative,
+        test_environment[
+            "alternative_1_id"
+        ],
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 1.0
+
+    db.add(
+        models.Score(
+            alternative_id=alternative.id,
+            criterion_id=criterion.id,
+            value=8.0,
+            ai_value=None,
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    def fake_generate(**kwargs):
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "s": "ok",
+                    "i": [
+                        {
+                            "t": "matrix",
+                            "n": (
+                                "Зависимость "
+                                "от критерия"
+                            ),
+                            "r": (
+                                "Результат сильно "
+                                "зависит от оценки."
+                            ),
+                            "c": (
+                                "Проверить "
+                                "исходные данные."
+                            ),
+                        },
+                        {
+                            "t": "hypothesis",
+                            "n": (
+                                "Риск исполнения"
+                            ),
+                            "r": (
+                                "Возможен риск "
+                                "исполнения."
+                            ),
+                            "c": (
+                                "Проверить ресурсы "
+                                "исполнителя."
+                            ),
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=100,
+                output_tokens=80,
+                reasoning_tokens=10,
+                total_tokens=190,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_decision_risk_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/decision-risks"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+
+    assert (
+        data["items"][0]["type"]
+        == "matrix"
+    )
+
+    assert (
+        data["items"][1]["type"]
+        == "hypothesis"
+    )
+
+
+def test_ai_decision_risks_mark_preliminary_result(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Тестовый проект."
+    )
+
+    alternative = db.get(
+        models.Alternative,
+        test_environment[
+            "alternative_1_id"
+        ],
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 1.0
+
+    db.add(
+        models.Score(
+            alternative_id=alternative.id,
+            criterion_id=criterion.id,
+            value=None,
+            ai_value=7.0,
+            ai_explanation="Предложение ИИ.",
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    def fake_generate(**kwargs):
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "s": "ok",
+                    "i": [
+                        {
+                            "t": "hypothesis",
+                            "n": "Риск",
+                            "r": (
+                                "Возможен риск."
+                            ),
+                            "c": (
+                                "Следует проверить."
+                            ),
+                        },
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            provider="test",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=50,
+                output_tokens=30,
+                reasoning_tokens=5,
+                total_tokens=85,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_decision_risk_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/decision-risks"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["status"] == "ok"
+
+    assert (
+        data["preliminary"]
+        is True
+    )
+
+
+def test_ai_decision_risks_require_description(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/decision-risks"
+        )
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert (
+        data["status"]
+        == "insufficient_context"
     )

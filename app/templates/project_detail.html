@@ -1030,6 +1030,93 @@
 
 </div>
 
+<div class="card shadow-sm mb-4">
+
+    <div
+        class="card-header bg-white
+               d-flex justify-content-between
+               align-items-center"
+    >
+        <div>
+            <h2 class="h5 mb-0">
+                Риски выбранной альтернативы
+            </h2>
+
+            {% if results %}
+                <div
+                    class="small text-muted mt-1"
+                >
+                    Анализ рисков выбора:
+                    {{ results[0].alternative.name }}
+                </div>
+            {% endif %}
+        </div>
+
+        {% if results %}
+            <button
+                id="ai-decision-risks-button"
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+            >
+                ✦ Анализировать
+            </button>
+        {% endif %}
+    </div>
+
+    <div class="card-body">
+
+        {% if results %}
+
+            <div
+                id="ai-decision-risks-intro"
+                class="text-muted small"
+            >
+                ИИ может определить потенциальные
+                проблемы реализации выбранного решения
+                и указать, что стоит проверить
+                до окончательного выбора.
+            </div>
+
+            <div
+                id="ai-decision-risks-status"
+                class="small text-muted d-none"
+            ></div>
+
+            <div
+                id="ai-decision-risks-result"
+                class="d-none"
+            >
+
+                <div
+                    id="ai-decision-risks-preliminary"
+                    class="alert alert-warning py-2 d-none"
+                >
+                    Результат предварительный:
+                    в матрице используются
+                    неподтверждённые оценки ИИ.
+                </div>
+
+                <div
+                    id="ai-decision-risks-list"
+                    class="d-flex flex-column gap-2"
+                ></div>
+
+            </div>
+
+        {% else %}
+
+            <div class="text-muted">
+                Анализ станет доступен после
+                заполнения матрицы и появления
+                результата.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
 <div
     class="modal fade"
     id="aiCriteriaModal"
@@ -2128,6 +2215,226 @@ document.addEventListener(
                     status.textContent =
                         "Не удалось подготовить "
                         + "объяснение результата. "
+                        + "Попробуйте ещё раз.";
+
+                } finally {
+                    button.disabled = false;
+                }
+            }
+        );
+    }
+);
+</script>
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        const button =
+            document.getElementById(
+                "ai-decision-risks-button"
+            );
+
+        if (!button) {
+            return;
+        }
+
+        const intro =
+            document.getElementById(
+                "ai-decision-risks-intro"
+            );
+
+        const status =
+            document.getElementById(
+                "ai-decision-risks-status"
+            );
+
+        const result =
+            document.getElementById(
+                "ai-decision-risks-result"
+            );
+
+        const list =
+            document.getElementById(
+                "ai-decision-risks-list"
+            );
+
+        const preliminary =
+            document.getElementById(
+                "ai-decision-risks-preliminary"
+            );
+
+        button.addEventListener(
+            "click",
+            async () => {
+                button.disabled = true;
+
+                result.classList.add(
+                    "d-none"
+                );
+
+                intro.classList.add(
+                    "d-none"
+                );
+
+                status.classList.remove(
+                    "d-none"
+                );
+
+                status.textContent =
+                    "ИИ анализирует риски… "
+                    + "Обычно это занимает "
+                    + "15–30 секунд.";
+
+                try {
+                    const response =
+                        await fetch(
+                            "/projects/{{ project.id }}/ai/decision-risks",
+                            {
+                                method: "POST",
+                            }
+                        );
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        !response.ok
+                        || data.status !== "ok"
+                    ) {
+                        status.textContent =
+                            data.message
+                            || "Не удалось выполнить анализ.";
+
+                        return;
+                    }
+
+                    list.innerHTML = "";
+
+                    data.items.forEach(
+                        item => {
+                            const container =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            container.className =
+                                "border rounded p-3";
+
+                            const header =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            header.className =
+                                "d-flex flex-wrap "
+                                + "align-items-center "
+                                + "gap-2 mb-2";
+
+                            const title =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            title.className =
+                                "fw-semibold";
+
+                            title.textContent =
+                                item.title;
+
+                            const badge =
+                                document.createElement(
+                                    "span"
+                                );
+
+                            if (
+                                item.type
+                                === "matrix"
+                            ) {
+                                badge.className =
+                                    "badge "
+                                    + "text-bg-secondary";
+
+                                badge.textContent =
+                                    "Следует из матрицы";
+
+                            } else {
+                                badge.className =
+                                    "badge "
+                                    + "text-bg-light "
+                                    + "border text-dark";
+
+                                badge.textContent =
+                                    "Гипотеза ИИ";
+                            }
+
+                            header.appendChild(
+                                title
+                            );
+
+                            header.appendChild(
+                                badge
+                            );
+
+                            const risk =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            risk.className =
+                                "small mb-2";
+
+                            risk.textContent =
+                                item.risk;
+
+                            const check =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            check.className =
+                                "small text-muted";
+
+                            check.textContent =
+                                "Что проверить: "
+                                + item.check;
+
+                            container.appendChild(
+                                header
+                            );
+
+                            container.appendChild(
+                                risk
+                            );
+
+                            container.appendChild(
+                                check
+                            );
+
+                            list.appendChild(
+                                container
+                            );
+                        }
+                    );
+
+                    preliminary
+                        .classList.toggle(
+                            "d-none",
+                            !data.preliminary
+                        );
+
+                    status.classList.add(
+                        "d-none"
+                    );
+
+                    result.classList.remove(
+                        "d-none"
+                    );
+
+                } catch (error) {
+                    status.textContent =
+                        "Не удалось выполнить "
+                        + "анализ рисков. "
                         + "Попробуйте ещё раз.";
 
                 } finally {
