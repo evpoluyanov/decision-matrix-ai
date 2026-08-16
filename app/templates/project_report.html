@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+
+{% block title %}
+Отчёт — {{ project.name }}
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="d-flex flex-wrap
+           justify-content-between
+           align-items-start
+           gap-3 mb-4"
+>
+    <div>
+        <div class="small text-muted mb-1">
+            Итоговый отчёт
+        </div>
+
+        <h1 class="h3 mb-1">
+            {{ project.name }}
+        </h1>
+
+        {% if project.description %}
+            <div class="text-secondary">
+                {{ project.description }}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="d-flex gap-2">
+
+        <a
+            href="/projects/{{ project.id }}"
+            class="btn btn-outline-secondary btn-sm"
+        >
+            ← К проекту
+        </a>
+
+        <button
+            type="button"
+            class="btn btn-outline-primary btn-sm"
+            onclick="window.print()"
+        >
+            Печать
+        </button>
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">
+            Состояние модели
+        </h2>
+
+        <div class="d-flex flex-wrap gap-2">
+
+            <span class="badge text-bg-dark">
+                Подтверждено:
+                {{ score_summary.confirmed }}
+                из
+                {{ score_summary.total }}
+            </span>
+
+            {% if score_summary.ai_only > 0 %}
+                <span class="badge text-bg-secondary">
+                    Предложения ИИ:
+                    {{ score_summary.ai_only }}
+                </span>
+            {% endif %}
+
+            {% if score_summary.empty > 0 %}
+                <span class="badge text-bg-light border text-dark">
+                    Не заполнено:
+                    {{ score_summary.empty }}
+                </span>
+            {% endif %}
+
+        </div>
+
+        {% if score_summary.has_unconfirmed_ai %}
+            <div class="alert alert-warning py-2 mt-3 mb-0">
+                Результат предварительный:
+                используются неподтверждённые оценки ИИ.
+            </div>
+
+        {% elif score_summary.empty > 0 %}
+            <div class="alert alert-light border py-2 mt-3 mb-0">
+                Матрица заполнена не полностью.
+            </div>
+
+        {% elif score_summary.is_fully_confirmed %}
+            <div class="alert alert-success py-2 mt-3 mb-0">
+                Все оценки матрицы подтверждены.
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">
+            Альтернативы
+        </h2>
+
+        {% if alternatives %}
+
+            <ol class="mb-0">
+                {% for alternative in alternatives %}
+                    <li class="mb-1">
+                        {{ alternative.name }}
+                    </li>
+                {% endfor %}
+            </ol>
+
+        {% else %}
+
+            <div class="text-muted">
+                Альтернативы не добавлены.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">
+            Критерии
+        </h2>
+
+        {% if criteria %}
+
+            <div class="table-responsive">
+
+                <table class="table table-sm align-middle mb-0">
+
+                    <thead>
+                        <tr>
+                            <th>
+                                Критерий
+                            </th>
+
+                            <th class="text-end">
+                                Вес
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for criterion in criteria %}
+                            <tr>
+                                <td>
+                                    {{ criterion.name }}
+                                </td>
+
+                                <td class="text-end">
+                                    {{
+                                        (criterion.weight * 100)
+                                        | round(1)
+                                    }}%
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="text-muted">
+                Критерии не добавлены.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">
+            Матрица оценок
+        </h2>
+
+        {% if alternatives and criteria %}
+
+            <div class="table-responsive">
+
+                <table
+                    class="table table-bordered
+                           table-sm align-middle mb-0"
+                >
+
+                    <thead>
+                        <tr>
+                            <th>
+                                Альтернатива
+                            </th>
+
+                            {% for criterion in criteria %}
+                                <th class="text-center">
+                                    {{ criterion.name }}
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for alternative in alternatives %}
+
+                            <tr>
+
+                                <th>
+                                    {{ alternative.name }}
+                                </th>
+
+                                {% for criterion in criteria %}
+
+                                    {% set score = scores.get(
+                                        (
+                                            alternative.id,
+                                            criterion.id
+                                        )
+                                    ) %}
+
+                                    <td class="text-center">
+
+                                        {% if score %}
+
+                                            {% if score.value is not none %}
+
+                                                {{ score.value }}
+
+                                            {% elif score.ai_value is not none %}
+
+                                                <span class="text-secondary">
+                                                    {{ score.ai_value }}
+                                                </span>
+
+                                            {% else %}
+
+                                                —
+
+                                            {% endif %}
+
+                                        {% else %}
+
+                                            —
+
+                                        {% endif %}
+
+                                    </td>
+
+                                {% endfor %}
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <div class="small text-muted mt-2">
+                Серым показаны предложения ИИ,
+                которые ещё не подтверждены.
+            </div>
+
+        {% else %}
+
+            <div class="text-muted">
+                Матрица пока не сформирована.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">
+            Итоговый рейтинг
+        </h2>
+
+        {% if results %}
+
+            <div class="table-responsive">
+
+                <table class="table table-sm align-middle mb-0">
+
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">
+                                Место
+                            </th>
+
+                            <th>
+                                Альтернатива
+                            </th>
+
+                            <th class="text-end">
+                                Балл
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for result in results %}
+
+                            <tr
+                                {% if loop.first
+                                   and score_summary.is_fully_confirmed %}
+                                    class="table-success"
+                                {% endif %}
+                            >
+
+                                <td>
+                                    {{ loop.index }}
+                                </td>
+
+                                <td>
+                                    {{ result.alternative.name }}
+
+                                    {% if loop.first %}
+
+                                        {% if score_summary.is_fully_confirmed %}
+                                            <span
+                                                class="badge
+                                                       text-bg-success
+                                                       ms-2"
+                                            >
+                                                Лучший результат
+                                            </span>
+
+                                        {% else %}
+                                            <span
+                                                class="badge
+                                                       text-bg-secondary
+                                                       ms-2"
+                                            >
+                                                Предварительно лучший
+                                            </span>
+                                        {% endif %}
+
+                                    {% endif %}
+                                </td>
+
+                                <td class="text-end">
+                                    {{ result.total }}
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="text-muted">
+                Результат ещё не рассчитан.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">
+            Риски модели
+        </h2>
+
+        {% if risk_analysis.has_risks %}
+
+            <div class="d-flex flex-column gap-2">
+
+                {% for risk in risk_analysis.risks %}
+
+                    <div class="border rounded p-3">
+
+                        <div class="fw-semibold">
+                            {{ risk.title }}
+                        </div>
+
+                        <div class="small text-secondary">
+                            {{ risk.message }}
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="text-muted">
+                Явных структурных рисков
+                модели не обнаружено.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <h2 class="h5 mb-2">
+            Вывод
+        </h2>
+
+        {% if results %}
+
+            <p class="mb-0">
+
+                По текущей модели наилучший результат
+                показывает
+
+                <strong>
+                    {{ results[0].alternative.name }}
+                </strong>
+
+                с итоговым баллом
+
+                <strong>
+                    {{ results[0].total }}
+                </strong>.
+
+                {% if score_summary.has_unconfirmed_ai %}
+                    Результат является предварительным,
+                    поскольку часть оценок ИИ
+                    ещё не подтверждена.
+                {% elif score_summary.empty > 0 %}
+                    Матрица заполнена не полностью,
+                    поэтому результат требует уточнения.
+                {% else %}
+                    Все используемые оценки подтверждены.
+                {% endif %}
+
+            </p>
+
+        {% else %}
+
+            <div class="text-muted">
+                Для формирования вывода
+                необходимо заполнить матрицу.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}

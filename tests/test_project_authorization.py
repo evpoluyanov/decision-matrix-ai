@@ -2880,3 +2880,243 @@ def test_ai_decision_risks_require_description(
         data["status"]
         == "insufficient_context"
     )
+
+def test_project_report_requires_owner(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    foreign_project_id = (
+        test_environment["project_2_id"]
+    )
+
+    response = client.get(
+        (
+            f"/projects/{foreign_project_id}"
+            "/report"
+        ),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 404
+
+
+def test_project_report_contains_project_data(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Тестовое описание проекта."
+    )
+
+    alternative = db.get(
+        models.Alternative,
+        test_environment[
+            "alternative_1_id"
+        ],
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 1.0
+
+    db.add(
+        models.Score(
+            alternative_id=alternative.id,
+            criterion_id=criterion.id,
+            value=8.0,
+            ai_value=None,
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    response = client.get(
+        f"/projects/{project_id}/report"
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        "Проект пользователя 1"
+        in response.text
+    )
+
+    assert (
+        "Тестовое описание проекта."
+        in response.text
+    )
+
+    assert (
+        "Альтернатива пользователя 1"
+        in response.text
+    )
+
+    assert (
+        "Критерий пользователя 1"
+        in response.text
+    )
+
+    assert "8.0" in response.text
+
+    assert (
+        "Лучший результат"
+        in response.text
+    )
+
+
+def test_project_report_marks_ai_score_as_preliminary(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    alternative = db.get(
+        models.Alternative,
+        test_environment[
+            "alternative_1_id"
+        ],
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 1.0
+
+    db.add(
+        models.Score(
+            alternative_id=alternative.id,
+            criterion_id=criterion.id,
+            value=None,
+            ai_value=7.0,
+            ai_explanation="Предложение ИИ.",
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    response = client.get(
+        f"/projects/{project_id}/report"
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        "Результат предварительный"
+        in response.text
+    )
+
+    assert (
+        "Предварительно лучший"
+        in response.text
+    )
+
+
+def test_project_report_shows_structural_risks(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 0.5
+
+    db.add(
+        models.Criterion(
+            name="Дополнительный критерий",
+            weight=0.3,
+            project_id=project_id,
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    response = client.get(
+        f"/projects/{project_id}/report"
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        "Сумма весов меньше 100%"
+        in response.text
+    )
+
+    assert (
+        "Высокая зависимость"
+        in response.text
+    )

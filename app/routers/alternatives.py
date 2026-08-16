@@ -95,6 +95,86 @@ def project_detail(
     )
 
 
+@router.get(
+    "/projects/{project_id}/report",
+    response_class=HTMLResponse,
+)
+def project_report(
+    project_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    project: models.Project = Depends(
+        require_project_owner
+    ),
+):
+    alternatives = (
+        alternative_service
+        .get_alternatives(
+            db,
+            project.id,
+        )
+    )
+
+    criteria = (
+        criterion_service
+        .get_criteria(
+            db,
+            project.id,
+        )
+    )
+
+    scores = (
+        score_service
+        .get_scores(
+            db,
+            project.id,
+        )
+    )
+
+    score_summary = (
+        score_service
+        .get_score_summary(
+            scores=scores,
+            alternatives_count=len(
+                alternatives
+            ),
+            criteria_count=len(
+                criteria
+            ),
+        )
+    )
+
+    results = (
+        calculation_service
+        .calculate_results(
+            db=db,
+            project_id=project.id,
+        )
+    )
+
+    risk_analysis = (
+        risk_service
+        .analyze_decision_risks(
+            criteria=criteria,
+            results=results,
+            score_summary=score_summary,
+        )
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="project_report.html",
+        context={
+            "project": project,
+            "alternatives": alternatives,
+            "criteria": criteria,
+            "scores": scores,
+            "score_summary": score_summary,
+            "results": results,
+            "risk_analysis": risk_analysis,
+        },
+    )
+
 @router.post(
     "/projects/{project_id}/edit",
 )

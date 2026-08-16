@@ -10,12 +10,21 @@
         </p>
 
         <a
+            href="/projects/{{ project.id }}/report"
+            class="btn btn-outline-secondary btn-sm"
+        >
+            Отчёт
+        </a>
+
+        <a
             href="/projects"
             class="btn btn-outline-secondary btn-sm"
         >
             Назад к проектам
         </a>
     </div>
+
+
 
     <form
         action="/projects/{{ project.id }}/edit"
