@@ -96,3 +96,29 @@ def authenticate_user(
         return None
 
     return user
+
+def change_password(
+    db: Session,
+    user: models.User,
+    current_password: str,
+    new_password: str,
+) -> bool:
+    """
+    Меняет пароль только после проверки
+    действующего пароля пользователя.
+    """
+
+    if not verify_password(
+        current_password,
+        user.password_hash,
+    ):
+        return False
+
+    user.password_hash = hash_password(
+        new_password
+    )
+
+    db.commit()
+    db.refresh(user)
+
+    return True

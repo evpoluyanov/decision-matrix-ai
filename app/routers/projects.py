@@ -22,11 +22,26 @@ templates = Jinja2Templates(
 )
 def index(
     request: Request,
+    db: Session = Depends(get_db),
 ):
+    user = None
+
+    user_id = request.session.get(
+        "user_id"
+    )
+
+    if isinstance(user_id, int):
+        user = db.get(
+            models.User,
+            user_id,
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={},
+        context={
+            "user": user,
+        },
     )
 
 

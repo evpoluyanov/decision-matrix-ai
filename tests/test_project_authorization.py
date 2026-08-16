@@ -2294,3 +2294,170 @@ def test_risk_analysis_can_return_no_risks():
     assert analysis["risks"] == []
     assert analysis["count"] == 0
     assert analysis["has_risks"] is False
+
+
+def test_guest_home_does_not_show_project_form(
+    client,
+):
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+    assert "Decision Matrix AI" in response.text
+    assert "Попробовать" in response.text
+    assert 'href="/register"' in response.text
+    assert 'href="/login"' in response.text
+
+    assert 'name="project_name"' not in response.text
+    assert (
+        'name="project_description"'
+        not in response.text
+    )
+
+
+def test_authenticated_home_shows_project_form(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+    assert (
+        'name="project_name"'
+        in response.text
+    )
+
+    assert (
+        'name="project_description"'
+        in response.text
+    )
+
+
+def test_change_password_requires_correct_current_password(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    response = client.post(
+        "/account/password",
+        data={
+            "current_password":
+                "wrong-password",
+            "new_password":
+                "new-12345678",
+            "new_password_confirmation":
+                "new-12345678",
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        "Текущий пароль указан неверно."
+        in response.text
+    )
+
+
+def test_change_password_rejects_mismatched_confirmation(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    response = client.post(
+        "/account/password",
+        data={
+            "current_password":
+                TEST_PASSWORD,
+            "new_password":
+                "new-12345678",
+            "new_password_confirmation":
+                "different-password",
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        "не совпадают"
+        in response.text
+    )
+
+
+def test_user_can_change_password(
+    client,
+    test_environment,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    response = client.post(
+        "/account/password",
+        data={
+            "current_password":
+                TEST_PASSWORD,
+            "new_password":
+                "new-12345678",
+            "new_password_confirmation":
+                "new-12345678",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        "Пароль успешно изменён."
+        in response.text
+    )
+
+    client.post(
+        "/logout",
+        follow_redirects=False,
+    )
+
+    old_password_response = client.post(
+        "/login",
+        data={
+            "email":
+                "user1@test.com",
+            "password":
+                TEST_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+
+    assert (
+        old_password_response.status_code
+        == 401
+    )
+
+    new_password_response = client.post(
+        "/login",
+        data={
+            "email":
+                "user1@test.com",
+            "password":
+                "new-12345678",
+        },
+        follow_redirects=False,
+    )
+
+    assert (
+        new_password_response.status_code
+        == 303
+    )

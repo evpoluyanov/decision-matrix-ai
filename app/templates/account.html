@@ -9,37 +9,152 @@
 <div class="row justify-content-center">
     <div class="col-12 col-lg-8">
 
-        <div class="card shadow-sm">
+        <div class="card shadow-sm mb-4">
+
             <div class="card-body p-4">
 
                 <h1 class="h3 mb-3">
                     Личный кабинет
                 </h1>
 
-                <p>
-                    Вы вошли как:
-                    <strong>{{ user.email }}</strong>
-                </p>
+                <div class="mb-4">
+                    <div
+                        class="small text-muted"
+                    >
+                        Email
+                    </div>
 
-                <p class="text-secondary">
-                    На следующем этапе здесь появятся
-                    личные проекты пользователя.
-                </p>
+                    <div>
+                        {{ user.email }}
+                    </div>
+                </div>
+
+                <a
+                    href="/projects"
+                    class="btn btn-outline-primary btn-sm"
+                >
+                    Мои проекты
+                </a>
+
+            </div>
+        </div>
+
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-body p-4">
+
+                <h2 class="h5 mb-3">
+                    Смена пароля
+                </h2>
+
+                {% if password_success %}
+                    <div
+                        class="alert alert-success py-2"
+                    >
+                        Пароль успешно изменён.
+                    </div>
+                {% endif %}
+
+                {% if password_errors %}
+                    <div
+                        class="alert alert-danger py-2"
+                    >
+                        {% for error in password_errors %}
+                            <div>
+                                {{ error }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
                 <form
                     method="post"
-                    action="/logout"
+                    action="/account/password"
                 >
+
+                    <div class="mb-3">
+                        <label
+                            for="current-password"
+                            class="form-label"
+                        >
+                            Текущий пароль
+                        </label>
+
+                        <input
+                            id="current-password"
+                            type="password"
+                            name="current_password"
+                            class="form-control"
+                            autocomplete="current-password"
+                            required
+                        >
+                    </div>
+
+                    <div class="mb-3">
+                        <label
+                            for="new-password"
+                            class="form-label"
+                        >
+                            Новый пароль
+                        </label>
+
+                        <input
+                            id="new-password"
+                            type="password"
+                            name="new_password"
+                            class="form-control"
+                            minlength="8"
+                            maxlength="128"
+                            autocomplete="new-password"
+                            required
+                        >
+                    </div>
+
+                    <div class="mb-3">
+                        <label
+                            for="new-password-confirmation"
+                            class="form-label"
+                        >
+                            Повторите новый пароль
+                        </label>
+
+                        <input
+                            id="new-password-confirmation"
+                            type="password"
+                            name="new_password_confirmation"
+                            class="form-control"
+                            minlength="8"
+                            maxlength="128"
+                            autocomplete="new-password"
+                            required
+                        >
+                    </div>
+
                     <button
                         type="submit"
-                        class="btn btn-outline-danger"
+                        class="btn btn-primary btn-sm"
                     >
-                        Выйти
+                        Изменить пароль
                     </button>
+
                 </form>
 
             </div>
         </div>
+
+
+        <form
+            method="post"
+            action="/logout"
+        >
+            <button
+                type="submit"
+                class="btn btn-outline-danger"
+            >
+                Выйти
+            </button>
+        </form>
 
     </div>
 </div>

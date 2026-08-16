@@ -1,83 +1,135 @@
 {% extends "base.html" %}
 
 {% block title %}
-Главная — Decision Matrix AI
+Decision Matrix AI
 {% endblock %}
 
 {% block content %}
 
-<div class="card shadow-sm">
+{% if user %}
 
-    <div class="card-body">
+    <div class="card shadow-sm">
 
-        <h2 class="card-title">
-            Создание проекта
-        </h2>
+        <div class="card-body">
 
-        <p class="text-muted">
-            Создайте проект, в рамках которого будут сравниваться варианты по выбранным критериям.
-        </p>
+            <h1 class="h4 mb-2">
+                Новый проект
+            </h1>
 
-        <form
-            action="/projects"
-            method="post"
-        >
-            <div class="mb-3">
-                <label
-                    for="project-name"
-                    class="form-label"
-                >
-                    Название проекта
-                </label>
+            <p class="text-muted">
+                Опишите решение, которое нужно принять.
+                Decision Matrix AI поможет структурировать
+                альтернативы, критерии, оценки и результат.
+            </p>
 
-                <input
-                    id="project-name"
-                    type="text"
-                    name="project_name"
-                    class="form-control"
-                    placeholder="Например: выбор подрядчика"
-                    required
-                >
-            </div>
-
-            <div class="mb-3">
-                <label
-                    for="project-description"
-                    class="form-label"
-                >
-                    Описание проекта для ИИ
-                </label>
-
-                <textarea
-                    id="project-description"
-                    name="project_description"
-                    class="form-control"
-                    rows="3"
-                    placeholder="Опишите задачу, условия, ограничения и то, что важно учесть при принятии решения"
-                ></textarea>
-
-                <div class="form-text">
-                    Необязательно. Чем подробнее описание,
-                    тем точнее будут будущие предложения ИИ.
-                </div>
-            </div>
-            
-            <button
-                type="submit"
-                class="btn btn-primary"
+            <form
+                action="/projects"
+                method="post"
             >
-                Создать проект
-            </button>
-        </form>
+                <div class="mb-3">
+                    <label
+                        for="project-name"
+                        class="form-label"
+                    >
+                        Название проекта
+                    </label>
 
-        <a
-            href="/projects"
-            class="btn btn-outline-secondary mt-3"
-        >
-            Перейти к проектам
-        </a>
+                    <input
+                        id="project-name"
+                        type="text"
+                        name="project_name"
+                        class="form-control"
+                        placeholder="Например: выбор подрядчика"
+                        required
+                    >
+                </div>
+
+                <div class="mb-3">
+                    <label
+                        for="project-description"
+                        class="form-label"
+                    >
+                        Описание проекта для ИИ
+                    </label>
+
+                    <textarea
+                        id="project-description"
+                        name="project_description"
+                        class="form-control"
+                        rows="3"
+                        placeholder="Опишите задачу, условия, ограничения и то, что важно учесть при принятии решения"
+                    ></textarea>
+
+                    <div class="form-text">
+                        Чем подробнее описание,
+                        тем точнее будут предложения ИИ.
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Создать проект
+                </button>
+            </form>
+
+            <a
+                href="/projects"
+                class="btn btn-outline-secondary mt-3"
+            >
+                Мои проекты
+            </a>
+
+        </div>
     </div>
 
-</div>
+{% else %}
+
+    <div
+        class="row justify-content-center
+               py-4 py-lg-5"
+    >
+        <div class="col-12 col-lg-8 text-center">
+
+            <h1 class="display-6 fw-semibold mb-3">
+                Decision Matrix AI
+            </h1>
+
+            <p class="lead text-secondary mb-4">
+                Помогает принимать сложные решения:
+                структурирует альтернативы и критерии,
+                предлагает оценки с помощью ИИ
+                и объясняет итоговый результат.
+            </p>
+
+            <div
+                class="d-flex flex-wrap
+                       justify-content-center gap-2"
+            >
+                <a
+                    href="/register"
+                    class="btn btn-primary"
+                >
+                    Попробовать
+                </a>
+
+                <a
+                    href="/login"
+                    class="btn btn-outline-secondary"
+                >
+                    Войти
+                </a>
+            </div>
+
+            <div class="small text-muted mt-3">
+                Создание проекта станет доступно
+                после регистрации.
+            </div>
+
+        </div>
+    </div>
+
+{% endif %}
 
 {% endblock %}

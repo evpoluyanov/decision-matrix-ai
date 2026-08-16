@@ -248,9 +248,124 @@ def account(
         name="account.html",
         context={
             "user": user,
+            "password_errors": [],
+            "password_success": False,
         },
     )
 
+
+@router.post(
+    "/account/password",
+    response_class=HTMLResponse,
+)
+def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    new_password_confirmation: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user_id = request.session.get(
+        "user_id"
+    )
+
+    if not isinstance(
+        user_id,
+        int,
+    ):
+        request.session.clear()
+
+        return RedirectResponse(
+            url="/login",
+            status_code=303,
+        )
+
+    user = user_service.get_user_by_id(
+        db=db,
+        user_id=user_id,
+    )
+
+    if user is None:
+        request.session.clear()
+
+        return RedirectResponse(
+            url="/login",
+            status_code=303,
+        )
+
+    errors = []
+
+    if (
+        len(new_password)
+        < MIN_PASSWORD_LENGTH
+    ):
+        errors.append(
+            "Новый пароль должен содержать "
+            f"не менее {MIN_PASSWORD_LENGTH} символов."
+        )
+
+    if (
+        len(new_password)
+        > MAX_PASSWORD_LENGTH
+    ):
+        errors.append(
+            "Новый пароль должен содержать "
+            f"не более {MAX_PASSWORD_LENGTH} символов."
+        )
+
+    if (
+        new_password
+        != new_password_confirmation
+    ):
+        errors.append(
+            "Новый пароль и его подтверждение "
+            "не совпадают."
+        )
+
+    if errors:
+        return templates.TemplateResponse(
+            request=request,
+            name="account.html",
+            context={
+                "user": user,
+                "password_errors": errors,
+                "password_success": False,
+            },
+            status_code=400,
+        )
+
+    changed = (
+        user_service.change_password(
+            db=db,
+            user=user,
+            current_password=current_password,
+            new_password=new_password,
+        )
+    )
+
+    if not changed:
+        return templates.TemplateResponse(
+            request=request,
+            name="account.html",
+            context={
+                "user": user,
+                "password_errors": [
+                    "Текущий пароль указан неверно."
+                ],
+                "password_success": False,
+            },
+            status_code=400,
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="account.html",
+        context={
+            "user": user,
+            "password_errors": [],
+            "password_success": True,
+        },
+    )
 
 @router.post(
     "/logout",
