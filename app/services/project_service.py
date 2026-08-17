@@ -3,6 +3,10 @@ from sqlalchemy.orm import Session
 
 from app import models
 
+from app.services.project_ai_analysis_service import (
+    invalidate_analysis,
+)
+
 
 def get_project_for_owner(
     db: Session,
@@ -88,8 +92,21 @@ def update_project(
     if description == "":
         description = None
 
-    project.name = project_name.strip()
+    normalized_name = project_name.strip()
+
+    changed = (
+        project.name != normalized_name
+        or project.description != description
+    )
+
+    project.name = normalized_name
     project.description = description
+
+    if changed:
+        invalidate_analysis(
+            db=db,
+            project_id=project.id,
+        )
 
     db.commit()
     db.refresh(project)

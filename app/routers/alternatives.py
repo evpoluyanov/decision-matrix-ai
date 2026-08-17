@@ -16,6 +16,7 @@ from app.services import (
     project_service,
     score_service,
     risk_service,
+    project_ai_analysis_service,
 )
 
 
@@ -161,6 +162,21 @@ def project_report(
         )
     )
 
+    saved_ai_analysis = (
+        project_ai_analysis_service
+        .get_analysis(
+            db=db,
+            project_id=project.id,
+        )
+    )
+
+    ai_report = (
+        project_ai_analysis_service
+        .to_report_data(
+            saved_ai_analysis
+        )
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="project_report.html",
@@ -172,6 +188,7 @@ def project_report(
             "score_summary": score_summary,
             "results": results,
             "risk_analysis": risk_analysis,
+            "ai_report": ai_report,
         },
     )
 

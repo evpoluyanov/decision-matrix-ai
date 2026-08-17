@@ -1,7 +1,24 @@
 from sqlalchemy.orm import Session
 
-from app.models import Score
+from app.models import Alternative, Score
 
+from app.services.project_ai_analysis_service import (
+    invalidate_analysis,
+)
+
+def _get_project_id_for_alternative(
+    db: Session,
+    alternative_id: int,
+) -> int | None:
+    alternative = db.get(
+        Alternative,
+        alternative_id,
+    )
+
+    if alternative is None:
+        return None
+
+    return alternative.project_id
 
 def get_score(
     db: Session,
@@ -39,6 +56,18 @@ def set_score(
         criterion_id=criterion_id,
     )
 
+    project_id = (
+        _get_project_id_for_alternative(
+            db=db,
+            alternative_id=alternative_id,
+        )
+    )
+
+    changed = (
+        score is None
+        or score.value != value
+    )
+
     if score is None:
         score = Score(
             alternative_id=alternative_id,
@@ -50,6 +79,15 @@ def set_score(
 
     else:
         score.value = value
+
+    if (
+        changed
+        and project_id is not None
+    ):
+        invalidate_analysis(
+            db=db,
+            project_id=project_id,
+        )
 
     db.commit()
     db.refresh(score)
@@ -77,6 +115,24 @@ def set_ai_score(
         criterion_id=criterion_id,
     )
 
+    normalized_explanation = (
+        ai_explanation.strip()
+    )
+
+    project_id = (
+        _get_project_id_for_alternative(
+            db=db,
+            alternative_id=alternative_id,
+        )
+    )
+
+    changed = (
+        score is None
+        or score.ai_value != ai_value
+        or score.ai_explanation
+        != normalized_explanation
+    )
+
     if score is None:
         score = Score(
             alternative_id=alternative_id,
@@ -91,7 +147,16 @@ def set_ai_score(
     else:
         score.ai_value = ai_value
         score.ai_explanation = (
-            ai_explanation.strip()
+            normalized_explanation
+        )
+
+    if (
+        changed
+        and project_id is not None
+    ):
+        invalidate_analysis(
+            db=db,
+            project_id=project_id,
         )
 
     db.commit()
@@ -109,6 +174,8 @@ def set_ai_scores(
     """
 
     updated = 0
+
+    changed_project_ids: set[int] = set()
 
     for suggestion in suggestions:
         score = get_score(
@@ -134,17 +201,52 @@ def set_ai_scores(
 
             db.add(score)
 
-        score.ai_value = (
-            suggestion["ai_value"]
-        )
-
-        score.ai_explanation = (
+        normalized_explanation = (
             suggestion[
                 "ai_explanation"
             ].strip()
         )
 
+        changed = (
+            score is None
+            or score.ai_value
+            != suggestion["ai_value"]
+            or score.ai_explanation
+            != normalized_explanation
+        )
+
+        if changed:
+            project_id = (
+                _get_project_id_for_alternative(
+                    db=db,
+                    alternative_id=(
+                        suggestion[
+                            "alternative_id"
+                        ]
+                    ),
+                )
+            )
+
+            if project_id is not None:
+                changed_project_ids.add(
+                    project_id
+                )
+
+        score.ai_value = (
+            suggestion["ai_value"]
+        )
+
+        score.ai_explanation = (
+            normalized_explanation
+        )
+
         updated += 1
+
+    for project_id in changed_project_ids:
+        invalidate_analysis(
+            db=db,
+            project_id=project_id,
+        )
 
     db.commit()
 

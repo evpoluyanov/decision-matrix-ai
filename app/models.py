@@ -76,6 +76,81 @@ class Project(Base):
         cascade="all, delete-orphan",
     )
 
+    ai_analysis: Mapped["ProjectAIAnalysis | None"] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class ProjectAIAnalysis(Base):
+    __tablename__ = "project_ai_analyses"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True
+    )
+
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    result_summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    result_factors_json: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    result_strengths_json: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    result_weaknesses_json: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    result_competitor: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    result_caveat: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    result_preliminary: Mapped[bool] = mapped_column(
+        default=False,
+        nullable=False,
+    )
+
+    decision_risks_json: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    decision_risks_preliminary: Mapped[bool] = mapped_column(
+        default=False,
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    project: Mapped[Project] = relationship(
+        back_populates="ai_analysis",
+    )
 
 class Alternative(Base):
     __tablename__ = "alternatives"

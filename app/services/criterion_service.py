@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app import models
 
+from app.services.project_ai_analysis_service import (
+    invalidate_analysis,
+)
 
 def get_criteria(
     db: Session,
@@ -74,6 +77,12 @@ def create_criterion(
     )
 
     db.add(criterion)
+
+    invalidate_analysis(
+        db=db,
+        project_id=project_id,
+    )
+
     db.commit()
     db.refresh(criterion)
 
@@ -194,6 +203,12 @@ def create_ai_criteria(
         db.add(criterion)
         created.append(criterion)
 
+    if created:
+        invalidate_analysis(
+            db=db,
+            project_id=project_id,
+        )
+
     db.commit()
 
     for criterion in created:
@@ -214,7 +229,15 @@ def delete_criterion(
     if criterion is None:
         return
 
+    project_id = criterion.project_id
+
     db.delete(criterion)
+
+    invalidate_analysis(
+        db=db,
+        project_id=project_id,
+    )
+
     db.commit()
 
 
@@ -258,8 +281,21 @@ def update_criterion(
         new_weight=new_weight,
     )
 
-    criterion.name = name.strip()
+    normalized_name = name.strip()
+
+    changed = (
+        criterion.name != normalized_name
+        or criterion.weight != new_weight
+    )
+
+    criterion.name = normalized_name
     criterion.weight = new_weight
+
+    if changed:
+        invalidate_analysis(
+            db=db,
+            project_id=criterion.project_id,
+        )
 
     db.commit()
     db.refresh(criterion)

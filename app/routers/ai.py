@@ -22,6 +22,7 @@ from app.services import (
     ai_result_service,
     calculation_service,
     ai_decision_risk_service,
+    project_ai_analysis_service,
 )
 
 
@@ -413,6 +414,16 @@ def explain_result(
             },
         )
 
+    if result.get("status") == "ok":
+        (
+            project_ai_analysis_service
+            .save_result_explanation(
+                db=db,
+                project_id=project.id,
+                result=result,
+            )
+        )
+
     return result
 
 @router.post(
@@ -493,6 +504,16 @@ def analyze_decision_risks(
                     "Попробуйте ещё раз."
                 ),
             },
+        )
+
+    if result.get("status") == "ok":
+        (
+            project_ai_analysis_service
+            .save_decision_risks(
+                db=db,
+                project_id=project.id,
+                result=result,
+            )
         )
 
     return result

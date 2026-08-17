@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app import models
 
+from app.services.project_ai_analysis_service import (
+    invalidate_analysis,
+)
 
 def get_alternatives(
     db: Session,
@@ -36,6 +39,10 @@ def create_alternative(
     )
 
     db.add(alternative)
+    invalidate_analysis(
+        db=db,
+        project_id=project_id,
+    )
     db.commit()
     db.refresh(alternative)
 
@@ -94,6 +101,12 @@ def create_ai_alternatives(
             alternative
         )
 
+    if created:
+        invalidate_analysis(
+            db=db,
+            project_id=project_id,
+        )
+
     db.commit()
 
     for alternative in created:
@@ -114,7 +127,15 @@ def delete_alternative(
     if alternative is None:
         return
 
+    project_id = alternative.project_id
+
     db.delete(alternative)
+
+    invalidate_analysis(
+        db=db,
+        project_id=project_id,
+    )
+
     db.commit()
 
 
@@ -131,7 +152,20 @@ def update_alternative(
     if alternative is None:
         return None
 
-    alternative.name = name.strip()
+    normalized_name = name.strip()
+
+    changed = (
+        alternative.name
+        != normalized_name
+    )
+
+    alternative.name = normalized_name
+
+    if changed:
+        invalidate_analysis(
+            db=db,
+            project_id=alternative.project_id,
+        )
 
     db.commit()
     db.refresh(alternative)

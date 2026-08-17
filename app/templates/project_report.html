@@ -391,6 +391,86 @@
     </div>
 </div>
 
+{% if ai_report.result %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <div
+            class="d-flex justify-content-between
+                   align-items-center mb-3"
+        >
+            <h2 class="h5 mb-0">
+                Объяснение результата
+            </h2>
+
+            {% if ai_report.result.preliminary %}
+                <span class="badge text-bg-secondary">
+                    Предварительное
+                </span>
+            {% endif %}
+        </div>
+
+        <p>
+            {{ ai_report.result.summary }}
+        </p>
+
+        {% if ai_report.result.factors %}
+            <div class="fw-semibold mb-1">
+                Ключевые факторы
+            </div>
+
+            <ul>
+                {% for item in ai_report.result.factors %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if ai_report.result.strengths %}
+            <div class="fw-semibold mb-1">
+                Сильные стороны
+            </div>
+
+            <ul>
+                {% for item in ai_report.result.strengths %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if ai_report.result.weaknesses %}
+            <div class="fw-semibold mb-1">
+                Слабые стороны
+            </div>
+
+            <ul>
+                {% for item in ai_report.result.weaknesses %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if ai_report.result.competitor %}
+            <div class="fw-semibold mb-1">
+                Ближайший конкурент
+            </div>
+
+            <p>
+                {{ ai_report.result.competitor }}
+            </p>
+        {% endif %}
+
+        {% if ai_report.result.caveat %}
+            <div class="alert alert-light border py-2 mb-0">
+                {{ ai_report.result.caveat }}
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+
+{% endif %}
 
 <div class="card shadow-sm mb-4">
     <div class="card-body">
@@ -433,6 +513,75 @@
     </div>
 </div>
 
+{% if ai_report.decision_risks %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+        <div
+            class="d-flex justify-content-between
+                   align-items-center mb-3"
+        >
+            <h2 class="h5 mb-0">
+                Риски выбранной альтернативы
+            </h2>
+
+            {% if ai_report.decision_risks_preliminary %}
+                <span class="badge text-bg-secondary">
+                    Предварительное
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+
+            {% for risk in ai_report.decision_risks %}
+
+                <div class="border rounded p-3">
+
+                    <div
+                        class="d-flex flex-wrap
+                               align-items-center
+                               gap-2 mb-2"
+                    >
+                        <div class="fw-semibold">
+                            {{ risk.title }}
+                        </div>
+
+                        {% if risk.type == "matrix" %}
+                            <span class="badge text-bg-secondary">
+                                Следует из матрицы
+                            </span>
+                        {% else %}
+                            <span
+                                class="badge
+                                       text-bg-light
+                                       border text-dark"
+                            >
+                                Гипотеза ИИ
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="small mb-2">
+                        {{ risk.risk }}
+                    </div>
+
+                    <div class="small text-muted">
+                        Что проверить:
+                        {{ risk.check }}
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+</div>
+
+{% endif %}
 
 <div class="card shadow-sm mb-4">
     <div class="card-body">

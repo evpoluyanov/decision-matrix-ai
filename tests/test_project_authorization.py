@@ -1,13 +1,8 @@
-import os
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
 import json
 
+from fastapi.testclient import TestClient
+
+from app import models
 from app.llm.schemas import (
     LLMResponse,
     LLMUsage,
@@ -23,163 +18,7 @@ from app.services import (
     ai_decision_risk_service,
 )
 
-os.environ["SESSION_SECRET"] = (
-    "test-session-secret-for-decision-matrix-ai"
-)
-os.environ["SESSION_HTTPS_ONLY"] = "false"
-
-
-from app import models
-from app.database import Base, get_db
-from app.main import app
-from app.security import hash_password
-
-
-TEST_PASSWORD = "test-password-123"
-
-
-@pytest.fixture()
-def test_environment():
-    """
-    Создаёт отдельную SQLite-базу в памяти
-    для каждого теста.
-    """
-    engine = create_engine(
-        "sqlite://",
-        connect_args={
-            "check_same_thread": False,
-        },
-        poolclass=StaticPool,
-    )
-
-    TestingSessionLocal = sessionmaker(
-        bind=engine,
-        autoflush=False,
-        autocommit=False,
-    )
-
-    Base.metadata.create_all(
-        bind=engine,
-    )
-
-    def override_get_db():
-        db = TestingSessionLocal()
-
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[
-        get_db
-    ] = override_get_db
-
-    setup_db = TestingSessionLocal()
-
-    user_1 = models.User(
-        email="user1@test.com",
-        password_hash=hash_password(
-            TEST_PASSWORD
-        ),
-    )
-
-    user_2 = models.User(
-        email="user2@test.com",
-        password_hash=hash_password(
-            TEST_PASSWORD
-        ),
-    )
-
-    setup_db.add_all(
-        [
-            user_1,
-            user_2,
-        ]
-    )
-
-    setup_db.flush()
-
-    project_1 = models.Project(
-        name="Проект пользователя 1",
-        owner_id=user_1.id,
-    )
-
-    project_2 = models.Project(
-        name="Проект пользователя 2",
-        owner_id=user_2.id,
-    )
-
-    setup_db.add_all(
-        [
-            project_1,
-            project_2,
-        ]
-    )
-
-    setup_db.flush()
-
-    alternative_1 = models.Alternative(
-        name="Альтернатива пользователя 1",
-        project_id=project_1.id,
-    )
-
-    alternative_2 = models.Alternative(
-        name="Альтернатива пользователя 2",
-        project_id=project_2.id,
-    )
-
-    criterion_1 = models.Criterion(
-        name="Критерий пользователя 1",
-        weight=1.0,
-        project_id=project_1.id,
-    )
-
-    criterion_2 = models.Criterion(
-        name="Критерий пользователя 2",
-        weight=1.0,
-        project_id=project_2.id,
-    )
-
-    setup_db.add_all(
-        [
-            alternative_1,
-            alternative_2,
-            criterion_1,
-            criterion_2,
-        ]
-    )
-
-    setup_db.commit()
-
-    data = {
-        "TestingSessionLocal": TestingSessionLocal,
-        "user_1_id": user_1.id,
-        "user_2_id": user_2.id,
-        "project_1_id": project_1.id,
-        "project_2_id": project_2.id,
-        "alternative_1_id": alternative_1.id,
-        "alternative_2_id": alternative_2.id,
-        "criterion_1_id": criterion_1.id,
-        "criterion_2_id": criterion_2.id,
-    }
-
-    setup_db.close()
-
-    yield data
-
-    app.dependency_overrides.clear()
-
-    Base.metadata.drop_all(
-        bind=engine,
-    )
-
-    engine.dispose()
-
-
-@pytest.fixture()
-def client(test_environment):
-    with TestClient(app) as test_client:
-        yield test_client
+from conftest import TEST_PASSWORD
 
 
 def login(
@@ -455,6 +294,7 @@ def test_new_project_gets_current_user_as_owner(
     )
 
     db.close()
+
 
 def test_ai_alternatives_require_project_owner(
     client,
@@ -926,7 +766,7 @@ def test_ai_criteria_return_llm_suggestions(
     )
 
     existing_criterion.weight = 0.3
-    
+
     db.commit()
     db.close()
 
@@ -1182,6 +1022,7 @@ def test_edit_criterion_cannot_exceed_total_weight(
     assert criterion.weight == 0.4
 
     db.close()
+
 
 def test_ai_scores_require_project_owner(
     client,
@@ -1572,6 +1413,7 @@ def test_saving_matrix_confirms_ai_value(
 
     db.close()
 
+
 def test_score_summary_counts_matrix_states():
     scores = {
         (1, 1): models.Score(
@@ -1680,6 +1522,7 @@ def test_score_summary_handles_empty_matrix():
     assert summary["confirmed"] == 0
     assert summary["ai_only"] == 0
     assert summary["empty"] == 0
+
     assert (
         summary["confirmed_percent"]
         == 0.0
@@ -1694,6 +1537,7 @@ def test_score_summary_handles_empty_matrix():
         summary["is_fully_confirmed"]
         is False
     )
+
 
 def test_ai_result_explanation_requires_project_owner(
     client,
@@ -2107,6 +1951,7 @@ def test_ai_result_explanation_requires_description(
         == "insufficient_context"
     )
 
+
 def test_risk_analysis_detects_incomplete_weights():
     criteria = [
         models.Criterion(
@@ -2136,6 +1981,7 @@ def test_risk_analysis_detects_incomplete_weights():
     }
 
     assert "weights_incomplete" in codes
+
     assert (
         analysis["total_weight_percent"]
         == 80.0
@@ -2310,6 +2156,7 @@ def test_guest_home_does_not_show_project_form(
     assert 'href="/login"' in response.text
 
     assert 'name="project_name"' not in response.text
+
     assert (
         'name="project_description"'
         not in response.text
@@ -2462,6 +2309,7 @@ def test_user_can_change_password(
         new_password_response.status_code
         == 303
     )
+
 
 def test_ai_decision_risks_require_project_owner(
     client,
@@ -2880,6 +2728,7 @@ def test_ai_decision_risks_require_description(
         data["status"]
         == "insufficient_context"
     )
+
 
 def test_project_report_requires_owner(
     client,
