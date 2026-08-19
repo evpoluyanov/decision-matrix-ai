@@ -122,3 +122,26 @@ def change_password(
     db.refresh(user)
 
     return True
+
+
+def mark_email_as_verified(
+    db: Session,
+    user: models.User,
+) -> bool:
+    """
+    Помечает email пользователя
+    как подтверждённый.
+
+    Возвращает True, если статус изменился.
+    Возвращает False, если email уже был
+    подтверждён ранее.
+    """
+    if user.email_verified:
+        return False
+
+    user.email_verified = True
+
+    db.commit()
+    db.refresh(user)
+
+    return True
