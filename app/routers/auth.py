@@ -1,3 +1,4 @@
+import logging
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -6,8 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import (
+    email_service,
     email_verification_service,
     user_service,
+)
+
+logger = logging.getLogger(
+    __name__
 )
 
 router = APIRouter()
@@ -125,6 +131,32 @@ def register_user(
             status_code=409,
         )
 
+    try:
+        (
+            email_verification_service
+            .send_email_verification_message(
+                recipient_email=user.email,
+                user_id=user.id,
+            )
+        )
+    except (
+        email_service.EmailServiceError,
+        email_verification_service
+        .EmailVerificationError,
+    ):
+        logger.exception(
+            "Не удалось отправить письмо "
+            "подтверждения email."
+        )
+
+        email_sent = False
+    else:
+        email_sent = True
+
+    request.session[
+        "registration_email_sent"
+    ] = email_sent
+
     return RedirectResponse(
         url="/register/success",
         status_code=303,
@@ -138,10 +170,22 @@ def register_user(
 def registration_success(
     request: Request,
 ):
+    email_sent = request.session.get(
+        "registration_email_sent"
+    )
+
+    if email_sent is None:
+        return RedirectResponse(
+            url="/register",
+            status_code=303,
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="register_success.html",
-        context={},
+        context={
+            "email_sent": email_sent,
+        },
     )
 
 @router.get(

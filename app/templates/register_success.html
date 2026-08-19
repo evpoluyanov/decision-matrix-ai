@@ -9,22 +9,35 @@
 <div class="row justify-content-center">
     <div class="col-12 col-md-8 col-lg-6">
 
-        <div class="alert alert-success shadow-sm">
-            <h1 class="h4">
-                Учётная запись создана
-            </h1>
+        {% if email_sent %}
 
-            <p class="mb-3">
-                Данные пользователя безопасно сохранены.
-            </p>
+            <div class="alert alert-success shadow-sm">
+                <h1 class="h4">
+                    Проверьте электронную почту
+                </h1>
 
-            <a
-                href="/login"
-                class="btn btn-primary"
-            >
-                Войти
-            </a>
-        </div>
+                <p class="mb-0">
+                    Учётная запись создана.
+                    Мы отправили вам ссылку
+                    для подтверждения email.
+                </p>
+            </div>
+
+        {% else %}
+
+            <div class="alert alert-warning shadow-sm">
+                <h1 class="h4">
+                    Учётная запись создана
+                </h1>
+
+                <p class="mb-0">
+                    Письмо подтверждения пока
+                    не удалось отправить.
+                    Повторите попытку позже.
+                </p>
+            </div>
+
+        {% endif %}
 
         <a
             href="/"
