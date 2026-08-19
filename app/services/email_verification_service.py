@@ -1,4 +1,7 @@
 import os
+from html import escape
+
+from urllib.parse import urlencode, urlparse
 
 from itsdangerous import (
     BadSignature,
@@ -6,6 +9,7 @@ from itsdangerous import (
     URLSafeTimedSerializer,
 )
 
+from app.services import email_service
 
 EMAIL_VERIFICATION_SALT = (
     "decision-matrix-email-verification"
@@ -33,12 +37,83 @@ class EmailVerificationTokenError(
 ):
     """Некорректный токен подтверждения."""
 
-
 class EmailVerificationTokenExpiredError(
     EmailVerificationTokenError
 ):
     """Срок действия токена истёк."""
 
+def get_app_base_url() -> str:
+    """
+    Получает и проверяет публичный
+    адрес приложения.
+    """
+    app_base_url = os.getenv(
+        "APP_BASE_URL",
+        "",
+    ).strip()
+
+    if not app_base_url:
+        raise (
+            EmailVerificationConfigurationError(
+                "Не задана переменная "
+                "окружения APP_BASE_URL."
+            )
+        )
+
+    parsed_url = urlparse(
+        app_base_url
+    )
+
+    if (
+        parsed_url.scheme
+        not in {
+            "http",
+            "https",
+        }
+        or not parsed_url.netloc
+    ):
+        raise (
+            EmailVerificationConfigurationError(
+                "APP_BASE_URL должен содержать "
+                "полный адрес приложения."
+            )
+        )
+
+    if (
+        parsed_url.query
+        or parsed_url.fragment
+        or parsed_url.path
+        not in {
+            "",
+            "/",
+        }
+    ):
+        raise (
+            EmailVerificationConfigurationError(
+                "APP_BASE_URL не должен "
+                "содержать путь, параметры "
+                "или фрагмент."
+            )
+        )
+
+    if (
+        parsed_url.scheme == "http"
+        and parsed_url.hostname
+        not in {
+            "127.0.0.1",
+            "localhost",
+        }
+    ):
+        raise (
+            EmailVerificationConfigurationError(
+                "Незащищённый HTTP разрешён "
+                "только для локальной разработки."
+            )
+        )
+
+    return app_base_url.rstrip(
+        "/"
+    )
 
 def get_token_serializer(
 ) -> URLSafeTimedSerializer:
@@ -90,6 +165,91 @@ def create_email_verification_token(
         }
     )
 
+def create_email_verification_url(
+    user_id: int,
+) -> str:
+    """
+    Создаёт полную ссылку
+    подтверждения email.
+    """
+    app_base_url = get_app_base_url()
+
+    token = (
+        create_email_verification_token(
+            user_id=user_id
+        )
+    )
+
+    query_string = urlencode(
+        {
+            "token": token,
+        }
+    )
+
+    return (
+        f"{app_base_url}/verify-email"
+        f"?{query_string}"
+    )
+
+def send_email_verification_message(
+    recipient_email: str,
+    user_id: int,
+) -> email_service.EmailSendResult:
+    """
+    Формирует и отправляет пользователю
+    письмо с подтверждением email.
+    """
+    verification_url = (
+        create_email_verification_url(
+            user_id=user_id
+        )
+    )
+
+    safe_verification_url = escape(
+        verification_url,
+        quote=True,
+    )
+
+    return email_service.send_email(
+        recipient_email=recipient_email,
+        subject=(
+            "Подтвердите email — "
+            "Decision Matrix AI"
+        ),
+        html_content=(
+            "<h1>Подтвердите email</h1>"
+            "<p>"
+            "Для завершения регистрации "
+            "в Decision Matrix AI перейдите "
+            "по ссылке:"
+            "</p>"
+            "<p>"
+            f'<a href="{safe_verification_url}">'
+            "Подтвердить email"
+            "</a>"
+            "</p>"
+            "<p>"
+            "Ссылка действует в течение "
+            "24 часов."
+            "</p>"
+            "<p>"
+            "Если вы не регистрировались "
+            "в Decision Matrix AI, "
+            "проигнорируйте это письмо."
+            "</p>"
+        ),
+        text_content=(
+            "Для завершения регистрации "
+            "в Decision Matrix AI перейдите "
+            "по ссылке:\n\n"
+            f"{verification_url}\n\n"
+            "Ссылка действует в течение "
+            "24 часов.\n\n"
+            "Если вы не регистрировались "
+            "в Decision Matrix AI, "
+            "проигнорируйте это письмо."
+        ),
+    )
 
 def verify_email_verification_token(
     token: str,
