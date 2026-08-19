@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     String,
@@ -27,6 +28,12 @@ class User(Base):
 
     password_hash: Mapped[str] = mapped_column(
         String(255),
+        nullable=False,
+    )
+
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
         nullable=False,
     )
 
