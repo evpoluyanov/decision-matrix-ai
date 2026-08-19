@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}
+Подтверждение email — Decision Matrix AI
+{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+
+        <div
+            class="
+                alert
+                {% if verification_successful %}
+                    alert-success
+                {% else %}
+                    alert-danger
+                {% endif %}
+                shadow-sm
+            "
+        >
+            <h1 class="h4">
+                {{ result_title }}
+            </h1>
+
+            <p class="mb-3">
+                {{ result_message }}
+            </p>
+
+            {% if verification_successful %}
+
+                <a
+                    href="/login"
+                    class="btn btn-primary"
+                >
+                    Войти
+                </a>
+
+            {% else %}
+
+                <a
+                    href="/"
+                    class="btn btn-outline-secondary"
+                >
+                    Вернуться на главную
+                </a>
+
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

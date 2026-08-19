@@ -5,8 +5,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.services import user_service
-
+from app.services import (
+    email_verification_service,
+    user_service,
+)
 
 router = APIRouter()
 
@@ -142,6 +144,122 @@ def registration_success(
         context={},
     )
 
+@router.get(
+    "/verify-email",
+    response_class=HTMLResponse,
+)
+def verify_email_address(
+    request: Request,
+    token: str = "",
+    db: Session = Depends(get_db),
+):
+    """
+    Проверяет ссылку подтверждения
+    и обновляет статус пользователя.
+    """
+    try:
+        user_id = (
+            email_verification_service
+            .verify_email_verification_token(
+                token
+            )
+        )
+    except (
+        email_verification_service
+        .EmailVerificationTokenExpiredError
+    ):
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "verification_successful": False,
+                "result_title": (
+                    "Срок действия ссылки истёк"
+                ),
+                "result_message": (
+                    "Эта ссылка подтверждения "
+                    "больше не действует."
+                ),
+            },
+            status_code=410,
+        )
+    except (
+        email_verification_service
+        .EmailVerificationTokenError
+    ):
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "verification_successful": False,
+                "result_title": (
+                    "Ссылка недействительна"
+                ),
+                "result_message": (
+                    "Не удалось проверить "
+                    "ссылку подтверждения."
+                ),
+            },
+            status_code=400,
+        )
+
+    user = user_service.get_user_by_id(
+        db=db,
+        user_id=user_id,
+    )
+
+    if user is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "verification_successful": False,
+                "result_title": (
+                    "Ссылка недействительна"
+                ),
+                "result_message": (
+                    "Не удалось проверить "
+                    "ссылку подтверждения."
+                ),
+            },
+            status_code=400,
+        )
+
+    status_changed = (
+        user_service.mark_email_as_verified(
+            db=db,
+            user=user,
+        )
+    )
+
+    if status_changed:
+        result_title = (
+            "Email успешно подтверждён"
+        )
+
+        result_message = (
+            "Теперь вы можете войти "
+            "в свою учётную запись."
+        )
+    else:
+        result_title = (
+            "Email уже подтверждён"
+        )
+
+        result_message = (
+            "Этот адрес был подтверждён ранее. "
+            "Вы можете войти в систему."
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="verify_email.html",
+        context={
+            "verification_successful": True,
+            "result_title": result_title,
+            "result_message": result_message,
+        },
+    )
 
 @router.get(
     "/login",
