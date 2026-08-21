@@ -322,3 +322,81 @@ def test_email_verification_result_requires_post(
     assert response.headers[
         "location"
     ] == "/login"
+
+def test_verification_result_shows_current_account(
+    client,
+    test_environment,
+):
+    """
+    При действующей сессии результат должен
+    вести в текущий кабинет, а не на вход.
+    """
+    user_id = test_environment[
+        "user_1_id"
+    ]
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    with TestingSessionLocal() as database:
+        user = database.get(
+            models.User,
+            user_id,
+        )
+
+        assert user is not None
+
+        user.email_verified = True
+        database.commit()
+
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    token = (
+        email_verification_service
+        .create_email_verification_token(
+            user_id=user_id
+        )
+    )
+
+    confirmation_response = client.post(
+        "/verify-email",
+        data={
+            "token": token,
+        },
+        follow_redirects=False,
+    )
+
+    assert confirmation_response.status_code == 303
+
+    result_page = client.get(
+        "/verify-email/result"
+    )
+
+    assert result_page.status_code == 200
+
+    assert (
+        "Email уже подтверждён"
+        in result_page.text
+    )
+
+    assert (
+        "Текущий личный кабинет"
+        in result_page.text
+    )
+
+    assert (
+        'href="/account"'
+        in result_page.text
+    )

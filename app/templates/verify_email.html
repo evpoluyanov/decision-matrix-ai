@@ -62,12 +62,32 @@
 
                 {% if verification_successful %}
 
-                    <a
-                        href="/login"
-                        class="btn btn-primary"
-                    >
-                        Войти
-                    </a>
+                    {% if user_logged_in %}
+
+                        <p class="small mb-3">
+                            В браузере уже выполнен вход.
+                            Кнопка откроет текущую учётную
+                            запись. Чтобы войти под другим
+                            email, сначала выйдите из неё.
+                        </p>
+
+                        <a
+                            href="/account"
+                            class="btn btn-primary"
+                        >
+                            Текущий личный кабинет
+                        </a>
+
+                    {% else %}
+
+                        <a
+                            href="/login"
+                            class="btn btn-primary"
+                        >
+                            Войти
+                        </a>
+
+                    {% endif %}
 
                 {% else %}
 

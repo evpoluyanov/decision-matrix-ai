@@ -227,3 +227,109 @@ def test_duplicate_registration_does_not_send_email(
 
     assert response.status_code == 409
     assert email_was_sent is False
+
+def test_authenticated_user_cannot_open_registration(
+    client,
+):
+    """
+    Авторизованному пользователю форма
+    регистрации недоступна.
+    """
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password":
+                TEST_REGISTRATION_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    response = client.get(
+        "/register",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+    assert response.headers[
+        "location"
+    ] == "/account"
+
+
+def test_authenticated_user_cannot_register_again(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    """
+    Прямой POST не должен создавать второй
+    аккаунт из авторизованной сессии.
+    """
+    email_was_sent = False
+
+    def fake_send_verification_message(
+        *,
+        recipient_email,
+        user_id,
+    ):
+        nonlocal email_was_sent
+
+        email_was_sent = True
+
+    monkeypatch.setattr(
+        email_verification_service,
+        "send_email_verification_message",
+        fake_send_verification_message,
+    )
+
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password":
+                TEST_REGISTRATION_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    response = client.post(
+        "/register",
+        data={
+            "email":
+                "blocked-registration@test.com",
+            "password":
+                TEST_REGISTRATION_PASSWORD,
+            "password_confirmation":
+                TEST_REGISTRATION_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+    assert response.headers[
+        "location"
+    ] == "/account"
+
+    assert email_was_sent is False
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    with TestingSessionLocal() as database:
+        user = user_service.get_user_by_email(
+            db=database,
+            email=(
+                "blocked-registration@test.com"
+            ),
+        )
+
+        assert user is None

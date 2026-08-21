@@ -51,6 +51,12 @@ def normalize_email_address(
 def registration_form(
     request: Request,
 ):
+    if request.session.get("user_id") is not None:
+        return RedirectResponse(
+            url="/account",
+            status_code=303,
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="register.html",
@@ -72,6 +78,12 @@ def register_user(
     password_confirmation: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    if request.session.get("user_id") is not None:
+        return RedirectResponse(
+            url="/account",
+            status_code=303,
+        )
+
     entered_email = email.strip()
     normalized_email = normalize_email_address(
         entered_email
@@ -279,6 +291,12 @@ def verify_email_address(
             context={
                 "confirmation_required": False,
                 "verification_successful": True,
+                "user_logged_in": (
+                    request.session.get(
+                        "user_id"
+                    )
+                    is not None
+                ),
                 "result_title": (
                     "Email уже подтверждён"
                 ),
@@ -470,6 +488,12 @@ def email_verification_result(
         context={
             "confirmation_required": False,
             "verification_successful": True,
+            "user_logged_in": (
+                request.session.get(
+                    "user_id"
+                )
+                is not None
+            ),
             "result_title": result_title,
             "result_message": result_message,
         },
