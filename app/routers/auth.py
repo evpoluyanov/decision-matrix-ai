@@ -198,8 +198,8 @@ def verify_email_address(
     db: Session = Depends(get_db),
 ):
     """
-    Проверяет ссылку подтверждения
-    и обновляет статус пользователя.
+    Проверяет ссылку, но не подтверждает
+    email без действия пользователя.
     """
     try:
         user_id = (
@@ -216,6 +216,7 @@ def verify_email_address(
             request=request,
             name="verify_email.html",
             context={
+                "confirmation_required": False,
                 "verification_successful": False,
                 "result_title": (
                     "Срок действия ссылки истёк"
@@ -235,6 +236,7 @@ def verify_email_address(
             request=request,
             name="verify_email.html",
             context={
+                "confirmation_required": False,
                 "verification_successful": False,
                 "result_title": (
                     "Ссылка недействительна"
@@ -257,6 +259,128 @@ def verify_email_address(
             request=request,
             name="verify_email.html",
             context={
+                "confirmation_required": False,
+                "verification_successful": False,
+                "result_title": (
+                    "Ссылка недействительна"
+                ),
+                "result_message": (
+                    "Не удалось проверить "
+                    "ссылку подтверждения."
+                ),
+            },
+            status_code=400,
+        )
+
+    if user.email_verified:
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "confirmation_required": False,
+                "verification_successful": True,
+                "result_title": (
+                    "Email уже подтверждён"
+                ),
+                "result_message": (
+                    "Этот адрес был подтверждён "
+                    "ранее. Вы можете войти "
+                    "в систему."
+                ),
+            },
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="verify_email.html",
+        context={
+            "confirmation_required": True,
+            "verification_successful": False,
+            "result_title": (
+                "Подтвердите email"
+            ),
+            "result_message": (
+                "Нажмите кнопку, чтобы "
+                "подтвердить адрес электронной "
+                "почты."
+            ),
+            "token": token,
+        },
+    )
+
+
+@router.post(
+    "/verify-email",
+    response_class=HTMLResponse,
+)
+def confirm_email_address(
+    request: Request,
+    token: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """
+    Подтверждает email после явного
+    действия пользователя.
+    """
+    try:
+        user_id = (
+            email_verification_service
+            .verify_email_verification_token(
+                token
+            )
+        )
+    except (
+        email_verification_service
+        .EmailVerificationTokenExpiredError
+    ):
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "confirmation_required": False,
+                "verification_successful": False,
+                "result_title": (
+                    "Срок действия ссылки истёк"
+                ),
+                "result_message": (
+                    "Эта ссылка подтверждения "
+                    "больше не действует."
+                ),
+            },
+            status_code=410,
+        )
+    except (
+        email_verification_service
+        .EmailVerificationTokenError
+    ):
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "confirmation_required": False,
+                "verification_successful": False,
+                "result_title": (
+                    "Ссылка недействительна"
+                ),
+                "result_message": (
+                    "Не удалось проверить "
+                    "ссылку подтверждения."
+                ),
+            },
+            status_code=400,
+        )
+
+    user = user_service.get_user_by_id(
+        db=db,
+        user_id=user_id,
+    )
+
+    if user is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="verify_email.html",
+            context={
+                "confirmation_required": False,
                 "verification_successful": False,
                 "result_title": (
                     "Ссылка недействительна"
@@ -277,6 +401,50 @@ def verify_email_address(
     )
 
     if status_changed:
+        verification_result = "confirmed"
+    else:
+        verification_result = (
+            "already_confirmed"
+        )
+
+    request.session[
+        "email_verification_result"
+    ] = verification_result
+
+    return RedirectResponse(
+        url="/verify-email/result",
+        status_code=303,
+    )
+
+
+@router.get(
+    "/verify-email/result",
+    response_class=HTMLResponse,
+)
+def email_verification_result(
+    request: Request,
+):
+    """
+    Показывает результат подтверждения
+    после перенаправления с POST.
+    """
+    verification_result = (
+        request.session.pop(
+            "email_verification_result",
+            None,
+        )
+    )
+
+    if verification_result not in {
+        "confirmed",
+        "already_confirmed",
+    }:
+        return RedirectResponse(
+            url="/login",
+            status_code=303,
+        )
+
+    if verification_result == "confirmed":
         result_title = (
             "Email успешно подтверждён"
         )
@@ -291,14 +459,16 @@ def verify_email_address(
         )
 
         result_message = (
-            "Этот адрес был подтверждён ранее. "
-            "Вы можете войти в систему."
+            "Этот адрес был подтверждён "
+            "ранее. Вы можете войти "
+            "в систему."
         )
 
     return templates.TemplateResponse(
         request=request,
         name="verify_email.html",
         context={
+            "confirmation_required": False,
             "verification_successful": True,
             "result_title": result_title,
             "result_message": result_message,

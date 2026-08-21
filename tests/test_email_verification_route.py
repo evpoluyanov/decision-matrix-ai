@@ -4,13 +4,13 @@ from app.services import (
 )
 
 
-def test_verify_email_route_confirms_user(
+def test_verify_email_get_does_not_confirm_user(
     client,
     test_environment,
 ):
     """
-    Корректная ссылка должна подтвердить
-    email пользователя.
+    Открытие ссылки должно показать кнопку,
+    но не изменять пользователя.
     """
     user_id = test_environment[
         "user_1_id"
@@ -33,7 +33,17 @@ def test_verify_email_route_confirms_user(
     assert response.status_code == 200
 
     assert (
-        "Email успешно подтверждён"
+        "Подтвердите email"
+        in response.text
+    )
+
+    assert (
+        "Подтвердить email"
+        in response.text
+    )
+
+    assert (
+        'action="/verify-email"'
         in response.text
     )
 
@@ -50,16 +60,16 @@ def test_verify_email_route_confirms_user(
         )
 
         assert user is not None
-        assert user.email_verified is True
+        assert user.email_verified is False
 
 
-def test_verify_email_route_is_repeatable(
+def test_verify_email_post_confirms_user(
     client,
     test_environment,
 ):
     """
-    Повторный переход по корректной ссылке
-    должен оставаться безопасным.
+    Отправка формы должна подтвердить email
+    и перенаправить на страницу результата.
     """
     user_id = test_environment[
         "user_1_id"
@@ -72,12 +82,81 @@ def test_verify_email_route_is_repeatable(
         )
     )
 
-    first_response = client.get(
+    response = client.post(
         "/verify-email",
-        params={
+        data={
             "token": token,
         },
+        follow_redirects=False,
     )
+
+    assert response.status_code == 303
+
+    assert response.headers[
+        "location"
+    ] == "/verify-email/result"
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    with TestingSessionLocal() as database:
+        user = database.get(
+            models.User,
+            user_id,
+        )
+
+        assert user is not None
+        assert user.email_verified is True
+
+    result_page = client.get(
+        "/verify-email/result"
+    )
+
+    assert result_page.status_code == 200
+
+    assert (
+        "Email успешно подтверждён"
+        in result_page.text
+    )
+
+
+def test_verify_email_route_is_repeatable(
+    client,
+    test_environment,
+):
+    """
+    Повторное открытие ссылки после
+    подтверждения должно быть безопасным.
+    """
+    user_id = test_environment[
+        "user_1_id"
+    ]
+
+    token = (
+        email_verification_service
+        .create_email_verification_token(
+            user_id=user_id
+        )
+    )
+
+    first_response = client.post(
+        "/verify-email",
+        data={
+            "token": token,
+        },
+        follow_redirects=False,
+    )
+
+    assert first_response.status_code == 303
+
+    result_page = client.get(
+        "/verify-email/result"
+    )
+
+    assert result_page.status_code == 200
 
     second_response = client.get(
         "/verify-email",
@@ -86,7 +165,6 @@ def test_verify_email_route_is_repeatable(
         },
     )
 
-    assert first_response.status_code == 200
     assert second_response.status_code == 200
 
     assert (
@@ -203,3 +281,44 @@ def test_verify_email_route_rejects_empty_token(
         "Ссылка недействительна"
         in response.text
     )
+
+
+def test_verify_email_post_rejects_invalid_token(
+    client,
+):
+    """
+    POST с поддельным токеном не должен
+    изменять данные пользователя.
+    """
+    response = client.post(
+        "/verify-email",
+        data={
+            "token": "invalid-token",
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        "Ссылка недействительна"
+        in response.text
+    )
+
+
+def test_email_verification_result_requires_post(
+    client,
+):
+    """
+    Страницу успешного результата нельзя
+    открыть без подтверждения через POST.
+    """
+    response = client.get(
+        "/verify-email/result",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+    assert response.headers[
+        "location"
+    ] == "/login"

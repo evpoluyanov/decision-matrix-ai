@@ -9,45 +9,79 @@
 <div class="row justify-content-center">
     <div class="col-12 col-md-8 col-lg-6">
 
-        <div
-            class="
-                alert
+        {% if confirmation_required %}
+
+            <div class="alert alert-info shadow-sm">
+                <h1 class="h4">
+                    {{ result_title }}
+                </h1>
+
+                <p class="mb-3">
+                    {{ result_message }}
+                </p>
+
+                <form
+                    method="post"
+                    action="/verify-email"
+                >
+                    <input
+                        type="hidden"
+                        name="token"
+                        value="{{ token }}"
+                    >
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+                        Подтвердить email
+                    </button>
+                </form>
+            </div>
+
+        {% else %}
+
+            <div
+                class="
+                    alert
+                    {% if verification_successful %}
+                        alert-success
+                    {% else %}
+                        alert-danger
+                    {% endif %}
+                    shadow-sm
+                "
+            >
+                <h1 class="h4">
+                    {{ result_title }}
+                </h1>
+
+                <p class="mb-3">
+                    {{ result_message }}
+                </p>
+
                 {% if verification_successful %}
-                    alert-success
+
+                    <a
+                        href="/login"
+                        class="btn btn-primary"
+                    >
+                        Войти
+                    </a>
+
                 {% else %}
-                    alert-danger
+
+                    <a
+                        href="/"
+                        class="btn btn-outline-secondary"
+                    >
+                        Вернуться на главную
+                    </a>
+
                 {% endif %}
-                shadow-sm
-            "
-        >
-            <h1 class="h4">
-                {{ result_title }}
-            </h1>
+            </div>
 
-            <p class="mb-3">
-                {{ result_message }}
-            </p>
-
-            {% if verification_successful %}
-
-                <a
-                    href="/login"
-                    class="btn btn-primary"
-                >
-                    Войти
-                </a>
-
-            {% else %}
-
-                <a
-                    href="/"
-                    class="btn btn-outline-secondary"
-                >
-                    Вернуться на главную
-                </a>
-
-            {% endif %}
-        </div>
+        {% endif %}
 
     </div>
 </div>
