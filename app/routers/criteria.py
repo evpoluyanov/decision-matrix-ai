@@ -10,6 +10,9 @@ from app.auth_dependencies import (
 from app.database import get_db
 from app.services import criterion_service
 
+from app.llm.safety import (
+    MAX_ENTITY_NAME_LENGTH,
+)
 
 router = APIRouter()
 
@@ -19,7 +22,11 @@ router = APIRouter()
 )
 def create_criterion(
     project_id: int,
-    name: str = Form(...),
+    name: str = Form(
+        ...,
+        min_length=1,
+        max_length=MAX_ENTITY_NAME_LENGTH,
+    ),
     weight_percent: float = Form(...),
     db: Session = Depends(get_db),
     project: models.Project = Depends(
@@ -74,7 +81,11 @@ def delete_criterion(
     "/criteria/{criterion_id}/edit",
 )
 def edit_criterion(
-    name: str = Form(...),
+    name: str = Form(
+        ...,
+        min_length=1,
+        max_length=MAX_ENTITY_NAME_LENGTH,
+    ),
     weight_percent: float = Form(...),
     db: Session = Depends(get_db),
     criterion: models.Criterion = Depends(

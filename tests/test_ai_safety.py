@@ -14,6 +14,7 @@ from app.llm.safety import (
     MAX_PROJECT_DESCRIPTION_LENGTH,
     MAX_PROJECT_NAME_LENGTH,
     get_ai_scope_error,
+    MAX_ENTITY_NAME_LENGTH,
 )
 
 from app.llm import service as llm_service
@@ -1352,5 +1353,206 @@ def test_edit_project_rejects_oversized_description(
         project.description
         == original_description
     )
+
+    db.close()
+
+@pytest.mark.parametrize(
+    (
+        "endpoint_suffix",
+        "entity_model",
+        "additional_data",
+    ),
+    [
+        (
+            "alternatives",
+            models.Alternative,
+            {},
+        ),
+        (
+            "criteria",
+            models.Criterion,
+            {
+                "weight_percent": "50",
+            },
+        ),
+    ],
+)
+def test_create_entity_rejects_oversized_name(
+    client,
+    test_environment,
+    endpoint_suffix,
+    entity_model,
+    additional_data,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    entities_before = (
+        db.query(entity_model)
+        .filter(
+            entity_model.project_id
+            == project_id
+        )
+        .count()
+    )
+
+    db.close()
+
+    request_data = {
+        "name": (
+            "n"
+            * (
+                MAX_ENTITY_NAME_LENGTH
+                + 1
+            )
+        ),
+        **additional_data,
+    }
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            f"/{endpoint_suffix}"
+        ),
+        data=request_data,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+
+    db = TestingSessionLocal()
+
+    entities_after = (
+        db.query(entity_model)
+        .filter(
+            entity_model.project_id
+            == project_id
+        )
+        .count()
+    )
+
+    db.close()
+
+    assert entities_after == entities_before
+
+
+@pytest.mark.parametrize(
+    (
+        "endpoint_prefix",
+        "entity_model",
+        "entity_id_key",
+        "additional_data",
+    ),
+    [
+        (
+            "alternatives",
+            models.Alternative,
+            "alternative_1_id",
+            {},
+        ),
+        (
+            "criteria",
+            models.Criterion,
+            "criterion_1_id",
+            {
+                "weight_percent": "50",
+            },
+        ),
+    ],
+)
+def test_edit_entity_rejects_oversized_name(
+    client,
+    test_environment,
+    endpoint_prefix,
+    entity_model,
+    entity_id_key,
+    additional_data,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    entity_id = (
+        test_environment[
+            entity_id_key
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    entity = db.get(
+        entity_model,
+        entity_id,
+    )
+
+    original_name = entity.name
+
+    db.close()
+
+    request_data = {
+        "name": (
+            "n"
+            * (
+                MAX_ENTITY_NAME_LENGTH
+                + 1
+            )
+        ),
+        **additional_data,
+    }
+
+    response = client.post(
+        (
+            f"/{endpoint_prefix}"
+            f"/{entity_id}/edit"
+        ),
+        data=request_data,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+
+    db = TestingSessionLocal()
+
+    entity = db.get(
+        entity_model,
+        entity_id,
+    )
+
+    assert entity.name == original_name
 
     db.close()

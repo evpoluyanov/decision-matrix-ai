@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.llm.safety import (
+    MAX_ENTITY_NAME_LENGTH,
     MAX_PROJECT_DESCRIPTION_LENGTH,
     MAX_PROJECT_NAME_LENGTH,
 )
@@ -276,7 +277,11 @@ def copy_project(
 )
 def create_alternative(
     project_id: int,
-    name: str = Form(...),
+    name: str = Form(
+        ...,
+        min_length=1,
+        max_length=MAX_ENTITY_NAME_LENGTH,
+    ),
     db: Session = Depends(get_db),
     project: models.Project = Depends(
         require_project_owner
@@ -320,7 +325,11 @@ def delete_alternative(
     "/alternatives/{alternative_id}/edit",
 )
 def edit_alternative(
-    name: str = Form(...),
+    name: str = Form(
+        ...,
+        min_length=1,
+        max_length=MAX_ENTITY_NAME_LENGTH,
+    ),
     db: Session = Depends(get_db),
     alternative: models.Alternative = Depends(
         require_alternative_owner
