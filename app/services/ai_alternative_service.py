@@ -2,7 +2,7 @@ import json
 
 from app import models
 from app.llm import service as llm_service
-
+from app.llm.safety import unsafe_response
 
 INSUFFICIENT_CONTEXT_MESSAGE = (
     "Недостаточно контекста для подготовки предложений. "
@@ -74,6 +74,16 @@ def generate_alternative_suggestions(
         raise RuntimeError(
             "LLM вернула некорректный JSON."
         ) from exc
+
+    if not isinstance(data, dict):
+        raise RuntimeError(
+            "LLM вернула ответ неожиданного формата."
+        )
+
+    if data.get("s") == "unsafe":
+        return unsafe_response(
+            include_items=True,
+        )
 
     if data.get("s") == "insufficient":
         return {

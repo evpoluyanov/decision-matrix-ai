@@ -7,10 +7,13 @@ from app.llm.safety import (
     MAX_USER_PROMPT_LENGTH,
     build_safe_system_prompt,
     validate_prompt_lengths,
+    UNSAFE_CONTENT_MESSAGE,
 )
 
 from app.llm import service as llm_service
 from app.llm.schemas import LLMResponse, LLMUsage
+from app import models
+from app.services import ai_alternative_service
 
 def test_safe_system_prompt_contains_policy_and_task():
     task_prompt = (
@@ -92,9 +95,11 @@ def test_prompt_lengths_reject_oversized_input(
             user_prompt=user_prompt,
         )
 
-def make_llm_response() -> LLMResponse:
+def make_llm_response(
+    content: str = '{"s":"ok"}',
+) -> LLMResponse:
     return LLMResponse(
-        content='{"s":"ok"}',
+        content=content,
         provider="test",
         model="test-model",
         usage=LLMUsage(
@@ -192,3 +197,68 @@ def test_llm_service_checks_size_before_provider(
         )
 
     assert provider_requested is False
+
+def test_unsafe_alternative_request_is_rejected(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Описание потенциально опасной задачи."
+    )
+
+    db.commit()
+    db.close()
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        lambda **kwargs: make_llm_response(
+            '{"s":"unsafe"}'
+        ),
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert response.json() == {
+        "status": "unsafe_content",
+        "message": UNSAFE_CONTENT_MESSAGE,
+        "items": [],
+    }

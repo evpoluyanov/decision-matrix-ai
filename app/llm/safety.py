@@ -74,3 +74,17 @@ def validate_prompt_lengths(
             "Входные данные для LLM превышают "
             "допустимый размер."
         )
+
+def unsafe_response(
+    *,
+    include_items: bool = False,
+) -> dict:
+    result = {
+        "status": "unsafe_content",
+        "message": UNSAFE_CONTENT_MESSAGE,
+    }
+
+    if include_items:
+        result["items"] = []
+
+    return result
