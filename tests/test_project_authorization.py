@@ -1744,9 +1744,34 @@ def test_ai_result_explanation_uses_calculated_ranking(
     ):
         assert json_mode is True
 
-        assert '"total": 8.0' in user_prompt
-        assert '"v": 8.0' in user_prompt
-        assert '"w": 100.0' in user_prompt
+        user_data = json.loads(
+            user_prompt
+        )
+
+        ranking_item = (
+            user_data["ranking"][0]
+        )
+
+        factor = (
+            ranking_item["factors"][0]
+        )
+
+        assert (
+            ranking_item["total_score"]
+            == 8.0
+        )
+
+        assert factor["score"] == 8.0
+
+        assert (
+            factor["weight_percent"]
+            == 100.0
+        )
+
+        assert (
+            factor["source"]
+            == "confirmed"
+        )
 
         return LLMResponse(
             content=json.dumps(
