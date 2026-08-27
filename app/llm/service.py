@@ -5,11 +5,19 @@ from dotenv import load_dotenv
 
 from app.llm.base import LLMProvider
 from app.llm.providers.mws import MWSProvider
+from app.llm.safety import (
+    build_safe_system_prompt,
+    validate_prompt_lengths,
+)
 from app.llm.schemas import LLMResponse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(PROJECT_ROOT / ".env")
+
+load_dotenv(
+    PROJECT_ROOT / ".env"
+)
+
 
 def get_llm_provider() -> LLMProvider:
     provider_name = os.getenv(
@@ -34,11 +42,21 @@ def generate(
     temperature: float = 0.2,
     json_mode: bool = False,
 ) -> LLMResponse:
+    safe_system_prompt = (
+        build_safe_system_prompt(
+            system_prompt
+        )
+    )
+
+    validate_prompt_lengths(
+        system_prompt=safe_system_prompt,
+        user_prompt=user_prompt,
+    )
 
     provider = get_llm_provider()
 
     return provider.generate(
-        system_prompt=system_prompt,
+        system_prompt=safe_system_prompt,
         user_prompt=user_prompt,
         max_output_tokens=max_output_tokens,
         temperature=temperature,
