@@ -527,6 +527,12 @@ def analyze_decision_risks(
             },
         )
 
+    if result.get("status") == "unsafe_content":
+        return JSONResponse(
+            status_code=400,
+            content=result,
+        )
+
     if result.get("status") == "ok":
         (
             project_ai_analysis_service

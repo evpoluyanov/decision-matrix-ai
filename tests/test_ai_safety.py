@@ -16,8 +16,9 @@ from app import models
 from app.services import (
     ai_alternative_service,
     ai_criterion_service,
-    ai_score_service,
+    ai_decision_risk_service,
     ai_result_service,
+    ai_score_service,
 )
 
 def test_safe_system_prompt_contains_policy_and_task():
@@ -500,6 +501,104 @@ def test_unsafe_result_explanation_is_not_saved(
     assert response.json() == {
         "status": "unsafe_content",
         "message": UNSAFE_CONTENT_MESSAGE,
+    }
+
+    db = TestingSessionLocal()
+
+    saved_analysis = (
+        db.query(
+            models.ProjectAIAnalysis
+        )
+        .filter(
+            models.ProjectAIAnalysis.project_id
+            == project_id
+        )
+        .first()
+    )
+
+    db.close()
+
+    assert saved_analysis is None
+
+def test_unsafe_decision_risks_are_not_saved(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Описание потенциально опасной задачи."
+    )
+
+    score = models.Score(
+        alternative_id=(
+            test_environment[
+                "alternative_1_id"
+            ]
+        ),
+        criterion_id=(
+            test_environment[
+                "criterion_1_id"
+            ]
+        ),
+        value=8.0,
+    )
+
+    db.add(score)
+    db.commit()
+    db.close()
+
+    monkeypatch.setattr(
+        ai_decision_risk_service
+        .llm_service,
+        "generate",
+        lambda **kwargs: make_llm_response(
+            '{"s":"unsafe"}'
+        ),
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/decision-risks"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert response.json() == {
+        "status": "unsafe_content",
+        "message": UNSAFE_CONTENT_MESSAGE,
+        "items": [],
     }
 
     db = TestingSessionLocal()
