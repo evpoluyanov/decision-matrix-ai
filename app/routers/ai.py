@@ -212,6 +212,12 @@ def suggest_criteria(
             },
         )
 
+    if result.get("status") == "unsafe_content":
+        return JSONResponse(
+            status_code=400,
+            content=result,
+        )
+
     return result
 
 

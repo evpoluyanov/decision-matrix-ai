@@ -13,7 +13,10 @@ from app.llm.safety import (
 from app.llm import service as llm_service
 from app.llm.schemas import LLMResponse, LLMUsage
 from app import models
-from app.services import ai_alternative_service
+from app.services import (
+    ai_alternative_service,
+    ai_criterion_service,
+)
 
 def test_safe_system_prompt_contains_policy_and_task():
     task_prompt = (
@@ -252,6 +255,80 @@ def test_unsafe_alternative_request_is_rejected(
         (
             f"/projects/{project_id}"
             "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert response.json() == {
+        "status": "unsafe_content",
+        "message": UNSAFE_CONTENT_MESSAGE,
+        "items": [],
+    }
+
+def test_unsafe_criterion_request_is_rejected(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Описание потенциально опасной задачи."
+    )
+
+    criterion = db.get(
+        models.Criterion,
+        test_environment[
+            "criterion_1_id"
+        ],
+    )
+
+    criterion.weight = 0.5
+
+    db.commit()
+    db.close()
+
+    monkeypatch.setattr(
+        ai_criterion_service.llm_service,
+        "generate",
+        lambda **kwargs: make_llm_response(
+            '{"s":"unsafe"}'
+        ),
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/criteria"
         )
     )
 
