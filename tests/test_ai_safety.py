@@ -15,6 +15,7 @@ from app.llm.safety import (
     MAX_PROJECT_NAME_LENGTH,
     get_ai_scope_error,
     MAX_ENTITY_NAME_LENGTH,
+    MAX_AI_ITEMS_PER_REQUEST,
 )
 
 from app.llm import service as llm_service
@@ -1556,3 +1557,120 @@ def test_edit_entity_rejects_oversized_name(
     assert entity.name == original_name
 
     db.close()
+
+@pytest.mark.parametrize(
+    (
+        "endpoint_suffix",
+        "entity_model",
+        "valid_item",
+    ),
+    [
+        (
+            "alternatives",
+            models.Alternative,
+            {
+                "name": "Новая альтернатива",
+                "explanation": (
+                    "Обоснование альтернативы."
+                ),
+            },
+        ),
+        (
+            "criteria",
+            models.Criterion,
+            {
+                "name": "Новый критерий",
+                "weight_percent": 10,
+                "ai_suggested_weight_percent": 10,
+                "criterion_explanation": (
+                    "Обоснование критерия."
+                ),
+                "weight_explanation": (
+                    "Обоснование веса."
+                ),
+            },
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "items_count",
+    [
+        0,
+        MAX_AI_ITEMS_PER_REQUEST + 1,
+    ],
+)
+def test_accept_ai_items_rejects_invalid_batch_size(
+    client,
+    test_environment,
+    endpoint_suffix,
+    entity_model,
+    valid_item,
+    items_count,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    entities_before = (
+        db.query(entity_model)
+        .filter(
+            entity_model.project_id
+            == project_id
+        )
+        .count()
+    )
+
+    db.close()
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            f"/ai/{endpoint_suffix}/accept"
+        ),
+        json={
+            "items": [
+                valid_item
+                for _ in range(
+                    items_count
+                )
+            ],
+        },
+    )
+
+    assert response.status_code == 422
+
+    db = TestingSessionLocal()
+
+    entities_after = (
+        db.query(entity_model)
+        .filter(
+            entity_model.project_id
+            == project_id
+        )
+        .count()
+    )
+
+    db.close()
+
+    assert entities_after == entities_before

@@ -47,7 +47,13 @@ class AcceptAlternativesRequest(
 ):
     items: list[
         AcceptedAlternative
-    ]
+    ] = Field(
+        min_length=1,
+        max_length=(
+            ai_safety
+            .MAX_AI_ITEMS_PER_REQUEST
+        ),
+    )
 
 class AcceptedCriterion(BaseModel):
     name: str = Field(
@@ -77,7 +83,15 @@ class AcceptedCriterion(BaseModel):
 
 
 class AcceptCriteriaRequest(BaseModel):
-    items: list[AcceptedCriterion]
+    items: list[
+        AcceptedCriterion
+    ] = Field(
+        min_length=1,
+        max_length=(
+            ai_safety
+            .MAX_AI_ITEMS_PER_REQUEST
+        ),
+    )
 def get_ai_scope_error_response(
     *,
     project: models.Project,
