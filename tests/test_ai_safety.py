@@ -901,3 +901,96 @@ def test_ai_alternatives_reject_too_many_items(
     )
 
     assert llm_called is False
+
+def test_ai_criteria_reject_too_many_items(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Обычное описание проекта."
+    )
+
+    additional_criteria = [
+        models.Criterion(
+            name=f"Критерий {index}",
+            weight=0.0,
+            project_id=project_id,
+        )
+        for index in range(
+            MAX_AI_CRITERIA
+        )
+    ]
+
+    db.add_all(
+        additional_criteria
+    )
+
+    db.commit()
+    db.close()
+
+    llm_called = False
+
+    def fake_generate(**kwargs):
+        nonlocal llm_called
+
+        llm_called = True
+
+        return make_llm_response()
+
+    monkeypatch.setattr(
+        ai_criterion_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/criteria"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        response.json()["status"]
+        == "input_limit_exceeded"
+    )
+
+    assert (
+        "критериев"
+        in response.json()["message"]
+    )
+
+    assert llm_called is False
