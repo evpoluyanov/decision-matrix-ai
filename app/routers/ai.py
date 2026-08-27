@@ -350,6 +350,20 @@ def suggest_scores(
         )
     )
 
+    scope_error = get_ai_scope_error_response(
+        project=project,
+        alternatives_count=len(
+            alternatives
+        ),
+        criteria_count=len(
+            criteria
+        ),
+        check_matrix_size=True,
+    )
+
+    if scope_error is not None:
+        return scope_error
+
     try:
         result = (
             ai_score_service
