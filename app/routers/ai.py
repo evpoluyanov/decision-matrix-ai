@@ -324,6 +324,11 @@ def suggest_scores(
                 ),
             },
         )
+    if result.get("status") == "unsafe_content":
+        return JSONResponse(
+            status_code=400,
+            content=result,
+        )
 
     if result["status"] != "ok":
         return result
