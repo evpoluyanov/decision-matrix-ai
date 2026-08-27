@@ -75,6 +75,77 @@ def validate_prompt_lengths(
             "допустимый размер."
         )
 
+def get_ai_scope_error(
+    *,
+    project_name: str,
+    project_description: str | None,
+    alternatives_count: int = 0,
+    criteria_count: int = 0,
+    check_matrix_size: bool = False,
+) -> str | None:
+    normalized_project_name = (
+        project_name.strip()
+    )
+
+    normalized_description = (
+        project_description.strip()
+        if project_description
+        else ""
+    )
+
+    if (
+        len(normalized_project_name)
+        > MAX_PROJECT_NAME_LENGTH
+    ):
+        return (
+            "Название проекта слишком длинное. "
+            f"Максимум — "
+            f"{MAX_PROJECT_NAME_LENGTH} символов."
+        )
+
+    if (
+        len(normalized_description)
+        > MAX_PROJECT_DESCRIPTION_LENGTH
+    ):
+        return (
+            "Описание проекта слишком длинное. "
+            f"Максимум — "
+            f"{MAX_PROJECT_DESCRIPTION_LENGTH} символов."
+        )
+
+    if alternatives_count > MAX_AI_ALTERNATIVES:
+        return (
+            "Для одного ИИ-запроса допускается "
+            "не более "
+            f"{MAX_AI_ALTERNATIVES} альтернатив."
+        )
+
+    if criteria_count > MAX_AI_CRITERIA:
+        return (
+            "Для одного ИИ-запроса допускается "
+            "не более "
+            f"{MAX_AI_CRITERIA} критериев."
+        )
+
+    matrix_cells = (
+        alternatives_count
+        * criteria_count
+    )
+
+    if (
+        check_matrix_size
+        and matrix_cells
+        > MAX_AI_MATRIX_CELLS
+    ):
+        return (
+            "Матрица слишком велика "
+            "для одного ИИ-запроса. "
+            f"Максимум — "
+            f"{MAX_AI_MATRIX_CELLS} ячеек."
+        )
+
+    return None
+
 def unsafe_response(
     *,
     include_items: bool = False,

@@ -8,6 +8,12 @@ from app.llm.safety import (
     build_safe_system_prompt,
     validate_prompt_lengths,
     UNSAFE_CONTENT_MESSAGE,
+    MAX_AI_ALTERNATIVES,
+    MAX_AI_CRITERIA,
+    MAX_AI_MATRIX_CELLS,
+    MAX_PROJECT_DESCRIPTION_LENGTH,
+    MAX_PROJECT_NAME_LENGTH,
+    get_ai_scope_error,
 )
 
 from app.llm import service as llm_service
@@ -617,3 +623,107 @@ def test_unsafe_decision_risks_are_not_saved(
     db.close()
 
     assert saved_analysis is None
+
+def test_ai_scope_allows_boundary_values():
+    result = get_ai_scope_error(
+        project_name=(
+            "p"
+            * MAX_PROJECT_NAME_LENGTH
+        ),
+        project_description=(
+            "d"
+            * MAX_PROJECT_DESCRIPTION_LENGTH
+        ),
+        alternatives_count=20,
+        criteria_count=10,
+        check_matrix_size=True,
+    )
+
+    assert result is None
+
+    assert (
+        20 * 10
+        == MAX_AI_MATRIX_CELLS
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "overrides",
+        "message_fragment",
+    ),
+    [
+        (
+            {
+                "project_name": (
+                    "p"
+                    * (
+                        MAX_PROJECT_NAME_LENGTH
+                        + 1
+                    )
+                ),
+            },
+            "Название проекта",
+        ),
+        (
+            {
+                "project_description": (
+                    "d"
+                    * (
+                        MAX_PROJECT_DESCRIPTION_LENGTH
+                        + 1
+                    )
+                ),
+            },
+            "Описание проекта",
+        ),
+        (
+            {
+                "alternatives_count": (
+                    MAX_AI_ALTERNATIVES
+                    + 1
+                ),
+            },
+            "альтернатив",
+        ),
+        (
+            {
+                "criteria_count": (
+                    MAX_AI_CRITERIA
+                    + 1
+                ),
+            },
+            "критериев",
+        ),
+        (
+            {
+                "alternatives_count": 15,
+                "criteria_count": 15,
+                "check_matrix_size": True,
+            },
+            "Матрица",
+        ),
+    ],
+)
+def test_ai_scope_rejects_excessive_input(
+    overrides,
+    message_fragment,
+):
+    parameters = {
+        "project_name": "Проект",
+        "project_description": "Описание",
+        "alternatives_count": 1,
+        "criteria_count": 1,
+        "check_matrix_size": False,
+    }
+
+    parameters.update(
+        overrides
+    )
+
+    result = get_ai_scope_error(
+        **parameters
+    )
+
+    assert result is not None
+    assert message_fragment in result
