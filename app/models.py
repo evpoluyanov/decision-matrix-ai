@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
@@ -47,6 +48,78 @@ class User(Base):
         back_populates="owner",
     )
 
+class AIRequestLog(Base):
+    __tablename__ = "ai_request_logs"
+
+    __table_args__ = (
+        Index(
+            "ix_ai_request_logs_user_created_at",
+            "user_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+
+    project_id: Mapped[int] = mapped_column(
+        nullable=False,
+    )
+
+    feature: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="started",
+        nullable=False,
+    )
+
+    input_tokens: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    output_tokens: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    reasoning_tokens: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    total_tokens: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=text(
+            "CURRENT_TIMESTAMP"
+        ),
+        nullable=False,
+    )
+
+    completed_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
 class Project(Base):
     __tablename__ = "projects"
