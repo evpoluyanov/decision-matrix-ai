@@ -7,7 +7,10 @@ from app import models
 from app.auth_dependencies import require_user
 from app.database import get_db
 from app.services import project_service
-
+from app.llm.safety import (
+    MAX_PROJECT_DESCRIPTION_LENGTH,
+    MAX_PROJECT_NAME_LENGTH,
+)
 
 router = APIRouter()
 
@@ -74,8 +77,15 @@ def list_projects(
 )
 def create_project(
     request: Request,
-    project_name: str = Form(...),
-    project_description: str | None = Form(None),
+    project_name: str = Form(
+        ...,
+        min_length=1,
+        max_length=MAX_PROJECT_NAME_LENGTH,
+    ),
+    project_description: str | None = Form(
+        None,
+        max_length=MAX_PROJECT_DESCRIPTION_LENGTH,
+    ),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_user),
 ):

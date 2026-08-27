@@ -1218,3 +1218,139 @@ def test_ai_analysis_rejects_oversized_matrix(
     )
 
     assert llm_called is False
+
+def test_create_project_rejects_oversized_name(
+    client,
+    test_environment,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    projects_before = (
+        db.query(models.Project)
+        .count()
+    )
+
+    db.close()
+
+    response = client.post(
+        "/projects",
+        data={
+            "project_name": (
+                "p"
+                * (
+                    MAX_PROJECT_NAME_LENGTH
+                    + 1
+                )
+            ),
+            "project_description": (
+                "Обычное описание проекта."
+            ),
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+
+    db = TestingSessionLocal()
+
+    projects_after = (
+        db.query(models.Project)
+        .count()
+    )
+
+    db.close()
+
+    assert projects_after == projects_before
+
+
+def test_edit_project_rejects_oversized_description(
+    client,
+    test_environment,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    original_name = project.name
+    original_description = (
+        project.description
+    )
+
+    db.close()
+
+    response = client.post(
+        f"/projects/{project_id}/edit",
+        data={
+            "project_name": (
+                "Новое название"
+            ),
+            "project_description": (
+                "d"
+                * (
+                    MAX_PROJECT_DESCRIPTION_LENGTH
+                    + 1
+                )
+            ),
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    assert project.name == original_name
+    assert (
+        project.description
+        == original_description
+    )
+
+    db.close()

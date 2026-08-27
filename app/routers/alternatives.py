@@ -3,6 +3,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.llm.safety import (
+    MAX_PROJECT_DESCRIPTION_LENGTH,
+    MAX_PROJECT_NAME_LENGTH,
+)
+
 from app import models
 from app.auth_dependencies import (
     require_alternative_owner,
@@ -197,8 +202,15 @@ def project_report(
 )
 def edit_project(
     project_id: int,
-    project_name: str = Form(...),
-    project_description: str | None = Form(None),
+    project_name: str = Form(
+        ...,
+        min_length=1,
+        max_length=MAX_PROJECT_NAME_LENGTH,
+    ),
+    project_description: str | None = Form(
+        None,
+        max_length=MAX_PROJECT_DESCRIPTION_LENGTH,
+    ),
     db: Session = Depends(get_db),
     project: models.Project = Depends(
         require_project_owner
