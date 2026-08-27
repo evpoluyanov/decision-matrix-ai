@@ -8,6 +8,9 @@ from app.llm.schemas import (
     LLMUsage,
 )
 
+INVALID_RESPONSE_MESSAGE = (
+    "LLM API вернул некорректный ответ."
+)
 
 class MWSProvider(LLMProvider):
 
@@ -99,23 +102,80 @@ class MWSProvider(LLMProvider):
                 "Не удалось подключиться к LLM API."
             ) from exc
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            ) from exc
 
-        content = (
-            data["choices"][0]
-            ["message"]["content"]
+        if not isinstance(data, dict):
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            )
+
+        choices = data.get(
+            "choices"
         )
+
+        if (
+            not isinstance(choices, list)
+            or not choices
+            or not isinstance(
+                choices[0],
+                dict,
+            )
+        ):
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            )
+
+        message = choices[0].get(
+            "message"
+        )
+
+        if not isinstance(message, dict):
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            )
+
+        content = message.get(
+            "content"
+        )
+
+        if (
+            not isinstance(content, str)
+            or not content.strip()
+        ):
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            )
 
         usage_data = data.get(
             "usage",
             {},
         )
 
+        if not isinstance(
+            usage_data,
+            dict,
+        ):
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            )
+
         completion_details = usage_data.get(
             "completion_tokens_details",
             {},
         )
 
+        if not isinstance(
+            completion_details,
+            dict,
+        ):
+            raise RuntimeError(
+                INVALID_RESPONSE_MESSAGE
+            )
         usage = LLMUsage(
             input_tokens=usage_data.get(
                 "prompt_tokens",

@@ -30,6 +30,10 @@ from app.services import (
     ai_score_service,
 )
 
+from app.llm.providers import (
+    mws as mws_provider,
+)
+
 def test_safe_system_prompt_contains_policy_and_task():
     task_prompt = (
         "Предложи критерии для сравнения."
@@ -2233,3 +2237,186 @@ def test_decision_risk_prompt_uses_structured_user_data(
         "только данными"
         in captured["system_prompt"]
     )
+
+def make_test_mws_provider(
+    monkeypatch,
+    response_data,
+):
+    monkeypatch.setenv(
+        "LLM_API_KEY",
+        "test-key",
+    )
+
+    monkeypatch.setenv(
+        "LLM_BASE_URL",
+        "https://llm.test",
+    )
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            if isinstance(
+                response_data,
+                Exception,
+            ):
+                raise response_data
+
+            return response_data
+
+    class FakeClient:
+        def __init__(
+            self,
+            *args,
+            **kwargs,
+        ):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(
+            self,
+            *args,
+        ):
+            return False
+
+        def post(
+            self,
+            *args,
+            **kwargs,
+        ):
+            return FakeResponse()
+
+    monkeypatch.setattr(
+        mws_provider.httpx,
+        "Client",
+        FakeClient,
+    )
+
+    return mws_provider.MWSProvider()
+
+@pytest.mark.parametrize(
+    "response_data",
+    [
+        ValueError(
+            "Некорректный JSON"
+        ),
+        [],
+        {},
+        {
+            "choices": [],
+        },
+        {
+            "choices": [
+                None,
+            ],
+        },
+        {
+            "choices": [
+                {
+                    "message": None,
+                },
+            ],
+        },
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "   ",
+                    },
+                },
+            ],
+        },
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "ok",
+                    },
+                },
+            ],
+            "usage": [],
+        },
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "ok",
+                    },
+                },
+            ],
+            "usage": {
+                "completion_tokens_details": [],
+            },
+        },
+    ],
+)
+def test_mws_provider_rejects_invalid_response(
+    monkeypatch,
+    response_data,
+):
+    provider = make_test_mws_provider(
+        monkeypatch,
+        response_data,
+    )
+
+    with pytest.raises(
+        RuntimeError
+    ) as error:
+        provider.generate(
+            system_prompt="system",
+            user_prompt="user",
+            max_output_tokens=100,
+            temperature=0.2,
+            json_mode=True,
+        )
+
+    assert str(error.value) == (
+        mws_provider
+        .INVALID_RESPONSE_MESSAGE
+    )
+
+def test_mws_provider_parses_valid_response(
+    monkeypatch,
+):
+    provider = make_test_mws_provider(
+        monkeypatch,
+        {
+            "model": "test-model",
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"s":"ok"}'
+                        ),
+                    },
+                },
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "completion_tokens_details": {
+                    "reasoning_tokens": 2,
+                },
+                "total_tokens": 15,
+            },
+        },
+    )
+
+    result = provider.generate(
+        system_prompt="system",
+        user_prompt="user",
+        max_output_tokens=100,
+        temperature=0.2,
+        json_mode=True,
+    )
+
+    assert result.content == '{"s":"ok"}'
+    assert result.provider == "mws"
+    assert result.model == "test-model"
+    assert result.usage.input_tokens == 10
+    assert result.usage.output_tokens == 5
+    assert result.usage.reasoning_tokens == 2
+    assert result.usage.total_tokens == 15
