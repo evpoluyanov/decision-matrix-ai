@@ -2,6 +2,7 @@ import json
 
 from app import models
 from app.llm import service as llm_service
+from app.llm.safety import unsafe_response
 
 
 def generate_result_explanation(
@@ -175,6 +176,14 @@ def generate_result_explanation(
         raise RuntimeError(
             "LLM вернула некорректный JSON."
         ) from exc
+
+    if not isinstance(data, dict):
+        raise RuntimeError(
+            "LLM вернула ответ неожиданного формата."
+        )
+
+    if data.get("s") == "unsafe":
+        return unsafe_response()
 
     summary = str(
         data.get("summary", "")
