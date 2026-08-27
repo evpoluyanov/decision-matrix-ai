@@ -436,6 +436,20 @@ def explain_result(
         )
     )
 
+    scope_error = get_ai_scope_error_response(
+        project=project,
+        alternatives_count=len(
+            alternatives
+        ),
+        criteria_count=len(
+            criteria
+        ),
+        check_matrix_size=True,
+    )
+
+    if scope_error is not None:
+        return scope_error
+
     scores = (
         score_service
         .get_scores(
@@ -534,6 +548,20 @@ def analyze_decision_risks(
             project.id,
         )
     )
+
+    scope_error = get_ai_scope_error_response(
+        project=project,
+        alternatives_count=len(
+            alternatives
+        ),
+        criteria_count=len(
+            criteria
+        ),
+        check_matrix_size=True,
+    )
+
+    if scope_error is not None:
+        return scope_error
 
     scores = (
         score_service

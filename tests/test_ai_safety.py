@@ -1097,3 +1097,124 @@ def test_ai_scores_reject_oversized_matrix(
     )
 
     assert llm_called is False
+
+@pytest.mark.parametrize(
+    (
+        "endpoint",
+        "ai_service",
+    ),
+    [
+        (
+            "result-explanation",
+            ai_result_service,
+        ),
+        (
+            "decision-risks",
+            ai_decision_risk_service,
+        ),
+    ],
+)
+def test_ai_analysis_rejects_oversized_matrix(
+    client,
+    test_environment,
+    monkeypatch,
+    endpoint,
+    ai_service,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Обычное описание проекта."
+    )
+
+    additional_alternatives = [
+        models.Alternative(
+            name=f"Альтернатива {index}",
+            project_id=project_id,
+        )
+        for index in range(14)
+    ]
+
+    additional_criteria = [
+        models.Criterion(
+            name=f"Критерий {index}",
+            weight=0.0,
+            project_id=project_id,
+        )
+        for index in range(14)
+    ]
+
+    db.add_all(
+        additional_alternatives
+    )
+
+    db.add_all(
+        additional_criteria
+    )
+
+    db.commit()
+    db.close()
+
+    llm_called = False
+
+    def fake_generate(**kwargs):
+        nonlocal llm_called
+
+        llm_called = True
+
+        return make_llm_response()
+
+    monkeypatch.setattr(
+        ai_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            f"/ai/{endpoint}"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        response.json()["status"]
+        == "input_limit_exceeded"
+    )
+
+    assert (
+        "Матрица"
+        in response.json()["message"]
+    )
+
+    assert llm_called is False
