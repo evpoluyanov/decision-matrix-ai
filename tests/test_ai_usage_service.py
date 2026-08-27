@@ -37,6 +37,18 @@ def reserve_request(
         )
     )
 
+def allow_test_ai_requests(
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "AI_REQUESTS_PER_MINUTE",
+        "100",
+    )
+
+    monkeypatch.setenv(
+        "AI_REQUESTS_PER_24_HOURS",
+        "100",
+    )
 
 def test_ai_request_is_reserved(
     test_environment,
@@ -397,6 +409,235 @@ def test_ai_request_rejects_invalid_setting(
                 0,
                 tzinfo=timezone.utc,
             ),
+        )
+
+    db.close()
+
+def test_ai_request_completion_saves_usage(
+    test_environment,
+    monkeypatch,
+):
+    allow_test_ai_requests(
+        monkeypatch
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    started_at = datetime(
+        2026,
+        8,
+        27,
+        12,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    db = TestingSessionLocal()
+
+    request_log = reserve_request(
+        db=db,
+        test_environment=test_environment,
+        now=started_at,
+    )
+
+    completed_log = (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage={
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "reasoning_tokens": 10,
+                "total_tokens": 150,
+            },
+            now=started_at
+            + timedelta(
+                seconds=5
+            ),
+        )
+    )
+
+    assert (
+        completed_log.status
+        == "completed"
+    )
+
+    assert completed_log.input_tokens == 100
+    assert completed_log.output_tokens == 50
+    assert (
+        completed_log.reasoning_tokens
+        == 10
+    )
+    assert completed_log.total_tokens == 150
+    assert completed_log.completed_at is not None
+
+    db.close()
+
+
+def test_ai_request_completion_normalizes_usage(
+    test_environment,
+    monkeypatch,
+):
+    allow_test_ai_requests(
+        monkeypatch
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    now = datetime(
+        2026,
+        8,
+        27,
+        12,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    db = TestingSessionLocal()
+
+    request_log = reserve_request(
+        db=db,
+        test_environment=test_environment,
+        now=now,
+    )
+
+    completed_log = (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage={
+                "input_tokens": -1,
+                "output_tokens": "50",
+                "reasoning_tokens": True,
+                "total_tokens": None,
+            },
+            now=now,
+        )
+    )
+
+    assert completed_log.input_tokens == 0
+    assert completed_log.output_tokens == 0
+    assert (
+        completed_log.reasoning_tokens
+        == 0
+    )
+    assert completed_log.total_tokens == 0
+
+    db.close()
+
+
+def test_ai_request_failure_is_saved(
+    test_environment,
+    monkeypatch,
+):
+    allow_test_ai_requests(
+        monkeypatch
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    now = datetime(
+        2026,
+        8,
+        27,
+        12,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    db = TestingSessionLocal()
+
+    request_log = reserve_request(
+        db=db,
+        test_environment=test_environment,
+        now=now,
+    )
+
+    failed_log = (
+        ai_usage_service
+        .fail_ai_request(
+            db=db,
+            request_log=request_log,
+            now=now
+            + timedelta(
+                seconds=5
+            ),
+        )
+    )
+
+    assert failed_log.status == "failed"
+    assert failed_log.completed_at is not None
+    assert failed_log.total_tokens == 0
+
+    db.close()
+
+
+def test_ai_request_cannot_be_completed_twice(
+    test_environment,
+    monkeypatch,
+):
+    allow_test_ai_requests(
+        monkeypatch
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    now = datetime(
+        2026,
+        8,
+        27,
+        12,
+        0,
+        tzinfo=timezone.utc,
+    )
+
+    db = TestingSessionLocal()
+
+    request_log = reserve_request(
+        db=db,
+        test_environment=test_environment,
+        now=now,
+    )
+
+    (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage={},
+            now=now,
+        )
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="уже завершён",
+    ):
+        (
+            ai_usage_service
+            .fail_ai_request(
+                db=db,
+                request_log=request_log,
+                now=now,
+            )
         )
 
     db.close()

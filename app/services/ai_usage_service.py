@@ -77,6 +77,40 @@ def get_positive_int_setting(
 
     return value
 
+def get_current_time(
+    now: datetime | None,
+) -> datetime:
+    current_time = (
+        now
+        if now is not None
+        else datetime.now(
+            timezone.utc
+        )
+    )
+
+    if (
+        current_time.tzinfo
+        is None
+    ):
+        raise ValueError(
+            "Время должно содержать "
+            "часовой пояс."
+        )
+
+    return current_time
+
+
+def get_token_count(
+    value,
+) -> int:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or value < 0
+    ):
+        return 0
+
+    return value
 
 def reserve_ai_request(
     *,
@@ -98,22 +132,9 @@ def reserve_ai_request(
             "Неизвестная ИИ-функция."
         )
 
-    current_time = (
+    current_time = get_current_time(
         now
-        if now is not None
-        else datetime.now(
-            timezone.utc
-        )
     )
-
-    if (
-        current_time.tzinfo
-        is None
-    ):
-        raise ValueError(
-            "Время должно содержать "
-            "часовой пояс."
-        )
 
     minute_limit = (
         get_positive_int_setting(
@@ -217,6 +238,117 @@ def reserve_ai_request(
         reasoning_tokens=0,
         total_tokens=0,
         created_at=current_time,
+    )
+
+    db.add(
+        request_log
+    )
+
+    db.commit()
+    db.refresh(
+        request_log
+    )
+
+    return request_log
+
+def complete_ai_request(
+    *,
+    db: Session,
+    request_log: models.AIRequestLog,
+    usage: dict,
+    now: datetime | None = None,
+) -> models.AIRequestLog:
+    """
+    Завершает успешный ИИ-запрос
+    и сохраняет фактическое использование.
+    """
+    if request_log.status != "started":
+        raise ValueError(
+            "ИИ-запрос уже завершён."
+        )
+
+    if not isinstance(
+        usage,
+        dict,
+    ):
+        raise ValueError(
+            "Статистика токенов "
+            "должна быть объектом."
+        )
+
+    request_log.status = "completed"
+
+    request_log.input_tokens = (
+        get_token_count(
+            usage.get(
+                "input_tokens"
+            )
+        )
+    )
+
+    request_log.output_tokens = (
+        get_token_count(
+            usage.get(
+                "output_tokens"
+            )
+        )
+    )
+
+    request_log.reasoning_tokens = (
+        get_token_count(
+            usage.get(
+                "reasoning_tokens"
+            )
+        )
+    )
+
+    request_log.total_tokens = (
+        get_token_count(
+            usage.get(
+                "total_tokens"
+            )
+        )
+    )
+
+    request_log.completed_at = (
+        get_current_time(
+            now
+        )
+    )
+
+    db.add(
+        request_log
+    )
+
+    db.commit()
+    db.refresh(
+        request_log
+    )
+
+    return request_log
+
+
+def fail_ai_request(
+    *,
+    db: Session,
+    request_log: models.AIRequestLog,
+    now: datetime | None = None,
+) -> models.AIRequestLog:
+    """
+    Помечает зарезервированный запрос
+    как завершившийся ошибкой.
+    """
+    if request_log.status != "started":
+        raise ValueError(
+            "ИИ-запрос уже завершён."
+        )
+
+    request_log.status = "failed"
+
+    request_log.completed_at = (
+        get_current_time(
+            now
+        )
     )
 
     db.add(
