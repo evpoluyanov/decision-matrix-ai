@@ -727,3 +727,177 @@ def test_ai_scope_rejects_excessive_input(
 
     assert result is not None
     assert message_fragment in result
+
+def test_ai_alternatives_reject_oversized_project(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "d"
+        * (
+            MAX_PROJECT_DESCRIPTION_LENGTH
+            + 1
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    llm_called = False
+
+    def fake_generate(**kwargs):
+        nonlocal llm_called
+
+        llm_called = True
+
+        return make_llm_response()
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        response.json()["status"]
+        == "input_limit_exceeded"
+    )
+
+    assert (
+        "Описание проекта"
+        in response.json()["message"]
+    )
+
+    assert llm_called is False
+
+def test_ai_alternatives_reject_too_many_items(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login_response = client.post(
+        "/login",
+        data={
+            "email": "user1@test.com",
+            "password": "test-password-123",
+        },
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code == 303
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment[
+            "project_1_id"
+        ]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Обычное описание проекта."
+    )
+
+    additional_alternatives = [
+        models.Alternative(
+            name=f"Альтернатива {index}",
+            project_id=project_id,
+        )
+        for index in range(
+            MAX_AI_ALTERNATIVES
+        )
+    ]
+
+    db.add_all(
+        additional_alternatives
+    )
+
+    db.commit()
+    db.close()
+
+    llm_called = False
+
+    def fake_generate(**kwargs):
+        nonlocal llm_called
+
+        llm_called = True
+
+        return make_llm_response()
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        response.json()["status"]
+        == "input_limit_exceeded"
+    )
+
+    assert (
+        "альтернатив"
+        in response.json()["message"]
+    )
+
+    assert llm_called is False

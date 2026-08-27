@@ -12,6 +12,7 @@ from app.auth_dependencies import (
     require_project_owner,
 )
 from app.database import get_db
+from app.llm import safety as ai_safety
 from app.services import (
     ai_alternative_service,
     alternative_service,
@@ -77,7 +78,31 @@ class AcceptedCriterion(BaseModel):
 
 class AcceptCriteriaRequest(BaseModel):
     items: list[AcceptedCriterion]
+def get_ai_scope_error_response(
+    *,
+    project: models.Project,
+    alternatives_count: int = 0,
+    criteria_count: int = 0,
+    check_matrix_size: bool = False,
+) -> JSONResponse | None:
+    message = ai_safety.get_ai_scope_error(
+        project_name=project.name,
+        project_description=project.description,
+        alternatives_count=alternatives_count,
+        criteria_count=criteria_count,
+        check_matrix_size=check_matrix_size,
+    )
 
+    if message is None:
+        return None
+
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status": "input_limit_exceeded",
+            "message": message,
+        },
+    )
 @router.post(
     "/projects/{project_id}/ai/alternatives"
 )
@@ -95,6 +120,16 @@ def suggest_alternatives(
             project.id,
         )
     )
+
+    scope_error = get_ai_scope_error_response(
+        project=project,
+        alternatives_count=len(
+            alternatives
+        ),
+    )
+
+    if scope_error is not None:
+        return scope_error
 
     try:
         result = (
