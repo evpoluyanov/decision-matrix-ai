@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Статистика — Decision Matrix AI{% endblock %}
+{% block content %}
+<h1 class="h3">Статистика сервиса</h1>
+<p class="text-muted">Обновлено: {{ stats.updated_at.strftime('%d.%m.%Y %H:%M') }} МСК.
+    Только просмотр; баланс провайдера здесь не загружается.</p>
+<div class="btn-group mb-4" aria-label="Период статистики">
+    {% for value, label in [(1, 'Сегодня'), (7, '7 дней'), (30, '30 дней')] %}
+    <a href="/admin?days={{ value }}" class="btn btn-outline-primary {% if stats.days == value %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+<div class="row g-3 mb-4">
+    {% for title, value in [('Всего аккаунтов', stats.accounts), ('Email подтверждён', stats.verified_accounts),
+        ('Новых за период', stats.new_accounts), ('Аккаунтов с ИИ-запросами', stats.active_ai_accounts)] %}
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body">
+        <div class="text-muted small">{{ title }}</div><div class="fs-3">{{ value }}</div>
+    </div></div></div>
+    {% endfor %}
+</div>
+<section class="card mb-4"><div class="card-body">
+    <h2 class="h5">Общий бюджет на сегодня (00:00–24:00 МСК)</h2>
+    <p>Предел: <strong>{% if stats.daily_limit is not none %}{{ '%.2f'|format(stats.daily_limit) }} ₽{% else %}не настроен{% endif %}</strong>.
+        Учтено вместе с резервами: <strong>{{ '%.4f'|format(stats.today_allocated) }} ₽</strong>.
+        Свободно: <strong>{% if stats.today_remaining is not none %}{{ '%.4f'|format(stats.today_remaining) }} ₽{% else %}не рассчитано{% endif %}</strong>.</p>
+    <p class="small text-muted mb-0">Перед каждым платным запросом резервируется максимальная стоимость.
+        Поэтому отказ возможен немного раньше предела. Неизвестный результат и оборванное соединение
+        не освобождают резерв. После 00:00 начинается новый дневной бюджет.</p>
+    {% if stats.configuration_error %}
+    <p class="alert alert-warning mt-3 mb-0">{{ stats.configuration_error }}
+        Проверьте настройки ИИ в окружении Vercel.</p>
+    {% elif stats.pricing %}
+    <p class="small mt-3 mb-0">Текущая модель: {{ stats.pricing.model }} ({{ stats.pricing.provider }}).
+        Тариф расчёта: {{ stats.pricing.input_rate }} / {{ stats.pricing.output_rate }} ₽ за миллион входящих / исходящих токенов.
+        Сверяйте его с кабинетом MWS; автоматически тариф не обновляется.</p>
+    {% endif %}
+</div></section>
+<section class="card mb-4"><div class="card-body">
+    <h2 class="h5">Использование за выбранный период</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-7">Попыток использования ИИ</dt><dd class="col-sm-5">{{ stats.requests }}</dd>
+        <dt class="col-sm-7">Входящие токены с известной статистикой</dt><dd class="col-sm-5">{{ stats.input_tokens }}</dd>
+        <dt class="col-sm-7">Исходящие токены</dt><dd class="col-sm-5">{{ stats.output_tokens }}</dd>
+        <dt class="col-sm-7">В том числе рассуждения (не прибавляются повторно)</dt><dd class="col-sm-5">{{ stats.reasoning_tokens }}</dd>
+        <dt class="col-sm-7">Оценка стоимости по полученной статистике</dt><dd class="col-sm-5">{{ '%.4f'|format(stats.estimated) }} ₽</dd>
+        <dt class="col-sm-7">Вызовов без окончательной статистики</dt><dd class="col-sm-5">{{ stats.uncertain_calls }}</dd>
+        <dt class="col-sm-7">Сохранённые резервы по таким вызовам</dt><dd class="col-sm-5">{{ '%.4f'|format(stats.uncertain_reserve) }} ₽</dd>
+    </dl>
+    <p class="small text-muted mt-3 mb-0">Денежный учёт и эти токены доступны с момента установки обновления.
+        Это не выписка MWS: округления, тарифы, другие приложения и неизвестные ответы могут давать расхождения.
+        Удалённые аккаунты не отменяют расходы. Точное списание и баланс смотрите в кабинете провайдера.</p>
+</div></section>
+<div class="table-responsive mb-4"><table class="table table-striped">
+    <caption>Запросы по функциям. completed означает, что сервис вернул ответ, включая отказ по безопасности.</caption>
+    <thead><tr><th>Функция</th><th>Состояние</th><th>Запросов</th></tr></thead><tbody>
+    {% set labels = {'alternatives':'Альтернативы', 'criteria':'Критерии', 'scores':'Оценки',
+        'result_explanation':'Объяснение результата', 'decision_risks':'Риски решения'} %}
+    {% for feature, status, count in stats.features %}
+    <tr><td>{{ labels.get(feature, feature) }}</td><td>{{ status }}</td><td>{{ count }}</td></tr>
+    {% else %}<tr><td colspan="3">За период запросов пока нет.</td></tr>{% endfor %}
+    </tbody>
+</table></div>
+<h2 class="h5">Посещаемость и фактические списания</h2>
+<p>Аккаунты с ИИ-запросами — не все посетители сайта. Анонимную посещаемость смотрите в Метрике
+    после подключения счётчика. В эту страницу она автоматически не импортируется.</p>
+<a class="btn btn-outline-secondary me-2" href="https://metrika.yandex.ru/" rel="noreferrer">Яндекс Метрика</a>
+<a class="btn btn-outline-secondary" href="https://console.mws.ru/" rel="noreferrer">Кабинет MWS</a>
+{% endblock %}

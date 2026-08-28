@@ -29,6 +29,24 @@
                     </div>
                 </div>
 
+                <p class="small text-muted">ID аккаунта: {{ user.id }}</p>
+                {% if verification_notice %}
+                <div class="alert alert-info">{{ verification_notice }}</div>
+                {% endif %}
+                {% if user.email_verified %}
+                <p class="text-success">Email подтверждён.</p>
+                {% else %}
+                <div class="alert alert-warning">
+                    Для использования ИИ подтвердите email. Проекты доступны для ручной работы.
+                    <form method="post" action="/account/resend-verification" class="mt-2">
+                        <button class="btn btn-outline-primary btn-sm" type="submit">Отправить письмо повторно</button>
+                    </form>
+                </div>
+                {% endif %}
+                {% if is_admin %}
+                <a href="/admin" class="btn btn-outline-secondary btn-sm">Статистика сервиса</a>
+                {% endif %}
+
                 <a
                     href="/projects"
                     class="btn btn-outline-primary btn-sm"

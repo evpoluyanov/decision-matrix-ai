@@ -25,6 +25,7 @@ from app.services import (
     ai_decision_risk_service,
     project_ai_analysis_service,
     ai_usage_service,
+    ai_budget_service,
 )
 
 
@@ -129,6 +130,19 @@ def reserve_ai_request_or_response(
     models.AIRequestLog
     | JSONResponse
 ):
+    # The existing owner check runs first, preserving 404 for foreign projects.
+    if not project.owner.email_verified:
+        return JSONResponse(status_code=403, content={
+            "status": "email_verification_required",
+            "message": "Подтвердите email в личном кабинете, чтобы пользоваться ИИ.",
+        })
+    try:
+        ai_budget_service.get_pricing()
+    except ai_budget_service.AIBudgetConfigurationError:
+        return JSONResponse(status_code=503, content={
+            "status": "ai_unavailable",
+            "message": "ИИ временно недоступен. Работа с проектами вручную доступна.",
+        })
     try:
         return (
             ai_usage_service
@@ -199,15 +213,23 @@ def suggest_alternatives(
     request_log = reservation
 
     try:
-        result = (
-            ai_alternative_service
-            .generate_alternative_suggestions(
-                project=project,
-                existing_alternatives=(
-                    alternatives
-                ),
+        with ai_budget_service.request_context(db, request_log):
+            result = (
+                ai_alternative_service
+                .generate_alternative_suggestions(
+                    project=project,
+                    existing_alternatives=(
+                        alternatives
+                    ),
+                )
             )
-        )
+
+    except ai_budget_service.AIBudgetExceeded as exc:
+        db.rollback()
+        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
+        return JSONResponse(status_code=429, content={
+            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
+        })
 
     except RuntimeError:
         (
@@ -342,14 +364,22 @@ def suggest_criteria(
     request_log = reservation
 
     try:
-        result = (
-            ai_criterion_service
-            .generate_criterion_suggestions(
-                project=project,
-                alternatives=alternatives,
-                existing_criteria=criteria,
+        with ai_budget_service.request_context(db, request_log):
+            result = (
+                ai_criterion_service
+                .generate_criterion_suggestions(
+                    project=project,
+                    alternatives=alternatives,
+                    existing_criteria=criteria,
+                )
             )
-        )
+
+    except ai_budget_service.AIBudgetExceeded as exc:
+        db.rollback()
+        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
+        return JSONResponse(status_code=429, content={
+            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
+        })
 
     except RuntimeError:
         (
@@ -505,14 +535,22 @@ def suggest_scores(
     request_log = reservation
 
     try:
-        result = (
-            ai_score_service
-            .generate_score_suggestions(
-                project=project,
-                alternatives=alternatives,
-                criteria=criteria,
+        with ai_budget_service.request_context(db, request_log):
+            result = (
+                ai_score_service
+                .generate_score_suggestions(
+                    project=project,
+                    alternatives=alternatives,
+                    criteria=criteria,
+                )
             )
-        )
+
+    except ai_budget_service.AIBudgetExceeded as exc:
+        db.rollback()
+        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
+        return JSONResponse(status_code=429, content={
+            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
+        })
 
     except RuntimeError:
         (
@@ -657,17 +695,25 @@ def explain_result(
     request_log = reservation
 
     try:
-        result = (
-            ai_result_service
-            .generate_result_explanation(
-                project=project,
-                alternatives=alternatives,
-                criteria=criteria,
-                scores=scores,
-                results=results,
-                score_summary=score_summary,
+        with ai_budget_service.request_context(db, request_log):
+            result = (
+                ai_result_service
+                .generate_result_explanation(
+                    project=project,
+                    alternatives=alternatives,
+                    criteria=criteria,
+                    scores=scores,
+                    results=results,
+                    score_summary=score_summary,
+                )
             )
-        )
+
+    except ai_budget_service.AIBudgetExceeded as exc:
+        db.rollback()
+        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
+        return JSONResponse(status_code=429, content={
+            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
+        })
 
     except RuntimeError:
         (
@@ -806,16 +852,24 @@ def analyze_decision_risks(
     request_log = reservation
 
     try:
-        result = (
-            ai_decision_risk_service
-            .generate_decision_risks(
-                project=project,
-                criteria=criteria,
-                scores=scores,
-                results=results,
-                score_summary=score_summary,
+        with ai_budget_service.request_context(db, request_log):
+            result = (
+                ai_decision_risk_service
+                .generate_decision_risks(
+                    project=project,
+                    criteria=criteria,
+                    scores=scores,
+                    results=results,
+                    score_summary=score_summary,
+                )
             )
-        )
+
+    except ai_budget_service.AIBudgetExceeded as exc:
+        db.rollback()
+        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
+        return JSONResponse(status_code=429, content={
+            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
+        })
 
     except RuntimeError:
         (

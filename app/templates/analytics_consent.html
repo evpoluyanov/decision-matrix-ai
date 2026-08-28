@@ -1,0 +1,47 @@
+<section id="analytics-consent" class="alert alert-secondary mt-4" hidden aria-label="Аналитика посещений">
+    <p class="small">С вашего разрешения подключим Яндекс Метрику для статистики посещений главной страницы.
+        Она использует cookie и данные браузера. Вебвизор выключен; содержимое проектов, аккаунта
+        и адрес электронной почты мы в счётчик не передаём. Отказ не ограничивает работу сервиса.</p>
+    <button id="analytics-accept" class="btn btn-outline-primary btn-sm" type="button">Разрешить аналитику</button>
+    <button id="analytics-decline" class="btn btn-outline-secondary btn-sm" type="button">Без аналитики</button>
+</section>
+<button id="analytics-settings" class="btn btn-link btn-sm mt-3" type="button">Настройки аналитики</button>
+<script>
+(() => {
+    const counterId = {{ metrika_counter_id | tojson }};
+    const storageKey = 'dmatrix-analytics-consent-v1';
+    const panel = document.getElementById('analytics-consent');
+    let started = false;
+    const remember = value => { try { localStorage.setItem(storageKey, value); } catch (_) {} };
+    function start() {
+        if (started) return;
+        started = true;
+        // The external script is not requested until the visitor opts in.
+        window.ym = window.ym || function() { (window.ym.a = window.ym.a || []).push(arguments); };
+        window.ym.l = Date.now();
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://mc.yandex.ru/metrika/tag.js';
+        document.head.appendChild(script);
+        // Explicit, sanitised URLs: do not transmit query strings/tokens.
+        ym(counterId, 'init', {
+            defer: true, webvisor: false, clickmap: false, trackLinks: false,
+            accurateTrackBounce: false, trackHash: false
+        });
+        const referrer = document.referrer ? document.referrer.split(/[?#]/)[0] : '';
+        ym(counterId, 'hit', location.origin + '/', {title: 'Decision Matrix AI', referer: referrer});
+    }
+    document.getElementById('analytics-accept').onclick = () => {
+        remember('yes'); panel.hidden = true; start();
+    };
+    document.getElementById('analytics-decline').onclick = () => {
+        remember('no'); panel.hidden = true;
+        if (started) location.reload();
+    };
+    document.getElementById('analytics-settings').onclick = () => { panel.hidden = false; };
+    let consent = null;
+    try { consent = localStorage.getItem(storageKey); } catch (_) {}
+    if (consent === 'yes') start();
+    else if (consent !== 'no') panel.hidden = false;
+})();
+</script>

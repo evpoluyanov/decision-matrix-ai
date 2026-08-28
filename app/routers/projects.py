@@ -7,6 +7,7 @@ from app import models
 from app.auth_dependencies import require_user
 from app.database import get_db
 from app.services import project_service
+from app.services import public_site_service
 from app.llm.safety import (
     MAX_PROJECT_DESCRIPTION_LENGTH,
     MAX_PROJECT_NAME_LENGTH,
@@ -44,6 +45,7 @@ def index(
         name="index.html",
         context={
             "user": user,
+            **public_site_service.page_context(request),
         },
     )
 

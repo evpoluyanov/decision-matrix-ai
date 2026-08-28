@@ -6,6 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("verified_users")
+
 from app import models
 from app.llm import service as llm_service
 from app.llm.safety import MAX_PROJECT_DESCRIPTION_LENGTH

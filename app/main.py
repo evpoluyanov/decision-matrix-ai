@@ -3,13 +3,16 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
+from app.http_security import BrowserSecurityMiddleware
 
 from app.routers import (
+    admin,
     ai,
     alternatives,
     auth,
     criteria,
     projects,
+    public_site,
     scores,
 )
 from app.schemas import AlternativeResult, CalculateRequest
@@ -25,7 +28,7 @@ if not session_secret:
     )
 
 session_https_only = (
-    os.getenv(
+    os.getenv("VERCEL") == "1" or os.getenv(
         "SESSION_HTTPS_ONLY",
         "false",
     ).lower()
@@ -34,6 +37,8 @@ session_https_only = (
 
 
 app = FastAPI(title="Decision Matrix AI")
+
+app.add_middleware(BrowserSecurityMiddleware)
 
 app.add_middleware(
     SessionMiddleware,
@@ -50,6 +55,8 @@ app.include_router(alternatives.router)
 app.include_router(criteria.router)
 app.include_router(scores.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
+app.include_router(public_site.router)
 
 
 @app.get("/health")

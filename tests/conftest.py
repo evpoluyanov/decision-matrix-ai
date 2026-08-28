@@ -1,6 +1,7 @@
 import os
 
 import pytest
+import httpx
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +19,43 @@ from app.security import hash_password
 
 
 TEST_PASSWORD = "test-password-123"
+
+
+@pytest.fixture(autouse=True)
+def isolate_launch_settings(monkeypatch):
+    # Tests never inherit production billing/admin/edge settings.
+    for name in list(os.environ):
+        if name.startswith(("AI_", "AUTH_", "VERCEL", "ADMIN_", "YANDEX_", "PUBLIC_SITE_")):
+            monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("AI_PRICING_CONFIRMED", "true")
+    monkeypatch.setenv("LLM_PROVIDER", "mws")
+    monkeypatch.setenv("LLM_MODEL", "gpt-oss-120b")
+    monkeypatch.setenv("LLM_API_KEY", "test-only-not-a-real-key")
+    monkeypatch.setenv("LLM_BASE_URL", "https://llm.invalid")
+    monkeypatch.setenv("BREVO_API_KEY", "test-only-not-a-real-key")
+    def no_outbound_http(*args, **kwargs):
+        raise AssertionError("Tests must mock outbound HTTP; production APIs are forbidden")
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", no_outbound_http)
+
+
+@pytest.fixture()
+def verified_users(test_environment):
+    with test_environment["TestingSessionLocal"]() as db:
+        for user in db.query(models.User).all():
+            user.email_verified = True
+        db.commit()
+
+
+@pytest.fixture()
+def provider_budget_context(test_environment):
+    from app.services import ai_budget_service, ai_usage_service
+    with test_environment["TestingSessionLocal"]() as db:
+        log = ai_usage_service.reserve_ai_request(
+            db=db, user_id=test_environment["user_1_id"],
+            project_id=test_environment["project_1_id"], feature="alternatives",
+        )
+        with ai_budget_service.request_context(db, log):
+            yield db, log
 
 
 @pytest.fixture()
@@ -156,5 +194,5 @@ def test_environment():
 
 @pytest.fixture()
 def client(test_environment):
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"Origin": "http://testserver"}) as test_client:
         yield test_client

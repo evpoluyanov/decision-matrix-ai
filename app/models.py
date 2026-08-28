@@ -1,10 +1,15 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    BigInteger,
+    CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -120,6 +125,54 @@ class AIRequestLog(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+class AuthRateLimit(Base):
+    """Shared counters; keys contain HMAC digests, never plaintext emails/IPs."""
+    __tablename__ = "auth_rate_limits"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    attempts: Mapped[int] = mapped_column(nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AIDailyBudget(Base):
+    __tablename__ = "ai_daily_budgets"
+    __table_args__ = (
+        CheckConstraint("allocated_microrub >= 0", name="ck_ai_budget_nonnegative"),
+    )
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    allocated_microrub: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+
+class AIProviderCall(Base):
+    """Durable money ledger, retained even if the user/request log is deleted."""
+    __tablename__ = "ai_provider_calls"
+    __table_args__ = (
+        CheckConstraint("charged_microrub >= 0", name="ck_ai_call_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    request_log_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ai_request_logs.id", ondelete="SET NULL"), index=True,
+    )
+    budget_day: Mapped[date] = mapped_column(ForeignKey("ai_daily_budgets.day"), index=True)
+    provider: Mapped[str] = mapped_column(String(30))
+    model: Mapped[str] = mapped_column(String(100))
+    input_rub_per_million: Mapped[Decimal] = mapped_column(Numeric(14, 6))
+    output_rub_per_million: Mapped[Decimal] = mapped_column(Numeric(14, 6))
+    input_token_bound: Mapped[int] = mapped_column()
+    output_token_bound: Mapped[int] = mapped_column()
+    reserved_microrub: Mapped[int] = mapped_column(BigInteger)
+    charged_microrub: Mapped[int] = mapped_column(BigInteger)
+    estimated_microrub: Mapped[int | None] = mapped_column(BigInteger)
+    status: Mapped[str] = mapped_column(String(20), default="reserved")
+    input_tokens: Mapped[int | None] = mapped_column()
+    output_tokens: Mapped[int | None] = mapped_column()
+    reasoning_tokens: Mapped[int | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 class Project(Base):
     __tablename__ = "projects"
