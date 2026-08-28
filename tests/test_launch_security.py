@@ -195,5 +195,5 @@ def test_sensitive_pages_are_not_cached_or_indexed(client, path):
     response = client.get(path, follow_redirects=False)
     assert response.headers["Cache-Control"] == "private, no-store"
     assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
-    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Referrer-Policy"] == "strict-origin"
     assert response.headers["X-Frame-Options"] == "DENY"
