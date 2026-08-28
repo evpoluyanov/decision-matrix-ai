@@ -501,6 +501,248 @@ def test_ai_alternatives_return_llm_suggestions(
     )
 
 
+    db = TestingSessionLocal()
+
+    request_logs = (
+        db.query(
+            models.AIRequestLog
+        )
+        .filter(
+            models.AIRequestLog.project_id
+            == project_id,
+            models.AIRequestLog.feature
+            == "alternatives",
+        )
+        .all()
+    )
+
+    assert len(request_logs) == 1
+
+    request_log = request_logs[0]
+
+    assert request_log.status == "completed"
+    assert request_log.input_tokens == 100
+    assert request_log.output_tokens == 50
+    assert request_log.reasoning_tokens == 10
+    assert request_log.total_tokens == 150
+    assert request_log.completed_at is not None
+
+    db.close()
+
+
+def test_ai_alternatives_save_failed_request(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор семейного автомобиля. "
+        "Бюджет до 4 млн рублей."
+    )
+
+    db.commit()
+    db.close()
+
+    def fake_generate(**kwargs):
+        raise RuntimeError(
+            "Провайдер недоступен."
+        )
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert response.status_code == 503
+
+    assert response.json()["status"] == "error"
+
+    db = TestingSessionLocal()
+
+    request_logs = (
+        db.query(
+            models.AIRequestLog
+        )
+        .filter(
+            models.AIRequestLog.project_id
+            == project_id,
+            models.AIRequestLog.feature
+            == "alternatives",
+        )
+        .all()
+    )
+
+    assert len(request_logs) == 1
+
+    request_log = request_logs[0]
+
+    assert request_log.status == "failed"
+    assert request_log.total_tokens == 0
+    assert request_log.completed_at is not None
+
+    db.close()
+
+def test_ai_alternatives_rate_limit_skips_llm(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "AI_REQUESTS_PER_MINUTE",
+        "1",
+    )
+
+    monkeypatch.setenv(
+        "AI_REQUESTS_PER_24_HOURS",
+        "100",
+    )
+
+    login(
+        client,
+        "user1@test.com",
+    )
+
+    TestingSessionLocal = (
+        test_environment[
+            "TestingSessionLocal"
+        ]
+    )
+
+    project_id = (
+        test_environment["project_1_id"]
+    )
+
+    db = TestingSessionLocal()
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    project.description = (
+        "Выбор семейного автомобиля. "
+        "Бюджет до 4 млн рублей."
+    )
+
+    db.commit()
+    db.close()
+
+    calls = 0
+
+    def fake_generate(**kwargs):
+        nonlocal calls
+        calls += 1
+
+        return LLMResponse(
+            content=json.dumps(
+                {
+                    "s": "ok",
+                    "i": [
+                        {
+                            "n": "Toyota Camry",
+                            "r": (
+                                "Надёжный семейный "
+                                "автомобиль."
+                            ),
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            provider="test-provider",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=100,
+                output_tokens=50,
+                reasoning_tokens=10,
+                total_tokens=150,
+            ),
+        )
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    first_response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert first_response.status_code == 200
+    assert calls == 1
+
+    limited_response = client.post(
+        (
+            f"/projects/{project_id}"
+            "/ai/alternatives"
+        )
+    )
+
+    assert limited_response.status_code == 429
+
+    assert limited_response.json()["status"] == (
+        "rate_limited"
+    )
+
+    assert limited_response.json()["scope"] == (
+        "minute"
+    )
+
+    assert calls == 1
+
+    db = TestingSessionLocal()
+
+    request_count = (
+        db.query(
+            models.AIRequestLog
+        )
+        .filter(
+            models.AIRequestLog.project_id
+            == project_id,
+            models.AIRequestLog.feature
+            == "alternatives",
+        )
+        .count()
+    )
+
+    assert request_count == 1
+
+    db.close()
+
 def test_accept_ai_alternatives_saves_ai_metadata(
     client,
     test_environment,

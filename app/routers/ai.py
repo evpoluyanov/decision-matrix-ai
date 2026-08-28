@@ -24,6 +24,7 @@ from app.services import (
     calculation_service,
     ai_decision_risk_service,
     project_ai_analysis_service,
+    ai_usage_service,
 )
 
 
@@ -117,6 +118,41 @@ def get_ai_scope_error_response(
             "message": message,
         },
     )
+
+def reserve_ai_request_or_response(
+    *,
+    db: Session,
+    project: models.Project,
+    feature: str,
+) -> (
+    models.AIRequestLog
+    | JSONResponse
+):
+    try:
+        return (
+            ai_usage_service
+            .reserve_ai_request(
+                db=db,
+                user_id=project.owner_id,
+                project_id=project.id,
+                feature=feature,
+            )
+        )
+
+    except (
+        ai_usage_service
+        .AIRequestLimitError
+    ) as exc:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "status": "rate_limited",
+                "message": str(exc),
+                "scope": exc.scope,
+            },
+        )
+
+
 @router.post(
     "/projects/{project_id}/ai/alternatives"
 )
@@ -145,6 +181,22 @@ def suggest_alternatives(
     if scope_error is not None:
         return scope_error
 
+    reservation = (
+        reserve_ai_request_or_response(
+            db=db,
+            project=project,
+            feature="alternatives",
+        )
+    )
+
+    if isinstance(
+        reservation,
+        JSONResponse,
+    ):
+        return reservation
+
+    request_log = reservation
+
     try:
         result = (
             ai_alternative_service
@@ -157,6 +209,14 @@ def suggest_alternatives(
         )
 
     except RuntimeError:
+        (
+            ai_usage_service
+            .fail_ai_request(
+                db=db,
+                request_log=request_log,
+            )
+        )
+
         return JSONResponse(
             status_code=503,
             content={
@@ -168,6 +228,22 @@ def suggest_alternatives(
                 ),
             },
         )
+
+        (
+
+    )
+    (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage=result.get(
+                "usage",
+                {},
+            ),
+        )
+    )
+
     if result.get("status") == "unsafe_content":
         return JSONResponse(
             status_code=400,
