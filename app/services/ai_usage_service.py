@@ -88,16 +88,13 @@ def get_current_time(
         )
     )
 
-    if (
-        current_time.tzinfo
-        is None
-    ):
+    if current_time.utcoffset() is None:
         raise ValueError(
             "Время должно содержать "
             "часовой пояс."
         )
 
-    return current_time
+    return current_time.astimezone(timezone.utc)
 
 
 def get_token_count(
@@ -276,12 +273,13 @@ def complete_ai_request(
             "должна быть объектом."
         )
 
+    completed_at = get_current_time(now)
     request_log.status = "completed"
 
     request_log.input_tokens = (
         get_token_count(
             usage.get(
-                "input_tokens"
+                "input_tokens", request_log.input_tokens
             )
         )
     )
@@ -289,7 +287,7 @@ def complete_ai_request(
     request_log.output_tokens = (
         get_token_count(
             usage.get(
-                "output_tokens"
+                "output_tokens", request_log.output_tokens
             )
         )
     )
@@ -297,7 +295,7 @@ def complete_ai_request(
     request_log.reasoning_tokens = (
         get_token_count(
             usage.get(
-                "reasoning_tokens"
+                "reasoning_tokens", request_log.reasoning_tokens
             )
         )
     )
@@ -305,16 +303,12 @@ def complete_ai_request(
     request_log.total_tokens = (
         get_token_count(
             usage.get(
-                "total_tokens"
+                "total_tokens", request_log.total_tokens
             )
         )
     )
 
-    request_log.completed_at = (
-        get_current_time(
-            now
-        )
-    )
+    request_log.completed_at = completed_at
 
     db.add(
         request_log
@@ -343,13 +337,10 @@ def fail_ai_request(
             "ИИ-запрос уже завершён."
         )
 
+    completed_at = get_current_time(now)
     request_log.status = "failed"
 
-    request_log.completed_at = (
-        get_current_time(
-            now
-        )
-    )
+    request_log.completed_at = completed_at
 
     db.add(
         request_log

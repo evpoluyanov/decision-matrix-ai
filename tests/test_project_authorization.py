@@ -1,4 +1,7 @@
 import json
+import pytest
+
+pytestmark = pytest.mark.usefixtures("verified_users")
 
 from fastapi.testclient import TestClient
 

@@ -1,15 +1,18 @@
 import logging
 from email_validator import EmailNotValidError, validate_email
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.auth_dependencies import require_user
 from app.services import (
     email_service,
     email_verification_service,
     user_service,
+    auth_rate_limit_service,
+    admin_service,
 )
 
 logger = logging.getLogger(
@@ -22,6 +25,18 @@ templates = Jinja2Templates(directory="app/templates")
 
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
+
+
+def limit_form(db, request, action, email, template):
+    try:
+        auth_rate_limit_service.enforce(db, request, action, email=email)
+    except HTTPException as exc:
+        return templates.TemplateResponse(
+            request=request, name=template,
+            context={"email": email, "error": exc.detail, "errors": [exc.detail]},
+            status_code=exc.status_code, headers=exc.headers,
+        )
+    return None
 
 
 def normalize_email_address(
@@ -73,7 +88,7 @@ def registration_form(
 )
 def register_user(
     request: Request,
-    email: str = Form(...),
+    email: str = Form(..., max_length=320),
     password: str = Form(...),
     password_confirmation: str = Form(...),
     db: Session = Depends(get_db),
@@ -88,6 +103,10 @@ def register_user(
     normalized_email = normalize_email_address(
         entered_email
     )
+
+    limited = limit_form(db, request, "register", normalized_email or entered_email, "register.html")
+    if limited is not None:
+        return limited
 
     errors: list[str] = []
 
@@ -528,8 +547,8 @@ def login_form(
 )
 def login_user(
     request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
+    email: str = Form(..., max_length=320),
+    password: str = Form(..., max_length=MAX_PASSWORD_LENGTH),
     db: Session = Depends(get_db),
 ):
     entered_email = email.strip()
@@ -537,6 +556,10 @@ def login_user(
     normalized_email = normalize_email_address(
         entered_email
     )
+
+    limited = limit_form(db, request, "login", normalized_email or entered_email, "login.html")
+    if limited is not None:
+        return limited
 
     user = None
 
@@ -606,6 +629,8 @@ def account(
             "user": user,
             "password_errors": [],
             "password_success": False,
+            "verification_notice": request.session.pop("verification_notice", None),
+            "is_admin": admin_service.is_admin(user),
         },
     )
 
@@ -616,7 +641,7 @@ def account(
 )
 def change_password(
     request: Request,
-    current_password: str = Form(...),
+    current_password: str = Form(..., max_length=MAX_PASSWORD_LENGTH),
     new_password: str = Form(...),
     new_password_confirmation: str = Form(...),
     db: Session = Depends(get_db),
@@ -649,6 +674,7 @@ def change_password(
             status_code=303,
         )
 
+    auth_rate_limit_service.enforce(db, request, "password", user_id=user.id)
     errors = []
 
     if (
@@ -722,6 +748,25 @@ def change_password(
             "password_success": True,
         },
     )
+
+@router.post("/account/resend-verification")
+def resend_verification(request: Request, db: Session = Depends(get_db),
+                        user=Depends(require_user)):
+    if user.email_verified:
+        request.session["verification_notice"] = "Email уже подтверждён."
+    else:
+        auth_rate_limit_service.enforce(db, request, "resend", user_id=user.id)
+        try:
+            email_verification_service.send_email_verification_message(
+                recipient_email=user.email, user_id=user.id,
+            )
+        except (email_service.EmailServiceError, email_verification_service.EmailVerificationError):
+            logger.warning("Не удалось повторно отправить подтверждение email.")
+            request.session["verification_notice"] = "Не удалось отправить письмо. Попробуйте позже."
+        else:
+            request.session["verification_notice"] = "Письмо отправлено. Проверьте входящие и спам."
+    return RedirectResponse("/account", status_code=303)
+
 
 @router.post(
     "/logout",

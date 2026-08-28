@@ -1,4 +1,8 @@
+import pytest
+
 from app import models
+
+pytestmark = pytest.mark.usefixtures("verified_users")
 from app.services import (
     alternative_service,
     criterion_service,

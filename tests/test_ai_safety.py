@@ -1,6 +1,8 @@
 import json
 import pytest
 
+pytestmark = pytest.mark.usefixtures("verified_users")
+
 from app.llm.safety import (
     AI_SAFETY_POLICY,
     LLMInputTooLargeError,
@@ -2356,6 +2358,7 @@ def make_test_mws_provider(
 def test_mws_provider_rejects_invalid_response(
     monkeypatch,
     response_data,
+    provider_budget_context,
 ):
     provider = make_test_mws_provider(
         monkeypatch,
@@ -2380,11 +2383,12 @@ def test_mws_provider_rejects_invalid_response(
 
 def test_mws_provider_parses_valid_response(
     monkeypatch,
+    provider_budget_context,
 ):
     provider = make_test_mws_provider(
         monkeypatch,
         {
-            "model": "test-model",
+            "model": "gpt-oss-120b",
             "choices": [
                 {
                     "message": {
@@ -2415,7 +2419,7 @@ def test_mws_provider_parses_valid_response(
 
     assert result.content == '{"s":"ok"}'
     assert result.provider == "mws"
-    assert result.model == "test-model"
+    assert result.model == "gpt-oss-120b"
     assert result.usage.input_tokens == 10
     assert result.usage.output_tokens == 5
     assert result.usage.reasoning_tokens == 2

@@ -7,6 +7,7 @@ from app.llm.schemas import (
     LLMResponse,
     LLMUsage,
 )
+from app.services import ai_budget_service
 
 INVALID_RESPONSE_MESSAGE = (
     "LLM API вернул некорректный ответ."
@@ -35,6 +36,25 @@ class MWSProvider(LLMProvider):
     def generate(
         self,
         *,
+        system_prompt: str,
+        user_prompt: str,
+        max_output_tokens: int,
+        temperature: float,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        with ai_budget_service.metered_call(
+            model=self.model, max_output_tokens=max_output_tokens,
+        ) as call:
+            return self._generate(
+                system_prompt=system_prompt, user_prompt=user_prompt,
+                max_output_tokens=max_output_tokens, temperature=temperature,
+                json_mode=json_mode, call=call,
+            )
+
+    def _generate(
+        self,
+        *,
+        call,
         system_prompt: str,
         user_prompt: str,
         max_output_tokens: int,
@@ -108,6 +128,8 @@ class MWSProvider(LLMProvider):
             raise RuntimeError(
                 INVALID_RESPONSE_MESSAGE
             ) from exc
+
+        ai_budget_service.record_usage(call, data)
 
         if not isinstance(data, dict):
             raise RuntimeError(
