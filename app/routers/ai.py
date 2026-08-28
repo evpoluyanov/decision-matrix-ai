@@ -119,6 +119,7 @@ def get_ai_scope_error_response(
         },
     )
 
+
 def reserve_ai_request_or_response(
     *,
     db: Session,
@@ -229,9 +230,6 @@ def suggest_alternatives(
             },
         )
 
-        (
-
-    )
     (
         ai_usage_service
         .complete_ai_request(
@@ -327,6 +325,22 @@ def suggest_criteria(
     if scope_error is not None:
         return scope_error
 
+    reservation = (
+        reserve_ai_request_or_response(
+            db=db,
+            project=project,
+            feature="criteria",
+        )
+    )
+
+    if isinstance(
+        reservation,
+        JSONResponse,
+    ):
+        return reservation
+
+    request_log = reservation
+
     try:
         result = (
             ai_criterion_service
@@ -338,6 +352,14 @@ def suggest_criteria(
         )
 
     except RuntimeError:
+        (
+            ai_usage_service
+            .fail_ai_request(
+                db=db,
+                request_log=request_log,
+            )
+        )
+
         return JSONResponse(
             status_code=503,
             content={
@@ -349,6 +371,18 @@ def suggest_criteria(
                 ),
             },
         )
+
+    (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage=result.get(
+                "usage",
+                {},
+            ),
+        )
+    )
 
     if result.get("status") == "unsafe_content":
         return JSONResponse(
@@ -454,6 +488,22 @@ def suggest_scores(
     if scope_error is not None:
         return scope_error
 
+    reservation = (
+        reserve_ai_request_or_response(
+            db=db,
+            project=project,
+            feature="scores",
+        )
+    )
+
+    if isinstance(
+        reservation,
+        JSONResponse,
+    ):
+        return reservation
+
+    request_log = reservation
+
     try:
         result = (
             ai_score_service
@@ -465,6 +515,14 @@ def suggest_scores(
         )
 
     except RuntimeError:
+        (
+            ai_usage_service
+            .fail_ai_request(
+                db=db,
+                request_log=request_log,
+            )
+        )
+
         return JSONResponse(
             status_code=503,
             content={
@@ -476,6 +534,19 @@ def suggest_scores(
                 ),
             },
         )
+
+    (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage=result.get(
+                "usage",
+                {},
+            ),
+        )
+    )
+
     if result.get("status") == "unsafe_content":
         return JSONResponse(
             status_code=400,
@@ -569,6 +640,22 @@ def explain_result(
         )
     )
 
+    reservation = (
+        reserve_ai_request_or_response(
+            db=db,
+            project=project,
+            feature="result_explanation",
+        )
+    )
+
+    if isinstance(
+        reservation,
+        JSONResponse,
+    ):
+        return reservation
+
+    request_log = reservation
+
     try:
         result = (
             ai_result_service
@@ -583,6 +670,14 @@ def explain_result(
         )
 
     except RuntimeError:
+        (
+            ai_usage_service
+            .fail_ai_request(
+                db=db,
+                request_log=request_log,
+            )
+        )
+
         return JSONResponse(
             status_code=503,
             content={
@@ -594,6 +689,18 @@ def explain_result(
                 ),
             },
         )
+
+    (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage=result.get(
+                "usage",
+                {},
+            ),
+        )
+    )
 
     if result.get("status") == "unsafe_content":
         return JSONResponse(
@@ -682,6 +789,22 @@ def analyze_decision_risks(
         )
     )
 
+    reservation = (
+        reserve_ai_request_or_response(
+            db=db,
+            project=project,
+            feature="decision_risks",
+        )
+    )
+
+    if isinstance(
+        reservation,
+        JSONResponse,
+    ):
+        return reservation
+
+    request_log = reservation
+
     try:
         result = (
             ai_decision_risk_service
@@ -695,6 +818,14 @@ def analyze_decision_risks(
         )
 
     except RuntimeError:
+        (
+            ai_usage_service
+            .fail_ai_request(
+                db=db,
+                request_log=request_log,
+            )
+        )
+
         return JSONResponse(
             status_code=503,
             content={
@@ -706,6 +837,18 @@ def analyze_decision_risks(
                 ),
             },
         )
+
+    (
+        ai_usage_service
+        .complete_ai_request(
+            db=db,
+            request_log=request_log,
+            usage=result.get(
+                "usage",
+                {},
+            ),
+        )
+    )
 
     if result.get("status") == "unsafe_content":
         return JSONResponse(
