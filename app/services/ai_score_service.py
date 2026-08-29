@@ -203,9 +203,9 @@ def generate_score_suggestions(
             }
         )
 
-    if not items:
+    if seen_pairs != expected_pairs:
         raise RuntimeError(
-            "LLM не вернула допустимых оценок."
+            "LLM не вернула полный пакет допустимых оценок."
         )
 
     return {

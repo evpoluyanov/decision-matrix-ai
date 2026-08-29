@@ -36,6 +36,7 @@ def test_upgrade_downgrade_upgrade_preserves_existing_users_and_logs(tmp_path, m
         assert connection.scalar(text("SELECT total_tokens FROM ai_request_logs")) == 250
     command.upgrade(config, "head")
     assert "ai_daily_budgets" in inspect(engine).get_table_names()
+    assert "ai_score_generation_jobs" in inspect(engine).get_table_names()
     engine.dispose()
 
 
@@ -52,3 +53,20 @@ def test_postgresql_migration_sql_is_additive_and_preserves_ledger_fk(monkeypatc
     assert "ON DELETE SET NULL" in sql
     assert "DROP TABLE" not in sql
     assert "ALTER TABLE users" not in sql
+
+
+def test_score_generation_migration_is_additive_in_postgresql(monkeypatch):
+    # Offline SQL only. No actual PostgreSQL connection or production credentials.
+    monkeypatch.setenv(
+        "MIGRATION_DATABASE_URL",
+        "postgresql+psycopg://unused:unused@localhost/unused",
+    )
+    output = io.StringIO()
+    config = Config("alembic.ini", output_buffer=output)
+    command.upgrade(config, "c9a7f431b2d0:6f3a1c9e2b70", sql=True)
+    sql = output.getvalue()
+    assert "CREATE TABLE ai_score_generation_jobs" in sql
+    assert "FOREIGN KEY(project_id)" in sql
+    assert "FOREIGN KEY(request_log_id)" in sql
+    assert "ON DELETE CASCADE" in sql
+    assert "DROP TABLE" not in sql

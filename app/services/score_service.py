@@ -168,6 +168,8 @@ def set_ai_score(
 def set_ai_scores(
     db: Session,
     suggestions: list[dict],
+    *,
+    commit: bool = True,
 ) -> int:
     """
     Сохраняет пакет AI-оценок одной транзакцией.
@@ -248,7 +250,10 @@ def set_ai_scores(
             project_id=project_id,
         )
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
     return updated
 

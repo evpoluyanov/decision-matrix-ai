@@ -172,12 +172,22 @@ def test_provider_failure_is_logged_and_consumes_quota(
     with ai_context["TestingSessionLocal"]() as db:
         request_log = db.query(models.AIRequestLog).one()
         assert request_log.feature == feature
-        assert request_log.status == "failed"
-        assert request_log.completed_at is not None
+        if feature == "scores":
+            # A multi-part matrix remains resumable after a provider failure.
+            assert request_log.status == "started"
+            assert request_log.completed_at is None
+        else:
+            assert request_log.status == "failed"
+            assert request_log.completed_at is not None
         assert request_log.total_tokens == 0
 
-    assert client.post(url).status_code == 429
-    assert provider.call_count == 1
+    second = client.post(url)
+    if feature == "scores":
+        assert second.status_code == 503
+        assert provider.call_count == 2
+    else:
+        assert second.status_code == 429
+        assert provider.call_count == 1
     with ai_context["TestingSessionLocal"]() as db:
         assert db.query(models.AIRequestLog).count() == 1
 

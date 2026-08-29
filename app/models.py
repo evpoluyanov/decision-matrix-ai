@@ -174,6 +174,44 @@ class AIProviderCall(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AIScoreGenerationJob(Base):
+    """Durable progress for browser-driven score generation batches."""
+
+    __tablename__ = "ai_score_generation_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "next_alternative_index >= 0",
+            name="ck_ai_score_job_progress_nonnegative",
+        ),
+        CheckConstraint(
+            "provider_attempts >= 0",
+            name="ck_ai_score_job_attempts_nonnegative",
+        ),
+    )
+
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    request_log_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_request_logs.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    alternative_ids_json: Mapped[str] = mapped_column(Text, nullable=False)
+    criterion_ids_json: Mapped[str] = mapped_column(Text, nullable=False)
+    next_alternative_index: Mapped[int] = mapped_column(default=0, nullable=False)
+    provider_attempts: Mapped[int] = mapped_column(default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="ready", nullable=False)
+    last_error_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+
+
 class Project(Base):
     __tablename__ = "projects"
 
