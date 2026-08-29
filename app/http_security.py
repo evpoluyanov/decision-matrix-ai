@@ -44,7 +44,9 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "no-referrer"
+        # no-referrer makes native form POSTs send Origin: null, so they fail
+        # the CSRF check above. Keep the origin, never URL paths/query tokens.
+        response.headers["Referrer-Policy"] = "strict-origin"
         response.headers["Cache-Control"] = "private, no-store"
         if (os.getenv("VERCEL") == "1" and os.getenv("VERCEL_ENV") != "production") or (
             request.url.path == "/" and not public_site_url()
