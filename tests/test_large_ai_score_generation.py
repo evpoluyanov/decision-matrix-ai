@@ -211,5 +211,6 @@ def test_score_generation_uses_visible_progress_modal(
     assert 'id="aiScoresModal"' in response.text
     assert 'id="ai-scores-progress"' in response.text
     assert "Матрица обрабатывается небольшими частями" in response.text
+    assert "spinner-border text-primary flex-shrink-0" in response.text
     assert "Продолжить" in response.text
     assert 'id="ai-scores-status"' not in response.text

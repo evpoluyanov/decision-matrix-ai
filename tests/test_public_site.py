@@ -1,6 +1,25 @@
 from app.services import public_site_service
 
 
+def test_public_landing_explains_complete_decision_flow(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert 'id="how-it-works"' in response.text
+    assert response.text.count('data-step="') == 6
+    for text in (
+        "Создайте проект",
+        "Добавьте альтернативы",
+        "Задайте критерии и веса",
+        "Заполните матрицу оценок",
+        "Получите итог выбора",
+        "Сформируйте отчёт",
+        "ИИ помогает на каждом этапе",
+    ):
+        assert text in response.text
+    assert "не может превышать 100%" in response.text
+    assert 'href="/register"' in response.text
+
+
 def test_indexing_is_opt_in(client):
     assert "Disallow: /" in client.get("/robots.txt").text
     assert "<loc>" not in client.get("/sitemap.xml").text
