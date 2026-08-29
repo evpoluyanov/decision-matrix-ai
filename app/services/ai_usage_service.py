@@ -116,6 +116,7 @@ def reserve_ai_request(
     project_id: int,
     feature: str,
     now: datetime | None = None,
+    commit: bool = True,
 ) -> models.AIRequestLog:
     """
     Проверяет лимиты и резервирует один ИИ-запрос.
@@ -241,7 +242,11 @@ def reserve_ai_request(
         request_log
     )
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+
     db.refresh(
         request_log
     )

@@ -26,6 +26,7 @@ from app.services import (
     project_ai_analysis_service,
     ai_usage_service,
     ai_budget_service,
+    ai_score_generation_service,
 )
 
 
@@ -126,6 +127,7 @@ def reserve_ai_request_or_response(
     db: Session,
     project: models.Project,
     feature: str,
+    commit: bool = True,
 ) -> (
     models.AIRequestLog
     | JSONResponse
@@ -151,6 +153,7 @@ def reserve_ai_request_or_response(
                 user_id=project.owner_id,
                 project_id=project.id,
                 feature=feature,
+                commit=commit,
             )
         )
 
@@ -518,21 +521,47 @@ def suggest_scores(
     if scope_error is not None:
         return scope_error
 
-    reservation = (
-        reserve_ai_request_or_response(
+    try:
+        job = ai_score_generation_service.matching_active_job(
+            db, project, alternatives, criteria,
+        )
+    except ai_score_generation_service.GenerationBusyError as exc:
+        return {
+            "status": "in_progress",
+            "message": str(exc),
+            "retry_after_ms": 1500,
+        }
+
+    if job is None:
+        reservation = reserve_ai_request_or_response(
             db=db,
             project=project,
             feature="scores",
+            commit=False,
         )
-    )
+        if isinstance(reservation, JSONResponse):
+            return reservation
+        request_log = reservation
+        job = ai_score_generation_service.create_job(
+            db, project, request_log, alternatives, criteria,
+        )
+    else:
+        request_log = db.get(models.AIRequestLog, job.request_log_id)
 
-    if isinstance(
-        reservation,
-        JSONResponse,
-    ):
-        return reservation
-
-    request_log = reservation
+    try:
+        batch = ai_score_generation_service.claim_batch(
+            db, job, alternatives, criteria,
+        )
+    except ai_score_generation_service.GenerationRetryLimitError as exc:
+        return JSONResponse(
+            status_code=429,
+            content={"status": "retry_limit", "message": str(exc)},
+        )
+    except ai_score_generation_service.MatrixChangedError as exc:
+        return JSONResponse(
+            status_code=409,
+            content={"status": "matrix_changed", "message": str(exc)},
+        )
 
     try:
         with ai_budget_service.request_context(db, request_log):
@@ -540,31 +569,28 @@ def suggest_scores(
                 ai_score_service
                 .generate_score_suggestions(
                     project=project,
-                    alternatives=alternatives,
+                    alternatives=batch,
                     criteria=criteria,
                 )
             )
 
     except ai_budget_service.AIBudgetExceeded as exc:
         db.rollback()
-        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
+        ai_score_generation_service.release_after_error(db, job, exc)
         return JSONResponse(status_code=429, content={
             "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
         })
 
-    except RuntimeError:
-        (
-            ai_usage_service
-            .fail_ai_request(
-                db=db,
-                request_log=request_log,
-            )
+    except RuntimeError as exc:
+        db.rollback()
+        failure_code = ai_score_generation_service.release_after_error(
+            db, job, exc,
         )
-
         return JSONResponse(
             status_code=503,
             content={
                 "status": "error",
+                "error_code": failure_code,
                 "message": (
                     "Не удалось получить "
                     "оценки ИИ. "
@@ -573,41 +599,28 @@ def suggest_scores(
             },
         )
 
-    (
-        ai_usage_service
-        .complete_ai_request(
-            db=db,
-            request_log=request_log,
-            usage=result.get(
-                "usage",
-                {},
-            ),
-        )
-    )
-
     if result.get("status") == "unsafe_content":
+        ai_score_generation_service.complete_without_scores(
+            db,
+            job,
+            request_log,
+            job_status="cancelled",
+            error_code="unsafe_content",
+        )
         return JSONResponse(
             status_code=400,
             content=result,
         )
 
     if result["status"] != "ok":
+        ai_score_generation_service.complete_without_scores(
+            db, job, request_log,
+        )
         return result
 
-    updated = (
-        score_service
-        .set_ai_scores(
-            db=db,
-            suggestions=(
-                result["items"]
-            ),
-        )
+    return ai_score_generation_service.finish_batch(
+        db, job, criteria, batch, result,
     )
-
-    return {
-        **result,
-        "updated": updated,
-    }
 
 @router.post(
     "/projects/{project_id}/ai/result-explanation"

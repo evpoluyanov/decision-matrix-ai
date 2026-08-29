@@ -546,11 +546,6 @@
 
             {% endif %}
 
-            <div
-                id="ai-scores-status"
-                class="small text-muted mb-3 d-none"
-            ></div>
-
             <form
                 method="post"
                 action="/projects/{{ project.id }}/scores"
@@ -698,6 +693,63 @@
 
         {% endif %}
 
+    </div>
+</div>
+
+
+<div
+    class="modal fade"
+    id="aiScoresModal"
+    tabindex="-1"
+    aria-labelledby="aiScoresModalLabel"
+    aria-hidden="true"
+    data-bs-backdrop="static"
+    data-bs-keyboard="false"
+>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="aiScoresModalLabel">
+                    ИИ оценивает матрицу
+                </h2>
+            </div>
+            <div class="modal-body">
+                <div id="ai-scores-loading" class="d-flex align-items-center gap-3 mb-3">
+                    <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                    <div>
+                        Матрица обрабатывается небольшими частями.
+                        Не закрывайте эту страницу.
+                    </div>
+                </div>
+                <div
+                    class="progress mb-3"
+                    role="progressbar"
+                    aria-label="Прогресс оценки матрицы"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                >
+                    <div
+                        id="ai-scores-progress"
+                        class="progress-bar progress-bar-striped progress-bar-animated"
+                        style="width: 0%"
+                    >0%</div>
+                </div>
+                <div id="ai-scores-message" class="small text-muted" aria-live="polite">
+                    Подготавливаем первую часть…
+                </div>
+            </div>
+            <div id="ai-scores-footer" class="modal-footer d-none">
+                <button
+                    id="ai-scores-close"
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >Закрыть</button>
+                <button id="ai-scores-retry" type="button" class="btn btn-primary">
+                    Продолжить
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1969,66 +2021,108 @@ document.addEventListener(
             return;
         }
 
-        const status =
-            document.getElementById(
-                "ai-scores-status"
-            );
+        const modal = new bootstrap.Modal(
+            document.getElementById("aiScoresModal")
+        );
+        const loading = document.getElementById("ai-scores-loading");
+        const progress = document.getElementById("ai-scores-progress");
+        const message = document.getElementById("ai-scores-message");
+        const footer = document.getElementById("ai-scores-footer");
+        const retryButton = document.getElementById("ai-scores-retry");
+        let running = false;
+
+        function resetModal() {
+            loading.classList.remove("d-none");
+            footer.classList.add("d-none");
+            message.className = "small text-muted";
+            message.textContent = "Подготавливаем первую часть…";
+            progress.style.width = "0%";
+            progress.textContent = "0%";
+            progress.classList.add("progress-bar-animated");
+        }
+
+        function updateProgress(data) {
+            if (!Number.isInteger(data.completed) || !Number.isInteger(data.total)
+                    || data.total < 1) {
+                message.textContent = data.message || "Обрабатываем матрицу…";
+                return;
+            }
+            const percent = Math.min(100, Math.round(data.completed * 100 / data.total));
+            progress.style.width = percent + "%";
+            progress.textContent = percent + "%";
+            message.textContent = data.message;
+        }
+
+        function showError(text, errorCode) {
+            loading.classList.add("d-none");
+            progress.classList.remove("progress-bar-animated");
+            message.className = "alert alert-danger mb-0";
+            message.textContent = errorCode
+                ? text + " Код: " + errorCode + "."
+                : text;
+            footer.classList.remove("d-none");
+        }
+
+        async function runGeneration() {
+            if (running) {
+                return;
+            }
+            running = true;
+            button.disabled = true;
+            loading.classList.remove("d-none");
+            footer.classList.add("d-none");
+            message.className = "small text-muted";
+
+            try {
+                while (true) {
+                    const response = await fetch(
+                        "/projects/{{ project.id }}/ai/scores",
+                        {method: "POST"}
+                    );
+                    const data = await response.json();
+                    if (!response.ok) {
+                        showError(
+                            data.message || "Не удалось получить оценки ИИ.",
+                            data.error_code
+                        );
+                        return;
+                    }
+                    updateProgress(data);
+                    if (data.status === "ok") {
+                        loading.classList.add("d-none");
+                        progress.classList.remove("progress-bar-animated");
+                        message.className = "alert alert-success mb-0";
+                        window.setTimeout(() => window.location.reload(), 700);
+                        return;
+                    }
+                    if (data.status !== "in_progress") {
+                        showError(data.message || "Не удалось получить оценки ИИ.");
+                        return;
+                    }
+                    await new Promise(resolve => window.setTimeout(
+                        resolve, data.retry_after_ms || 150
+                    ));
+                }
+            } catch (error) {
+                showError(
+                    "Связь прервалась. Уже готовые оценки сохранены. "
+                    + "Нажмите «Продолжить»."
+                );
+            } finally {
+                running = false;
+                button.disabled = false;
+            }
+        }
 
         button.addEventListener(
             "click",
-            async () => {
-                button.disabled = true;
-
-                status.classList.remove(
-                    "d-none"
-                );
-
-                status.textContent =
-                    "ИИ оценивает матрицу… "
-                    + "Обычно это занимает "
-                    + "15–30 секунд.";
-
-                try {
-                    const response =
-                        await fetch(
-                            "/projects/{{ project.id }}/ai/scores",
-                            {
-                                method: "POST",
-                            }
-                        );
-
-                    const data =
-                        await response.json();
-
-                    if (!response.ok) {
-                        status.textContent =
-                            data.message
-                            || "Не удалось получить оценки ИИ.";
-
-                        return;
-                    }
-
-                    if (
-                        data.status !== "ok"
-                    ) {
-                        status.textContent =
-                            data.message;
-
-                        return;
-                    }
-
-                    window.location.reload();
-
-                } catch (error) {
-                    status.textContent =
-                        "Не удалось получить оценки ИИ. "
-                        + "Попробуйте ещё раз.";
-
-                } finally {
-                    button.disabled = false;
-                }
+            () => {
+                resetModal();
+                modal.show();
+                runGeneration();
             }
         );
+        retryButton.addEventListener("click", runGeneration);
     }
 );
 </script>
