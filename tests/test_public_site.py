@@ -53,6 +53,8 @@ def test_analytics_is_opt_in_and_absent_on_private_pages(client, monkeypatch):
     monkeypatch.setenv("YANDEX_METRIKA_ID", "12345")
     page = client.get("/", headers={"Host": "dmatrix.tech"}).text
     assert "analytics-consent" in page
+    assert "используем cookie и сервисы аналитики" in page
+    assert "подключим Яндекс Метрику" not in page
     assert "const counterId = 12345" in page
     assert "webvisor: false" in page
     assert '<script src="https://mc.yandex.ru' not in page
