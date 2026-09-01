@@ -1,8 +1,30 @@
 import json
+from unittest.mock import Mock
+
+import pytest
 
 from app import models
-from app.services import growth_service
+from app.services import email_service, growth_service
 from conftest import TEST_PASSWORD
+
+
+@pytest.fixture(params=[False, True], ids=["no-mail-settings", "configured-mail"])
+def registration_email(monkeypatch, request):
+    """Attribution tests must not depend on local Brevo settings or send mail."""
+    monkeypatch.setenv("APP_BASE_URL", "https://testserver")
+    settings = {
+        "BREVO_API_KEY": "test-only-not-a-real-key",
+        "BREVO_SENDER_EMAIL": "no-reply@example.com",
+        "BREVO_SENDER_NAME": "Test sender",
+    }
+    for name, value in settings.items():
+        if request.param:
+            monkeypatch.setenv(name, value)
+        else:
+            monkeypatch.delenv(name, raising=False)
+    sender = Mock(return_value=email_service.EmailSendResult(message_id="test-email"))
+    monkeypatch.setattr(email_service, "send_email", sender)
+    return sender
 
 
 def login(client):
@@ -135,7 +157,9 @@ def test_second_project_offer_appears_on_first_ai_click_without_paywall(client, 
     assert "modal.hide();" in page.text
 
 
-def test_first_touch_utm_is_linked_once_at_registration(client, test_environment):
+def test_first_touch_utm_is_linked_once_at_registration(
+    client, test_environment, registration_email,
+):
     client.get(
         "/?utm_source=telegram&utm_medium=post&utm_campaign=beta&utm_content=launch",
         headers={"Referer": "https://example.org/path?private=value"},
@@ -145,23 +169,32 @@ def test_first_touch_utm_is_linked_once_at_registration(client, test_environment
         "password_confirmation": TEST_PASSWORD,
     })
     assert response.status_code == 200
+    registration_email.assert_called_once()
+    assert registration_email.call_args.kwargs["recipient_email"] == "utm@example.com"
     client.get("/?utm_source=overwritten")
     with test_environment["TestingSessionLocal"]() as db:
         user = db.query(models.User).filter_by(email="utm@example.com").one()
+        assert user.email_verified is False
         attribution = db.query(models.UserAttribution).filter_by(user_id=user.id).one()
         assert attribution.utm_source == "telegram"
         assert attribution.referrer == "https://example.org/path"
 
 
-def test_direct_first_touch_is_not_overwritten(client, test_environment):
+def test_direct_first_touch_is_not_overwritten(
+    client, test_environment, registration_email,
+):
     client.get("/")
     client.get("/?utm_source=later")
-    client.post("/register", data={
+    response = client.post("/register", data={
         "email": "direct@example.com", "password": TEST_PASSWORD,
         "password_confirmation": TEST_PASSWORD,
     })
+    assert response.status_code == 200
+    registration_email.assert_called_once()
+    assert registration_email.call_args.kwargs["recipient_email"] == "direct@example.com"
     with test_environment["TestingSessionLocal"]() as db:
         user = db.query(models.User).filter_by(email="direct@example.com").one()
+        assert user.email_verified is False
         attribution = db.query(models.UserAttribution).filter_by(user_id=user.id).one()
         assert attribution.utm_source is None
 
