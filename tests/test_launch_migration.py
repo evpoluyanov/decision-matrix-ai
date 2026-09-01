@@ -17,13 +17,19 @@ def test_upgrade_downgrade_upgrade_preserves_existing_users_and_logs(tmp_path, m
     config = Config("alembic.ini")
     command.upgrade(config, "89b807e95fe4")
     engine = create_engine(url)
-    with Session(engine) as db:
-        user = models.User(email="keep@example.com", password_hash="keep", email_verified=True)
-        db.add(user)
-        db.flush()
-        db.add(models.AIRequestLog(user_id=user.id, project_id=123, feature="alternatives",
-                                  status="completed", total_tokens=250))
-        db.commit()
+    # Insert through the historical schema being tested, not through the newer ORM model.
+    with engine.begin() as connection:
+        connection.execute(text(
+            "INSERT INTO users (email, password_hash, email_verified) "
+            "VALUES ('keep@example.com', 'keep', 1)"
+        ))
+        user_id = connection.scalar(text("SELECT id FROM users WHERE email='keep@example.com'"))
+        connection.execute(text(
+            "INSERT INTO ai_request_logs "
+            "(user_id, project_id, feature, status, input_tokens, output_tokens, "
+            "reasoning_tokens, total_tokens) "
+            "VALUES (:user_id, 123, 'alternatives', 'completed', 0, 0, 0, 250)"
+        ), {"user_id": user_id})
     command.upgrade(config, "head")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT total_tokens FROM ai_request_logs")) == 250
@@ -69,4 +75,21 @@ def test_score_generation_migration_is_additive_in_postgresql(monkeypatch):
     assert "FOREIGN KEY(project_id)" in sql
     assert "FOREIGN KEY(request_log_id)" in sql
     assert "ON DELETE CASCADE" in sql
+    assert "DROP TABLE" not in sql
+
+
+def test_growth_migration_is_additive_in_postgresql(monkeypatch):
+    monkeypatch.setenv(
+        "MIGRATION_DATABASE_URL",
+        "postgresql+psycopg://unused:unused@localhost/unused",
+    )
+    output = io.StringIO()
+    config = Config("alembic.ini", output_buffer=output)
+    command.upgrade(config, "6f3a1c9e2b70:b7e2c4d91a63", sql=True)
+    sql = output.getvalue()
+    for table in (
+        "monetization_preferences", "product_events", "user_attributions",
+        "user_feedback", "mws_billing_reconciliations",
+    ):
+        assert f"CREATE TABLE {table}" in sql
     assert "DROP TABLE" not in sql

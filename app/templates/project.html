@@ -3,6 +3,9 @@
 {% block title %}
 Проект создан — Decision Matrix AI
 {% endblock %}
+{% block scripts %}
+{% if second_project_event %}<script>window.dmatrixReachGoal && window.dmatrixReachGoal("second_project_created");</script>{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">

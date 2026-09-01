@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.auth_dependencies import require_user
 from app.database import get_db
-from app.services import project_service
+from app.services import growth_service, project_service
 from app.services import public_site_service
 from app.llm.safety import (
     MAX_PROJECT_DESCRIPTION_LENGTH,
@@ -97,11 +97,16 @@ def create_project(
         project_description=project_description,
         owner_id=current_user.id,
     )
+    second_project_event = growth_service.record_second_project(
+        db, user=current_user, project_id=project.id,
+    )
 
     return templates.TemplateResponse(
         request=request,
         name="project.html",
         context={
             "project": project,
+            "second_project_event": second_project_event is not None,
+            **public_site_service.product_analytics_context(request),
         },
     )

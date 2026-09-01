@@ -2,8 +2,9 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.http_security import BrowserSecurityMiddleware
+from app.http_security import BrowserSecurityMiddleware, FirstTouchAttributionMiddleware
 
 from app.routers import (
     admin,
@@ -13,6 +14,7 @@ from app.routers import (
     criteria,
     projects,
     public_site,
+    growth,
     scores,
 )
 from app.schemas import AlternativeResult, CalculateRequest
@@ -37,8 +39,11 @@ session_https_only = (
 
 
 app = FastAPI(title="Decision Matrix AI")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.add_middleware(BrowserSecurityMiddleware)
+
+app.add_middleware(FirstTouchAttributionMiddleware)
 
 app.add_middleware(
     SessionMiddleware,
@@ -57,6 +62,7 @@ app.include_router(scores.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(public_site.router)
+app.include_router(growth.router)
 
 
 @app.get("/health")

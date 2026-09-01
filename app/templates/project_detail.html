@@ -2,6 +2,14 @@
 
 {% block content %}
 
+{% if show_second_project_offer %}
+<div class="modal fade" id="second-project-offer" tabindex="-1" aria-labelledby="second-project-offer-title" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="second-project-offer-title">Следующее решение</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button></div><div class="modal-body">
+<p>Первый ИИ-проект уже дал рассчитанный результат. Какой вариант вам был бы удобен для следующего решения?</p>
+<div class="d-grid gap-2">{% for value, label, goal in [('project_99','Дополнительный проект — 99 ₽','project_99_interest'),('pro_299','Pro — 299 ₽ в месяц','pro_299_interest'),('free_beta','Продолжить бесплатное бета-тестирование','free_beta_choice')] %}<button type="button" class="btn {{ 'btn-primary' if value != 'free_beta' else 'btn-outline-secondary' }}" data-plan="{{ value }}" data-goal="{{ goal }}">{{ label }}</button>{% endfor %}</div>
+<p class="small text-secondary mt-3 mb-0">Оплаты и блокировки сейчас нет: после выбора или закрытия ИИ продолжит работу.</p>
+</div></div></div></div>
+{% endif %}
+
 <div class="mb-4">
 
     <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
@@ -2558,5 +2566,22 @@ document.addEventListener(
     }
 );
 </script>
+
+{% endblock %}
+
+{% block scripts %}
+{% if show_second_project_offer %}
+<script>
+(function(){
+    const modalElement=document.getElementById("second-project-offer"); if(!modalElement)return;
+    const modal=new bootstrap.Modal(modalElement); let pending=null; let shown=false; let bypass=false;
+    const ids=["ai-alternatives-button","ai-criteria-button","ai-scores-button","ai-result-button","ai-decision-risks-button"];
+    function resume(){if(pending){const button=pending;pending=null;bypass=true;button.click();bypass=false;}}
+    ids.forEach(function(id){const button=document.getElementById(id);if(!button)return;button.addEventListener("click",function(event){if(bypass||shown)return;event.preventDefault();event.stopImmediatePropagation();pending=button;shown=true;fetch("/product-events/paid-offer-viewed",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({source:"second_project_ai",project_id:"{{ project.id }}"})}).catch(function(){});window.dmatrixReachGoal&&window.dmatrixReachGoal("paid_offer_view");modal.show();},true);});
+    modalElement.addEventListener("hidden.bs.modal",resume);
+    modalElement.querySelectorAll("[data-plan]").forEach(function(button){button.addEventListener("click",function(){fetch("/monetization/preference",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","X-Requested-With":"fetch"},body:new URLSearchParams({selected_plan:button.dataset.plan,source:"second_project_ai"})}).finally(function(){window.dmatrixReachGoal&&window.dmatrixReachGoal(button.dataset.goal);modal.hide();});});});
+})();
+</script>
+{% endif %}
 
 {% endblock %}

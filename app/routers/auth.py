@@ -13,6 +13,7 @@ from app.services import (
     user_service,
     auth_rate_limit_service,
     admin_service,
+    attribution_service,
 )
 
 logger = logging.getLogger(
@@ -161,6 +162,12 @@ def register_user(
             },
             status_code=409,
         )
+
+    attribution_service.link_to_user(
+        db=db,
+        request=request,
+        user=user,
+    )
 
     try:
         (

@@ -49,6 +49,28 @@ class User(Base):
         nullable=False,
     )
 
+    beta_reward_eligible: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("false"),
+        nullable=False,
+    )
+
+    beta_reward_eligible_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    beta_reward_reason: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    beta_reward_granted: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("false"),
+        nullable=False,
+    )
+
     projects: Mapped[list["Project"]] = relationship(
         back_populates="owner",
     )
@@ -109,6 +131,21 @@ class AIRequestLog(Base):
     total_tokens: Mapped[int] = mapped_column(
         default=0,
         nullable=False,
+    )
+
+    provider: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    model: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    provider_response_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -212,6 +249,114 @@ class AIScoreGenerationJob(Base):
     )
 
 
+class MonetizationPreference(Base):
+    __tablename__ = "monetization_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    selected_plan: Mapped[str] = mapped_column(String(30), nullable=False)
+    notify_on_launch: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+
+
+class ProductEvent(Base):
+    __tablename__ = "product_events"
+    __table_args__ = (
+        Index("ix_product_events_name_created_at", "event_name", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True,
+    )
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+    event_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    dedupe_key: Mapped[str | None] = mapped_column(String(160), unique=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+
+
+class UserAttribution(Base):
+    __tablename__ = "user_attributions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True,
+    )
+    utm_source: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    utm_medium: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    utm_campaign: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    utm_content: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    referrer: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+
+
+class UserFeedback(Base):
+    __tablename__ = "user_feedback"
+    __table_args__ = (
+        CheckConstraint("rating IS NULL OR (rating >= 1 AND rating <= 5)", name="ck_feedback_rating"),
+        Index("ix_user_feedback_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    rating: Mapped[int | None] = mapped_column(nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    page_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    allow_email_reply: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="new", nullable=False)
+    admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MWSBillingReconciliation(Base):
+    __tablename__ = "mws_billing_reconciliations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    input_tokens: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    actual_base_cost_rub: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False)
+    discount_or_grant_rub: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False)
+    amount_due_rub: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False)
+    application_estimated_cost_rub: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False)
+    deviation_rub: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False)
+    source: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -231,6 +376,10 @@ class Project(Base):
         ForeignKey("users.id"),
         nullable=False,
         index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
     )
 
     owner: Mapped[User] = relationship(

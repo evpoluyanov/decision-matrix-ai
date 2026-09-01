@@ -26,12 +26,13 @@ def test_indexing_is_opt_in(client):
     assert "mc.yandex.ru" not in client.get("/").text
 
 
-def test_only_public_landing_is_in_sitemap(client, monkeypatch):
+def test_only_public_pages_are_in_sitemap(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     result = client.get("/sitemap.xml")
     assert result.status_code == 200
-    assert result.text.count("<loc>") == 1
-    assert "https://dmatrix.tech/</loc>" in result.text
+    assert result.text.count("<loc>") == 4
+    for path in ("/", "/pricing", "/privacy", "/terms"):
+        assert f"https://dmatrix.tech{path}</loc>" in result.text
     assert "projects" not in result.text
     assert "admin" not in result.text
     assert 'rel="canonical" href="https://dmatrix.tech/"' in client.get("/").text

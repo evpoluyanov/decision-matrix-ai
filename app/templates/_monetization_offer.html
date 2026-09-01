@@ -1,0 +1,21 @@
+<div class="card border-primary-subtle bg-primary-subtle mb-4" data-paid-offer>
+    <div class="card-body">
+        <h2 class="h5">Бесплатный ИИ-проект завершён</h2>
+        <p>Результаты и отчёт останутся доступны в вашем кабинете. Какой вариант вам был бы удобен для следующего решения?</p>
+        <div class="d-flex flex-wrap gap-2">
+            {% for value, label, goal in [
+                ('project_99', 'Дополнительный проект — 99 ₽', 'project_99_interest'),
+                ('pro_299', 'Pro — 299 ₽ в месяц', 'pro_299_interest'),
+                ('free_beta', 'Продолжить бесплатное бета-тестирование', 'free_beta_choice')
+            ] %}
+            <form action="/monetization/preference" method="post" class="d-inline">
+                <input type="hidden" name="selected_plan" value="{{ value }}">
+                <input type="hidden" name="source" value="{{ offer_source }}">
+                <input type="hidden" name="return_to" value="{{ request.url.path }}">
+                <button class="btn {{ 'btn-primary' if value != 'free_beta' else 'btn-outline-secondary' }}" type="submit" data-goal="{{ goal }}">{{ label }}</button>
+            </form>
+            {% endfor %}
+        </div>
+        <p class="small text-secondary mt-3 mb-0">Это исследование интереса, а не оплата. Все функции остаются бесплатными во время бета-теста.</p>
+    </div>
+</div>

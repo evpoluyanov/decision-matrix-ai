@@ -219,6 +219,16 @@ def finish_batch(db, job, criteria, batch, result, now=None):
         request_log.output_tokens += int(usage.get("output_tokens", 0))
         request_log.reasoning_tokens += int(usage.get("reasoning_tokens", 0))
         request_log.total_tokens += int(usage.get("total_tokens", 0))
+    usage = result.get("usage", {})
+    provider = usage.get("provider")
+    model = usage.get("model")
+    response_id = usage.get("response_id")
+    if isinstance(provider, str) and provider:
+        request_log.provider = provider[:50]
+    if isinstance(model, str) and model:
+        request_log.model = model[:100]
+    if isinstance(response_id, str) and response_id:
+        request_log.provider_response_id = response_id[:200]
     job.next_alternative_index += len(batch)
     job.updated_at = current
     completed = job.next_alternative_index >= len(decoded(job.alternative_ids_json))
@@ -251,6 +261,7 @@ def progress(job, criteria_count, request_log, result=None):
         response["usage"] = {
             "provider": (result or {}).get("usage", {}).get("provider", "mws"),
             "model": (result or {}).get("usage", {}).get("model", ""),
+            "response_id": request_log.provider_response_id,
             "input_tokens": request_log.input_tokens,
             "output_tokens": request_log.output_tokens,
             "reasoning_tokens": request_log.reasoning_tokens,
