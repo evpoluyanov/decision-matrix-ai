@@ -199,7 +199,7 @@ def test_direct_first_touch_is_not_overwritten(
         assert attribution.utm_source is None
 
 
-def test_public_metadata_legal_pages_and_consent_safe_goals(client, monkeypatch):
+def test_public_metadata_and_consent_safe_goals(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     monkeypatch.setenv("YANDEX_METRIKA_ID", "112070895")
     home = client.get("/", headers={"Host": "dmatrix.tech"}).text
@@ -209,6 +209,3 @@ def test_public_metadata_legal_pages_and_consent_safe_goals(client, monkeypatch)
     pricing = client.get("/pricing", headers={"Host": "dmatrix.tech"}).text
     assert 'localStorage.getItem(consentKey) !== "yes"' in pricing
     assert "window.dmatrixReachGoal" in pricing
-    assert client.get("/privacy").status_code == 200
-    assert "[УКАЗАТЬ" in client.get("/privacy").text
-    assert client.get("/terms").status_code == 200

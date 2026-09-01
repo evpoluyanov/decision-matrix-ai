@@ -62,4 +62,3 @@ def update_status(db, *, feedback_id, status, admin_note):
     db.commit()
     db.refresh(feedback)
     return feedback
-

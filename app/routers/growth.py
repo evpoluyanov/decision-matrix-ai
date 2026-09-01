@@ -145,19 +145,3 @@ def submit_feedback(
         f"&feedback_category={category}&feedback_has_rating={int(rating is not None)}",
         status_code=303,
     )
-
-
-@router.get("/privacy", response_class=HTMLResponse)
-def privacy(request: Request):
-    return templates.TemplateResponse(
-        request=request, name="privacy.html",
-        context={"canonical_url": public_site_service.public_site_url()},
-    )
-
-
-@router.get("/terms", response_class=HTMLResponse)
-def terms(request: Request):
-    return templates.TemplateResponse(
-        request=request, name="terms.html",
-        context={"canonical_url": public_site_service.public_site_url()},
-    )

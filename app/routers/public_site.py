@@ -15,7 +15,7 @@ def robots():
         return "User-agent: *\nDisallow: /\n"
     return (
         "User-agent: *\nDisallow: /\n"
-        "Allow: /$\nAllow: /pricing$\nAllow: /privacy$\nAllow: /terms$\n"
+        "Allow: /$\nAllow: /pricing$\n"
         f"Sitemap: {site}/sitemap.xml\n"
     )
 
@@ -27,7 +27,7 @@ def sitemap():
     if site:
         entries = "".join(
             f"<url><loc>{escape(site)}{path}</loc></url>"
-            for path in ("/", "/pricing", "/privacy", "/terms")
+            for path in ("/", "/pricing")
         )
     return Response(
         '<?xml version="1.0" encoding="UTF-8"?>'

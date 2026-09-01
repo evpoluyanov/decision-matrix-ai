@@ -54,7 +54,7 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
         ):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         elif request.url.path not in {
-            "/", "/pricing", "/privacy", "/terms",
+            "/", "/pricing",
             "/robots.txt", "/sitemap.xml", "/static/og-decision-matrix.png",
         }:
             response.headers["X-Robots-Tag"] = "noindex, nofollow"

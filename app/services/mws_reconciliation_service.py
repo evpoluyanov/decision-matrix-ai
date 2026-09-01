@@ -45,4 +45,3 @@ def add_manual(db, *, period_start, period_end, input_tokens, output_tokens,
     db.commit()
     db.refresh(row)
     return row
-
