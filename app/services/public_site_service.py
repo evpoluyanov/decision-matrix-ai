@@ -29,3 +29,11 @@ def page_context(request):
         "canonical_url": public,
         "metrika_counter_id": metrika_id() if matches_host and not request.session.get("user_id") else None,
     }
+
+
+def product_analytics_context(request):
+    public = public_site_url()
+    matches_host = public and request.url.hostname == urlsplit(public).hostname
+    return {
+        "product_analytics_counter_id": metrika_id() if matches_host else None,
+    }

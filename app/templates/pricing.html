@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Тарифы — Decision Matrix AI{% endblock %}
+{% block metadata %}
+<meta name="description" content="Будущие тарифы Decision Matrix AI и бесплатная бета-версия.">
+{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/pricing">{% endif %}
+{% endblock %}
+{% block content %}
+<h1 class="mb-3">Будущие тарифы</h1>
+<p class="lead">Decision Matrix AI пока бесплатен. Мы готовим расширенные платные возможности. Выберите вариант, которым вы могли бы воспользоваться после их запуска.</p>
+{% if saved %}<div class="alert alert-success">Спасибо! Мы проинформируем вас, когда платные возможности будут готовы. Пока Decision Matrix AI продолжает работать бесплатно.</div>{% endif %}
+<div class="row g-3 my-3">
+{% for value, title, text in [
+ ('project_99', 'Один дополнительный ИИ-проект — 99 ₽', 'Для следующего отдельного решения без подписки.'),
+ ('pro_299', 'Pro — 299 ₽ в месяц', 'Для регулярной работы с решениями и проектами.'),
+ ('free_beta', 'Пока продолжу пользоваться бесплатно', 'Все текущие функции доступны участникам бета-теста.')
+] %}
+<div class="col-12 col-lg-4"><div class="card h-100 shadow-sm"><div class="card-body d-flex flex-column">
+<h2 class="h5">{{ title }}</h2><p class="text-secondary flex-grow-1">{{ text }}</p>
+{% if user %}
+<form action="/monetization/preference" method="post">
+<input type="hidden" name="selected_plan" value="{{ value }}"><input type="hidden" name="source" value="pricing"><input type="hidden" name="return_to" value="/pricing">
+<button class="btn {{ 'btn-primary' if value != 'free_beta' else 'btn-outline-secondary' }}" data-goal="{{ {'project_99':'project_99_interest','pro_299':'pro_299_interest','free_beta':'free_beta_choice'}[value] }}">{{ 'Сообщить мне о запуске' if value != 'free_beta' else 'Выбрать' }}</button>
+</form>
+{% else %}<a class="btn btn-outline-primary" href="/register">Зарегистрироваться и выбрать</a>{% endif %}
+{% if preference and preference.selected_plan == value %}<span class="small text-success mt-2">Текущий выбор</span>{% endif %}
+</div></div></div>
+{% endfor %}
+</div>
+<div class="alert alert-info">Участники бета-тестирования могут бесплатно пользоваться всеми текущими функциями. После запуска платной версии активные бета-тестеры, завершившие хотя бы один проект и отправившие отзыв, получат три дополнительных ИИ-проекта бесплатно.</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>if(!sessionStorage.getItem("dmatrix-pricing-view")){window.dmatrixReachGoal&&window.dmatrixReachGoal("pricing_view");sessionStorage.setItem("dmatrix-pricing-view","1");} document.querySelectorAll("[data-goal]").forEach(function(b){b.addEventListener("click",function(){window.dmatrixReachGoal && window.dmatrixReachGoal(b.dataset.goal);});});</script>
+{% endblock %}

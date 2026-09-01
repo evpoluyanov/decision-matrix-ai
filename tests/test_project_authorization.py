@@ -2421,7 +2421,7 @@ def test_guest_home_does_not_show_project_form(
     assert response.status_code == 200
 
     assert "Decision Matrix AI" in response.text
-    assert "Попробовать" in response.text
+    assert "Создать бесплатный проект" in response.text
     assert 'href="/register"' in response.text
     assert 'href="/login"' in response.text
 

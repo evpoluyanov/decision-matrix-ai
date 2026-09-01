@@ -21,7 +21,7 @@ from test_ai_usage_routes import llm_response
 
 
 def reported(incoming=100, outgoing=50):
-    return {"model": "gpt-oss-120b", "usage": {
+    return {"id": "mws-response-123", "model": "gpt-oss-120b", "usage": {
         "prompt_tokens": incoming, "completion_tokens": outgoing,
         "total_tokens": incoming + outgoing,
         "completion_tokens_details": {"reasoning_tokens": 10},
@@ -199,6 +199,14 @@ def test_real_provider_boundary_is_guarded_for_all_routes(client, prepared, monk
     with prepared["TestingSessionLocal"]() as db:
         assert db.query(models.AIProviderCall).one().status == "reported"
         assert db.query(models.AIRequestLog).one().total_tokens == 160
+        log = db.query(models.AIRequestLog).one()
+        assert log.provider == "mws"
+        assert log.model == "gpt-oss-120b"
+        assert log.provider_response_id == "mws-response-123"
+        trial_events = db.query(models.ProductEvent).filter_by(
+            event_name="trial_ai_project_started",
+        ).all()
+        assert len(trial_events) == 1
         stats = admin_service.statistics(db, 1)
         assert stats["input_tokens"] == 120
         assert stats["output_tokens"] == 40
@@ -220,6 +228,9 @@ def test_paid_invalid_or_unsafe_reply_keeps_actual_usage(client, prepared, monke
     with prepared["TestingSessionLocal"]() as db:
         assert db.query(models.AIProviderCall).one().status == "reported"
         assert db.query(models.AIRequestLog).one().total_tokens == 150
+        assert db.query(models.ProductEvent).filter_by(
+            event_name="trial_ai_project_started",
+        ).count() == 0
 
 
 def test_timeout_retains_money_and_returns_normal_503(client, prepared, monkeypatch):

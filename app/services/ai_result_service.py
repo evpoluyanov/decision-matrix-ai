@@ -277,6 +277,8 @@ def generate_result_explanation(
                 response.provider,
             "model":
                 response.model,
+            "response_id":
+                response.response_id,
             "input_tokens":
                 response.usage.input_tokens,
             "output_tokens":

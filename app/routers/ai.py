@@ -27,6 +27,7 @@ from app.services import (
     ai_usage_service,
     ai_budget_service,
     ai_score_generation_service,
+    growth_service,
 )
 
 
@@ -272,6 +273,10 @@ def suggest_alternatives(
             status_code=400,
             content=result,
         )
+    if result.get("status") == "ok":
+        growth_service.record_trial_ai_project(
+            db, user_id=project.owner_id, project_id=project.id,
+        )
     return result
 
 
@@ -423,6 +428,10 @@ def suggest_criteria(
             content=result,
         )
 
+    if result.get("status") == "ok":
+        growth_service.record_trial_ai_project(
+            db, user_id=project.owner_id, project_id=project.id,
+        )
     return result
 
 
@@ -618,9 +627,13 @@ def suggest_scores(
         )
         return result
 
-    return ai_score_generation_service.finish_batch(
+    response = ai_score_generation_service.finish_batch(
         db, job, criteria, batch, result,
     )
+    growth_service.record_trial_ai_project(
+        db, user_id=project.owner_id, project_id=project.id,
+    )
+    return response
 
 @router.post(
     "/projects/{project_id}/ai/result-explanation"
@@ -768,6 +781,9 @@ def explain_result(
         )
 
     if result.get("status") == "ok":
+        growth_service.record_trial_ai_project(
+            db, user_id=project.owner_id, project_id=project.id,
+        )
         (
             project_ai_analysis_service
             .save_result_explanation(
@@ -924,6 +940,9 @@ def analyze_decision_risks(
         )
 
     if result.get("status") == "ok":
+        growth_service.record_trial_ai_project(
+            db, user_id=project.owner_id, project_id=project.id,
+        )
         (
             project_ai_analysis_service
             .save_decision_risks(

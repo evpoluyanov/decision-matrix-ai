@@ -221,6 +221,7 @@ def generate_criterion_suggestions(
         "usage": {
             "provider": response.provider,
             "model": response.model,
+            "response_id": response.response_id,
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
             "reasoning_tokens": (

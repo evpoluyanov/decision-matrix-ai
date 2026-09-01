@@ -331,6 +331,8 @@ def generate_decision_risks(
                 response.provider,
             "model":
                 response.model,
+            "response_id":
+                response.response_id,
             "input_tokens":
                 response.usage.input_tokens,
             "output_tokens":

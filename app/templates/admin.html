@@ -5,7 +5,7 @@
 <p class="text-muted">Обновлено: {{ stats.updated_at.strftime('%d.%m.%Y %H:%M') }} МСК.
     Только просмотр; баланс провайдера здесь не загружается.</p>
 <div class="btn-group mb-4" aria-label="Период статистики">
-    {% for value, label in [(1, 'Сегодня'), (7, '7 дней'), (30, '30 дней')] %}
+    {% for value, label in [('1', 'Сегодня'), ('7', '7 дней'), ('30', '30 дней'), ('all', 'Всё время')] %}
     <a href="/admin?days={{ value }}" class="btn btn-outline-primary {% if stats.days == value %}active{% endif %}">{{ label }}</a>
     {% endfor %}
 </div>
@@ -41,7 +41,7 @@
         <dt class="col-sm-7">Входящие токены с известной статистикой</dt><dd class="col-sm-5">{{ stats.input_tokens }}</dd>
         <dt class="col-sm-7">Исходящие токены</dt><dd class="col-sm-5">{{ stats.output_tokens }}</dd>
         <dt class="col-sm-7">В том числе рассуждения (не прибавляются повторно)</dt><dd class="col-sm-5">{{ stats.reasoning_tokens }}</dd>
-        <dt class="col-sm-7">Оценка стоимости по полученной статистике</dt><dd class="col-sm-5">{{ '%.4f'|format(stats.estimated) }} ₽</dd>
+        <dt class="col-sm-7">Расчётная стоимость по данным API</dt><dd class="col-sm-5">{{ '%.4f'|format(stats.estimated) }} ₽</dd>
         <dt class="col-sm-7">Вызовов без окончательной статистики</dt><dd class="col-sm-5">{{ stats.uncertain_calls }}</dd>
         <dt class="col-sm-7">Сохранённые резервы по таким вызовам</dt><dd class="col-sm-5">{{ '%.4f'|format(stats.uncertain_reserve) }} ₽</dd>
     </dl>
@@ -59,6 +59,27 @@
     {% else %}<tr><td colspan="3">За период запросов пока нет.</td></tr>{% endfor %}
     </tbody>
 </table></div>
+<section class="card mb-4"><div class="card-body">
+<h2 class="h5">Воронка и монетизация</h2>
+<div class="table-responsive"><table class="table table-sm"><tbody>
+{% for label, key in [('Зарегистрированные пользователи','registered'),('Подтвердившие email','verified'),('Создавшие проект','project_created'),('Использовавшие ИИ в первом проекте','trial_ai'),('Получившие рассчитанный результат','result'),('Сформировавшие отчёт','report'),('Создавшие второй проект','second_project'),('Увидевшие платное предложение','offer'),('Выбрали проект за 99 ₽','project_99'),('Выбрали Pro за 299 ₽','pro_299'),('Выбрали бесплатное продолжение','free_beta')] %}<tr><th>{{ label }}</th><td>{{ stats.funnel[key] }}</td></tr>{% endfor %}
+<tr><th>Конверсия предложения: проект / Pro / бесплатно</th><td>{{ '%.1f'|format(stats.funnel.project_99_conversion) }}% / {{ '%.1f'|format(stats.funnel.pro_299_conversion) }}% / {{ '%.1f'|format(stats.funnel.free_beta_conversion) }}%</td></tr>
+<tr><th>Средняя расчётная стоимость ИИ на завершённый проект</th><td>{{ '%.4f'|format(stats.funnel.average_completed_cost) }} ₽</td></tr>
+</tbody></table></div>
+<p class="small text-muted mb-0">Административные и настроенные тестовые аккаунты исключены из воронки, но остаются в технической статистике расходов выше.</p>
+</div></section>
+
+<section class="card mb-4"><div class="card-body"><h2 class="h5">Первоначальные источники</h2><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Источник</th><th>Пользователи</th><th>Активированы результатом</th></tr></thead><tbody>{% for row in stats.sources %}<tr><td>{{ row.source }}</td><td>{{ row.users }}</td><td>{{ row.activated }}</td></tr>{% else %}<tr><td colspan="3">Данных пока нет.</td></tr>{% endfor %}</tbody></table></div></div></section>
+
+<section class="card mb-4"><div class="card-body"><h2 class="h5">Обратная связь <span class="badge text-bg-primary">Новых: {{ stats.new_feedback }}</span></h2>
+<form method="get" action="/admin" class="row g-2 mb-3"><input type="hidden" name="days" value="{{ stats.days }}"><div class="col-md-4"><select name="category" class="form-select"><option value="">Все категории</option>{% for value in ['bug','idea','result_quality','interface','other'] %}<option value="{{ value }}" {% if stats.feedback_category == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div><div class="col-md-4"><select name="status" class="form-select"><option value="">Все статусы</option>{% for value in ['new','in_progress','resolved','rejected'] %}<option value="{{ value }}" {% if stats.feedback_status == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div><div class="col-md-4"><button class="btn btn-outline-primary">Фильтровать</button></div></form>
+{% for feedback, feedback_user in stats.feedback_rows %}<article class="border rounded p-3 mb-3"><div class="d-flex flex-wrap gap-2 small text-secondary mb-2"><span>{{ feedback.created_at.strftime('%d.%m.%Y %H:%M') }}</span><span>{{ feedback.category }}</span><span>Оценка: {{ feedback.rating or '—' }}</span><span>Пользователь: {{ feedback_user.email }}</span>{% if feedback.project_id %}<a href="/projects/{{ feedback.project_id }}">Проект #{{ feedback.project_id }}</a>{% endif %}<span>Ответ по email: {{ 'да' if feedback.allow_email_reply else 'нет' }}</span><span>Бонус: {{ 'условия выполнены' if feedback_user.beta_reward_eligible else 'нет' }}</span></div><p class="mb-2" style="white-space:pre-wrap">{{ feedback.message }}</p><form method="post" action="/admin/feedback/{{ feedback.id }}" class="row g-2"><div class="col-md-3"><select name="status" class="form-select">{% for value in ['new','in_progress','resolved','rejected'] %}<option value="{{ value }}" {% if feedback.status == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div><div class="col-md-7"><input name="admin_note" maxlength="2000" class="form-control" value="{{ feedback.admin_note or '' }}" placeholder="Внутренний комментарий"></div><div class="col-md-2"><button class="btn btn-outline-primary">Сохранить</button></div></form></article>{% else %}<p>Обращений за период нет.</p>{% endfor %}
+</div></section>
+
+<section class="card mb-4"><div class="card-body"><h2 class="h5">Ручная сверка MWS</h2>
+{% if stats.latest_reconciliation %}<p>Последняя сверка: {{ stats.latest_reconciliation.created_at.strftime('%d.%m.%Y %H:%M') }}. Расчёт приложения: {{ stats.latest_reconciliation.application_estimated_cost_rub }} ₽; к оплате по MWS: {{ stats.latest_reconciliation.amount_due_rub }} ₽; отклонение: <strong>{{ stats.latest_reconciliation.deviation_rub }} ₽</strong>.</p>{% else %}<p>Сверок пока нет.</p>{% endif %}
+<form method="post" action="/admin/mws-reconciliation" class="row g-2"><div class="col-md-6"><input class="form-control" name="period_start" required placeholder="Начало: 2026-09-01T00:00:00+03:00"></div><div class="col-md-6"><input class="form-control" name="period_end" required placeholder="Конец: 2026-10-01T00:00:00+03:00"></div><div class="col-md-3"><input class="form-control" type="number" min="0" name="input_tokens" required placeholder="Входящие токены"></div><div class="col-md-3"><input class="form-control" type="number" min="0" name="output_tokens" required placeholder="Исходящие токены"></div><div class="col-md-3"><input class="form-control" name="actual_base_cost_rub" required placeholder="Базовая стоимость"></div><div class="col-md-3"><input class="form-control" name="discount_or_grant_rub" required placeholder="Скидка/грант"></div><div class="col-md-3"><input class="form-control" name="amount_due_rub" required placeholder="К оплате"></div><div class="col-md-3"><input class="form-control" name="application_estimated_cost_rub" required placeholder="Расчёт приложения"></div><div class="col-md-4"><input class="form-control" name="source" maxlength="200" required placeholder="Источник: отчёт MWS за период"></div><div class="col-md-2"><button class="btn btn-primary">Добавить сверку</button></div></form><p class="small text-muted mt-2 mb-0">Данные вводятся вручную по информации MWS. Консоль не парсится, недокументированный Billing API не используется.</p>
+</div></section>
 <h2 class="h5">Посещаемость и фактические списания</h2>
 <p>Аккаунты с ИИ-запросами — не все посетители сайта. Анонимную посещаемость смотрите в Метрике
     после подключения счётчика. В эту страницу она автоматически не импортируется.</p>

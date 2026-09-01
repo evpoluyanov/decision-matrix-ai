@@ -23,6 +23,8 @@ from app.services import (
     score_service,
     risk_service,
     project_ai_analysis_service,
+    growth_service,
+    public_site_service,
 )
 
 
@@ -77,6 +79,10 @@ def project_detail(
         db=db,
         project_id=project.id,
     )
+    user = db.get(models.User, project.owner_id)
+    growth_service.record_project_value(
+        db, user=user, project_id=project.id, results=results,
+    )
 
     risk_analysis = (
         risk_service.analyze_decision_risks(
@@ -98,6 +104,10 @@ def project_detail(
             "results": results,
             "risk_analysis": risk_analysis,
             "weight_error": weight_error,
+            "show_second_project_offer": growth_service.should_offer_for_second_project(
+                db, user_id=user.id, project_id=project.id,
+            ),
+            **public_site_service.product_analytics_context(request),
         },
     )
 
@@ -158,6 +168,35 @@ def project_report(
             project_id=project.id,
         )
     )
+    user = db.get(models.User, project.owner_id)
+    growth_service.record_project_value(
+        db, user=user, project_id=project.id, results=results,
+    )
+    report_was_recorded = growth_service.has_event(
+        db, "report_generated", user_id=user.id, project_id=project.id,
+    )
+    growth_service.record_project_value(
+        db, user=user, project_id=project.id, results=results, report=True,
+    )
+    is_trial_report = (
+        bool(results)
+        and growth_service.first_trial_project_id(db, user.id) == project.id
+    )
+    feedback_exists = db.query(models.UserFeedback.id).filter_by(
+        user_id=user.id, project_id=project.id,
+    ).first() is not None
+    show_monetization_offer = (
+        is_trial_report and growth_service.preference_for(db, user.id) is None
+    )
+    offer_was_recorded = growth_service.has_event(
+        db, "paid_offer_viewed", user_id=user.id, project_id=project.id,
+    )
+    if show_monetization_offer:
+        growth_service.record_event(
+            db, "paid_offer_viewed", user=user, project_id=project.id,
+            metadata={"source": "report"},
+            dedupe_key=f"paid_offer_viewed:user:{user.id}:source:report:project:{project.id}",
+        )
 
     risk_analysis = (
         risk_service
@@ -195,6 +234,12 @@ def project_report(
             "results": results,
             "risk_analysis": risk_analysis,
             "ai_report": ai_report,
+            "show_monetization_offer": show_monetization_offer,
+            "offer_source": "report",
+            "offer_event_recorded": show_monetization_offer and not offer_was_recorded,
+            "show_report_feedback": is_trial_report and not feedback_exists,
+            "report_event_recorded": is_trial_report and not report_was_recorded,
+            **public_site_service.product_analytics_context(request),
         },
     )
 

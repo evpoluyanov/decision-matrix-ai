@@ -157,6 +157,7 @@ def generate_alternative_suggestions(
         "usage": {
             "provider": response.provider,
             "model": response.model,
+            "response_id": response.response_id,
             "input_tokens": (
                 response.usage.input_tokens
             ),

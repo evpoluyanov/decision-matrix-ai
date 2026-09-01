@@ -26,15 +26,61 @@ def test_indexing_is_opt_in(client):
     assert "mc.yandex.ru" not in client.get("/").text
 
 
-def test_only_public_landing_is_in_sitemap(client, monkeypatch):
+def test_only_public_pages_are_in_sitemap(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     result = client.get("/sitemap.xml")
     assert result.status_code == 200
-    assert result.text.count("<loc>") == 1
-    assert "https://dmatrix.tech/</loc>" in result.text
+    assert result.text.count("<loc>") == 2
+    for path in ("/", "/pricing"):
+        assert f"https://dmatrix.tech{path}</loc>" in result.text
     assert "projects" not in result.text
     assert "admin" not in result.text
     assert 'rel="canonical" href="https://dmatrix.tech/"' in client.get("/").text
+
+
+def test_legal_drafts_are_unpublished_and_not_indexable(client, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    sitemap = client.get("/sitemap.xml").text
+    robots = client.get("/robots.txt").text
+    for path in ("/privacy", "/terms"):
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
+        assert "[УКАЗАТЬ" not in response.text
+        assert path not in sitemap
+        assert f"Allow: {path}" not in robots
+
+
+def test_legal_placeholders_do_not_navigate_or_claim_acceptance(client):
+    from html.parser import HTMLParser
+
+    class PlaceholderParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.placeholders = []
+
+        def handle_starttag(self, tag, attributes):
+            attributes = dict(attributes)
+            if attributes.get("title") == "Документ готовится":
+                self.placeholders.append((tag, attributes))
+
+    for path in ("/", "/register", "/pricing", "/login"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert 'href="/privacy"' not in response.text
+        assert 'href="/terms"' not in response.text
+        assert "Регистрируясь, вы подтверждаете ознакомление" not in response.text
+        parser = PlaceholderParser()
+        parser.feed(response.text)
+        assert len(parser.placeholders) == (4 if path == "/register" else 2)
+        for tag, attributes in parser.placeholders:
+            assert tag == "span"
+            assert attributes["aria-disabled"] == "true"
+            assert "href" not in attributes
+            assert "onclick" not in attributes
+            assert "tabindex" not in attributes
 
 
 def test_preview_has_no_indexing_or_analytics(client, monkeypatch):

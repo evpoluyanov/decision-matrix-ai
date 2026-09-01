@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from app.services.public_site_service import public_site_url
+from app.services import attribution_service
 
 
 def origin_of(value):
@@ -52,6 +53,18 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
             request.url.path == "/" and not public_site_url()
         ):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
-        elif request.url.path not in {"/", "/robots.txt", "/sitemap.xml"}:
+        elif request.url.path not in {
+            "/", "/pricing",
+            "/robots.txt", "/sitemap.xml", "/static/og-decision-matrix.png",
+        }:
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         return response
+
+
+class FirstTouchAttributionMiddleware(BaseHTTPMiddleware):
+    """Capture only sanitised first-touch campaign fields in the signed session."""
+
+    async def dispatch(self, request, call_next):
+        if request.method in {"GET", "HEAD"}:
+            attribution_service.capture_first_touch(request)
+        return await call_next(request)

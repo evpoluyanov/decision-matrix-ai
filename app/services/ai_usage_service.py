@@ -313,6 +313,21 @@ def complete_ai_request(
         )
     )
 
+    provider = usage.get("provider")
+    model = usage.get("model")
+    response_id = usage.get("response_id")
+    request_log.provider = (
+        provider[:50] if isinstance(provider, str) and provider else None
+    )
+    request_log.model = (
+        model[:100] if isinstance(model, str) and model else None
+    )
+    request_log.provider_response_id = (
+        response_id[:200]
+        if isinstance(response_id, str) and response_id
+        else None
+    )
+
     request_log.completed_at = completed_at
 
     db.add(

@@ -6,6 +6,8 @@
 
 {% block content %}
 
+{% if request.query_params.get('saved') %}<div class="alert alert-success">Спасибо! Мы проинформируем вас, когда платные возможности будут готовы. Пока Decision Matrix AI продолжает работать бесплатно.</div>{% endif %}
+
 <div
     class="d-flex flex-wrap
            justify-content-between
@@ -632,4 +634,30 @@
     </div>
 </div>
 
+{% if show_monetization_offer %}
+    {% include "_monetization_offer.html" %}
+{% endif %}
+
+{% if show_report_feedback %}
+<div class="card shadow-sm mb-4"><div class="card-body">
+    <h2 class="h5">Насколько Decision Matrix AI помог вам принять решение?</h2>
+    <form action="/feedback" method="post">
+        <div class="mb-3"><label class="form-label" for="report-rating">Оценка от 1 до 5</label><select id="report-rating" name="rating" class="form-select" required>{% for n in range(1, 6) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
+        <div class="mb-3"><label class="form-label" for="report-message">Что можно улучшить? (необязательно)</label><textarea id="report-message" name="message" class="form-control" maxlength="2000"></textarea></div>
+        <input type="hidden" name="category" value="result_quality"><input type="hidden" name="quick" value="true"><input type="hidden" name="page_path" value="/projects/{{ project.id }}/report"><input type="hidden" name="project_id" value="{{ project.id }}"><input type="hidden" name="return_to" value="/projects/{{ project.id }}/report">
+        <button class="btn btn-outline-primary" type="submit">Отправить оценку</button>
+    </form>
+</div></div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+{% if report_event_recorded %}window.dmatrixReachGoal && window.dmatrixReachGoal("report_generated");{% endif %}
+{% if offer_event_recorded %}window.dmatrixReachGoal && window.dmatrixReachGoal("paid_offer_view");{% endif %}
+{% if request.query_params.get('feedback_submitted') %}window.dmatrixReachGoal && window.dmatrixReachGoal("feedback_submitted", {category:"result_quality", has_rating:true});{% endif %}
+document.querySelectorAll("[data-goal]").forEach(function(b){b.addEventListener("click",function(){window.dmatrixReachGoal && window.dmatrixReachGoal(b.dataset.goal);});});
+</script>
 {% endblock %}

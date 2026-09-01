@@ -15,3 +15,4 @@ class LLMResponse:
     provider: str
     model: str
     usage: LLMUsage
+    response_id: str | None = None

@@ -7,6 +7,11 @@ Decision Matrix AI
 {% block metadata %}
 <meta name="description" content="Decision Matrix AI — матрица принятия решений: сравните альтернативы, выберите критерии и веса, получите объяснение результата и рисков с помощью ИИ.">
 {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/">{% endif %}
+<meta property="og:title" content="Decision Matrix AI — сложный выбор по понятным критериям">
+<meta property="og:description" content="Сравните альтернативы, задайте критерии и веса, получите рейтинг, объяснение результата и анализ рисков">
+<meta property="og:type" content="website">
+{% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}/"><meta property="og:image" content="{{ canonical_url }}/static/og-decision-matrix.png">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
 {% endblock %}
 
 {% block content %}
@@ -118,7 +123,7 @@ Decision Matrix AI
                     href="/register"
                     class="btn btn-primary"
                 >
-                    Попробовать
+                    Создать бесплатный проект
                 </a>
 
                 <a
@@ -129,10 +134,7 @@ Decision Matrix AI
                 </a>
             </div>
 
-            <div class="small text-muted mt-3">
-                Создание проекта станет доступно
-                после регистрации.
-            </div>
+            <div class="small text-muted mt-3">Один полный проект с ИИ — бесплатно. Без банковской карты.</div>
 
         </div>
     </div>
@@ -290,9 +292,18 @@ Decision Matrix AI
                 </p>
 
                 <a href="/register" class="btn btn-primary">
-                    Начать работу
+                    Создать бесплатный проект
                 </a>
             </div>
+        </div>
+    </section>
+
+    <section class="pb-5" aria-labelledby="examples-title">
+        <h2 id="examples-title" class="h3 text-center mb-4">Для каких решений подходит</h2>
+        <div class="row g-3">
+            {% for example in ['Выбор подрядчика или поставщика', 'Выбор программы, оборудования или сервиса', 'Сравнение вариантов управленческого решения'] %}
+            <div class="col-12 col-md-4"><div class="card h-100"><div class="card-body"><h3 class="h6 mb-0">{{ example }}</h3></div></div></div>
+            {% endfor %}
         </div>
     </section>
 

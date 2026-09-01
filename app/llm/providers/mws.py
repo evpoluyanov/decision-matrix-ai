@@ -219,6 +219,12 @@ class MWSProvider(LLMProvider):
             ),
         )
 
+        response_id = data.get("id")
+        if not isinstance(response_id, str) or not response_id.strip():
+            response_id = None
+        elif len(response_id) > 200:
+            response_id = response_id[:200]
+
         return LLMResponse(
             content=content,
             provider="mws",
@@ -227,4 +233,5 @@ class MWSProvider(LLMProvider):
                 self.model,
             ),
             usage=usage,
+            response_id=response_id,
         )
