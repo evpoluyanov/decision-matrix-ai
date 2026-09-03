@@ -55,6 +55,8 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         elif request.url.path not in {
             "/", "/pricing",
+            "/favicon.svg", "/favicon-120.png", "/favicon.ico", "/apple-touch-icon.png",
+            "/static/operations.css", "/static/operations.js",
             "/robots.txt", "/sitemap.xml", "/static/og-decision-matrix.png",
         }:
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -65,6 +67,6 @@ class FirstTouchAttributionMiddleware(BaseHTTPMiddleware):
     """Capture only sanitised first-touch campaign fields in the signed session."""
 
     async def dispatch(self, request, call_next):
-        if request.method in {"GET", "HEAD"}:
+        if request.method == "GET" and request.url.path in {"/", "/pricing", "/register", "/login"}:
             attribution_service.capture_first_touch(request)
         return await call_next(request)

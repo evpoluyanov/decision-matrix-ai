@@ -1,5 +1,6 @@
 """First-touch attribution stored without URL query strings or personal text."""
 
+import os
 from urllib.parse import urlsplit
 
 from app import models
@@ -33,7 +34,21 @@ def capture_first_touch(request):
     if SESSION_KEY in request.session:
         return
     data = {name: _clean(request.query_params.get(name)) for name in UTM_NAMES}
-    data["referrer"] = _referrer(request.headers.get("referer", ""), request.url.hostname)
+    referrer = request.headers.get("referer", "")
+    own_hosts = {request.url.hostname}
+    for name in ("APP_BASE_URL", "PUBLIC_SITE_URL"):
+        try:
+            own_hosts.add(urlsplit(os.getenv(name, "")).hostname)
+        except ValueError:
+            pass
+    codespace = os.getenv("CODESPACE_NAME", "")
+    if codespace:
+        own_hosts.add(f"{codespace}-8000.app.github.dev")
+    try:
+        own = urlsplit(referrer).hostname in own_hosts
+        data["referrer"] = None if own else _referrer(referrer, request.url.hostname)
+    except ValueError:
+        data["referrer"] = None
     # An empty record is still a first touch (direct traffic) and prevents a
     # later campaign visit from replacing the original source.
     request.session[SESSION_KEY] = data

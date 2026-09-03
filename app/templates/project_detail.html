@@ -17,12 +17,6 @@
             Проект №{{ project.id }}
         </p>
 
-        <a
-            href="/projects/{{ project.id }}/report"
-            class="btn btn-outline-secondary btn-sm"
-        >
-            Отчёт
-        </a>
 
         <a
             href="/projects"
@@ -481,7 +475,7 @@
 
 </div>
 
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-4" id="matrix">
 
     <div
         class="card-header bg-white
@@ -557,9 +551,13 @@
             <form
                 method="post"
                 action="/projects/{{ project.id }}/scores"
+                id="matrix-form"
             >
+                <input type="hidden" name="matrix_revision" value="{{ project.matrix_revision }}">
+                <input type="hidden" name="request_key" value="">
+                <div id="matrix-save-status" role="status" aria-live="polite" class="mb-2" tabindex="-1"></div>
 
-                <div class="table-responsive">
+                <div class="table-responsive" id="matrix-scroll">
                     <table
                         class="table table-bordered table-hover align-middle mb-0"
                         style="min-width: 720px;"
@@ -629,6 +627,7 @@
                                                 <input
                                                     type="number"
                                                     name="score_{{ alternative.id }}_{{ criterion.id }}"
+                                                    id="score_{{ alternative.id }}_{{ criterion.id }}"
                                                     min="0"
                                                     max="10"
                                                     step="0.1"
@@ -720,6 +719,7 @@
                 <h2 class="modal-title fs-5" id="aiScoresModalLabel">
                     ИИ оценивает матрицу
                 </h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Скрыть ожидание; запрос продолжится"></button>
             </div>
             <div class="modal-body">
                 <div id="ai-scores-loading" class="d-flex align-items-center gap-3 mb-3">
@@ -1196,6 +1196,8 @@
 
 </div>
 
+<div class="mb-4"><a id="report-link" href="/projects/{{ project.id }}/report" class="btn btn-outline-secondary" data-wait-label="Формируем отчёт…">Отчёт</a></div>
+<script type="application/json" id="saved-ai-analysis">{{ saved_ai_analysis | tojson }}</script>
 <div
     class="modal fade"
     id="aiCriteriaModal"
@@ -1234,8 +1236,7 @@
                     </div>
 
                     <div class="small text-muted">
-                        Обычно это занимает
-                        15–30 секунд.
+                        Не закрывайте страницу до получения результата.
                     </div>
                 </div>
 
@@ -1314,8 +1315,7 @@
                     </div>
 
                     <div class="small text-muted">
-                        Обычно это занимает
-                        15–30 секунд.
+                        Не закрывайте страницу до получения результата.
                     </div>
                 </div>
 
@@ -1679,7 +1679,7 @@ document.addEventListener(
                         throw new Error();
                     }
 
-                    window.location.reload();
+                    window.dmatrixReload();
 
                 } catch (error) {
                     showMessage(
@@ -1985,7 +1985,7 @@ document.addEventListener(
                         return;
                     }
 
-                    window.location.reload();
+                    window.dmatrixReload();
 
                 } catch (error) {
                     showMessage(
@@ -2062,6 +2062,7 @@ document.addEventListener(
             const percent = Math.min(100, Math.round(data.completed * 100 / data.total));
             progress.style.width = percent + "%";
             progress.textContent = percent + "%";
+            progress.parentElement.setAttribute("aria-valuenow", String(percent));
             message.textContent = data.message;
         }
 
@@ -2104,7 +2105,7 @@ document.addEventListener(
                         loading.classList.add("d-none");
                         progress.classList.remove("progress-bar-animated");
                         message.className = "alert alert-success mb-0";
-                        window.setTimeout(() => window.location.reload(), 700);
+                        window.setTimeout(() => window.dmatrixReload(), 700);
                         return;
                     }
                     if (data.status !== "in_progress") {
@@ -2135,434 +2136,6 @@ document.addEventListener(
             }
         );
         retryButton.addEventListener("click", runGeneration);
-    }
-);
-</script>
-
-<script>
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-        const button =
-            document.getElementById(
-                "ai-result-button"
-            );
-
-        if (!button) {
-            return;
-        }
-
-        const status =
-            document.getElementById(
-                "ai-result-status"
-            );
-
-        const explanation =
-            document.getElementById(
-                "ai-result-explanation"
-            );
-
-        const summary =
-            document.getElementById(
-                "ai-result-summary"
-            );
-
-        const preliminary =
-            document.getElementById(
-                "ai-result-preliminary"
-            );
-
-        function fillList(
-            blockId,
-            listId,
-            values
-        ) {
-            const block =
-                document.getElementById(
-                    blockId
-                );
-
-            const list =
-                document.getElementById(
-                    listId
-                );
-
-            list.innerHTML = "";
-
-            if (
-                !values
-                || values.length === 0
-            ) {
-                block.classList.add(
-                    "d-none"
-                );
-                return;
-            }
-
-            values.forEach(value => {
-                const li =
-                    document.createElement(
-                        "li"
-                    );
-
-                li.textContent = value;
-                list.appendChild(li);
-            });
-
-            block.classList.remove(
-                "d-none"
-            );
-        }
-
-        button.addEventListener(
-            "click",
-            async () => {
-                button.disabled = true;
-
-                explanation.classList.add(
-                    "d-none"
-                );
-
-                status.classList.remove(
-                    "d-none"
-                );
-
-                status.textContent =
-                    "ИИ анализирует результат… "
-                    + "Обычно это занимает "
-                    + "15–30 секунд.";
-
-                try {
-                    const response =
-                        await fetch(
-                            "/projects/{{ project.id }}/ai/result-explanation",
-                            {
-                                method: "POST",
-                            }
-                        );
-
-                    const data =
-                        await response.json();
-
-                    if (
-                        !response.ok
-                        || data.status !== "ok"
-                    ) {
-                        status.textContent =
-                            data.message
-                            || "Не удалось подготовить объяснение.";
-
-                        return;
-                    }
-
-                    summary.textContent =
-                        data.summary;
-
-                    fillList(
-                        "ai-result-factors-block",
-                        "ai-result-factors",
-                        data.factors
-                    );
-
-                    fillList(
-                        "ai-result-strengths-block",
-                        "ai-result-strengths",
-                        data.strengths
-                    );
-
-                    fillList(
-                        "ai-result-weaknesses-block",
-                        "ai-result-weaknesses",
-                        data.weaknesses
-                    );
-
-                    const competitorBlock =
-                        document.getElementById(
-                            "ai-result-competitor-block"
-                        );
-
-                    const competitor =
-                        document.getElementById(
-                            "ai-result-competitor"
-                        );
-
-                    if (data.competitor) {
-                        competitor.textContent =
-                            data.competitor;
-
-                        competitorBlock
-                            .classList.remove(
-                                "d-none"
-                            );
-                    } else {
-                        competitorBlock
-                            .classList.add(
-                                "d-none"
-                            );
-                    }
-
-                    const caveat =
-                        document.getElementById(
-                            "ai-result-caveat"
-                        );
-
-                    if (data.caveat) {
-                        caveat.textContent =
-                            data.caveat;
-
-                        caveat.classList.remove(
-                            "d-none"
-                        );
-                    } else {
-                        caveat.classList.add(
-                            "d-none"
-                        );
-                    }
-
-                    preliminary.classList.toggle(
-                        "d-none",
-                        !data.preliminary
-                    );
-
-                    status.classList.add(
-                        "d-none"
-                    );
-
-                    explanation.classList.remove(
-                        "d-none"
-                    );
-
-                } catch (error) {
-                    status.textContent =
-                        "Не удалось подготовить "
-                        + "объяснение результата. "
-                        + "Попробуйте ещё раз.";
-
-                } finally {
-                    button.disabled = false;
-                }
-            }
-        );
-    }
-);
-</script>
-
-<script>
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-        const button =
-            document.getElementById(
-                "ai-decision-risks-button"
-            );
-
-        if (!button) {
-            return;
-        }
-
-        const intro =
-            document.getElementById(
-                "ai-decision-risks-intro"
-            );
-
-        const status =
-            document.getElementById(
-                "ai-decision-risks-status"
-            );
-
-        const result =
-            document.getElementById(
-                "ai-decision-risks-result"
-            );
-
-        const list =
-            document.getElementById(
-                "ai-decision-risks-list"
-            );
-
-        const preliminary =
-            document.getElementById(
-                "ai-decision-risks-preliminary"
-            );
-
-        button.addEventListener(
-            "click",
-            async () => {
-                button.disabled = true;
-
-                result.classList.add(
-                    "d-none"
-                );
-
-                intro.classList.add(
-                    "d-none"
-                );
-
-                status.classList.remove(
-                    "d-none"
-                );
-
-                status.textContent =
-                    "ИИ анализирует риски… "
-                    + "Обычно это занимает "
-                    + "15–30 секунд.";
-
-                try {
-                    const response =
-                        await fetch(
-                            "/projects/{{ project.id }}/ai/decision-risks",
-                            {
-                                method: "POST",
-                            }
-                        );
-
-                    const data =
-                        await response.json();
-
-                    if (
-                        !response.ok
-                        || data.status !== "ok"
-                    ) {
-                        status.textContent =
-                            data.message
-                            || "Не удалось выполнить анализ.";
-
-                        return;
-                    }
-
-                    list.innerHTML = "";
-
-                    data.items.forEach(
-                        item => {
-                            const container =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            container.className =
-                                "border rounded p-3";
-
-                            const header =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            header.className =
-                                "d-flex flex-wrap "
-                                + "align-items-center "
-                                + "gap-2 mb-2";
-
-                            const title =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            title.className =
-                                "fw-semibold";
-
-                            title.textContent =
-                                item.title;
-
-                            const badge =
-                                document.createElement(
-                                    "span"
-                                );
-
-                            if (
-                                item.type
-                                === "matrix"
-                            ) {
-                                badge.className =
-                                    "badge "
-                                    + "text-bg-secondary";
-
-                                badge.textContent =
-                                    "Следует из матрицы";
-
-                            } else {
-                                badge.className =
-                                    "badge "
-                                    + "text-bg-light "
-                                    + "border text-dark";
-
-                                badge.textContent =
-                                    "Гипотеза ИИ";
-                            }
-
-                            header.appendChild(
-                                title
-                            );
-
-                            header.appendChild(
-                                badge
-                            );
-
-                            const risk =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            risk.className =
-                                "small mb-2";
-
-                            risk.textContent =
-                                item.risk;
-
-                            const check =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            check.className =
-                                "small text-muted";
-
-                            check.textContent =
-                                "Что проверить: "
-                                + item.check;
-
-                            container.appendChild(
-                                header
-                            );
-
-                            container.appendChild(
-                                risk
-                            );
-
-                            container.appendChild(
-                                check
-                            );
-
-                            list.appendChild(
-                                container
-                            );
-                        }
-                    );
-
-                    preliminary
-                        .classList.toggle(
-                            "d-none",
-                            !data.preliminary
-                        );
-
-                    status.classList.add(
-                        "d-none"
-                    );
-
-                    result.classList.remove(
-                        "d-none"
-                    );
-
-                } catch (error) {
-                    status.textContent =
-                        "Не удалось выполнить "
-                        + "анализ рисков. "
-                        + "Попробуйте ещё раз.";
-
-                } finally {
-                    button.disabled = false;
-                }
-            }
-        );
     }
 );
 </script>

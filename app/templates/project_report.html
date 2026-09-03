@@ -638,8 +638,11 @@
     {% include "_monetization_offer.html" %}
 {% endif %}
 
+{% if report_question_answered and request.query_params.get('feedback_submitted') %}
+<p id="report-feedback-thanks" class="alert alert-success" role="status">Спасибо! Ваша оценка сохранена. Этот вопрос больше не будет показываться вам в отчётах.</p>
+{% endif %}
 {% if show_report_feedback %}
-<div class="card shadow-sm mb-4"><div class="card-body">
+<div id="report-feedback-question" class="card shadow-sm mb-4"><div class="card-body">
     <h2 class="h5">Насколько Decision Matrix AI помог вам принять решение?</h2>
     <form action="/feedback" method="post">
         <div class="mb-3"><label class="form-label" for="report-rating">Оценка от 1 до 5</label><select id="report-rating" name="rating" class="form-select" required>{% for n in range(1, 6) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
@@ -654,6 +657,7 @@
 
 {% block scripts %}
 {{ super() }}
+<script src="/static/report-feedback.js" defer></script>
 <script>
 {% if report_event_recorded %}window.dmatrixReachGoal && window.dmatrixReachGoal("report_generated");{% endif %}
 {% if offer_event_recorded %}window.dmatrixReachGoal && window.dmatrixReachGoal("paid_offer_view");{% endif %}

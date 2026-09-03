@@ -24,6 +24,7 @@ from app.services import (
     risk_service,
     project_ai_analysis_service,
     growth_service,
+    feedback_service,
     public_site_service,
 )
 
@@ -104,6 +105,8 @@ def project_detail(
             "results": results,
             "risk_analysis": risk_analysis,
             "weight_error": weight_error,
+            "saved_ai_analysis": project_ai_analysis_service.to_report_data(
+                project_ai_analysis_service.get_analysis(db, project.id)),
             "show_second_project_offer": growth_service.should_offer_for_second_project(
                 db, user_id=user.id, project_id=project.id,
             ),
@@ -182,9 +185,7 @@ def project_report(
         bool(results)
         and growth_service.first_trial_project_id(db, user.id) == project.id
     )
-    feedback_exists = db.query(models.UserFeedback.id).filter_by(
-        user_id=user.id, project_id=project.id,
-    ).first() is not None
+    report_question_answered = feedback_service.has_report_answer(db, user.id)
     show_monetization_offer = (
         is_trial_report and growth_service.preference_for(db, user.id) is None
     )
@@ -237,7 +238,8 @@ def project_report(
             "show_monetization_offer": show_monetization_offer,
             "offer_source": "report",
             "offer_event_recorded": show_monetization_offer and not offer_was_recorded,
-            "show_report_feedback": is_trial_report and not feedback_exists,
+            "show_report_feedback": is_trial_report and not report_question_answered,
+            "report_question_answered": report_question_answered,
             "report_event_recorded": is_trial_report and not report_was_recorded,
             **public_site_service.product_analytics_context(request),
         },

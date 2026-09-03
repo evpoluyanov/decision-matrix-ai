@@ -36,6 +36,9 @@ def pricing(request: Request, db: Session = Depends(get_db), saved: int = 0):
         db, "pricing_viewed", user=user,
         dedupe_key=f"pricing_viewed:{identity}",
     )
+    if user:
+        growth_service.record_event(db, "paid_offer_viewed", user=user, metadata={"source": "pricing"},
+            dedupe_key=f"paid_offer_viewed:user:{user.id}:source:pricing:project:0")
     return templates.TemplateResponse(
         request=request, name="pricing.html",
         context={
@@ -118,7 +121,7 @@ def feedback_form(
 def submit_feedback(
     request: Request,
     category: str = Form(...),
-    message: str = Form(...),
+    message: str = Form(""),
     quick: bool = Form(False),
     rating: int | None = Form(None),
     page_path: str = Form("/feedback"),
@@ -128,20 +131,28 @@ def submit_feedback(
     db: Session = Depends(get_db),
     user: models.User = Depends(require_user),
 ):
-    if quick and category == "result_quality" and rating is not None and len(message.strip()) < 10:
-        message = "Оценка итогового отчёта."
-    feedback = feedback_service.submit(
+    submission = feedback_service.submit(
         db, request, user=user, category=category, rating=rating,
         message=message, page_path=page_path, project_id=project_id,
         allow_email_reply=allow_email_reply,
+        report_question=quick,
     )
     if request.headers.get("x-requested-with") == "fetch":
-        return {"status": "ok", "feedback_id": feedback.id}
+        return {"status": "ok", "feedback_id": submission.feedback.id, "created": submission.created}
+    if quick:
+        return_to = f"/projects/{project_id}/report"
     if not return_to.startswith("/") or "://" in return_to:
         return_to = "/feedback"
     separator = "&" if "?" in return_to else "?"
+    if not submission.created:
+        return RedirectResponse(return_to, status_code=303)
     return RedirectResponse(
         f"{return_to}{separator}feedback_submitted=1"
         f"&feedback_category={category}&feedback_has_rating={int(rating is not None)}",
         status_code=303,
     )
+
+
+@router.get("/feedback/report-question/state")
+def report_question_state(db: Session = Depends(get_db), user: models.User = Depends(require_user)):
+    return {"answered": feedback_service.has_report_answer(db, user.id)}

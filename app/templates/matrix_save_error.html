@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4">Матрица не сохранена</h1>
+<p role="alert">{{ message }}</p>
+<p><a href="/projects/{{ project.id }}#matrix" target="_blank" rel="noopener">Открыть актуальную матрицу в новой вкладке</a>. Введённые значения сохранены ниже для сверки.</p>
+<form method="post" action="/projects/{{ project.id }}/scores">
+<input type="hidden" name="matrix_revision" value="{{ matrix_revision }}">
+<input type="hidden" name="request_key" value="{{ request_key }}">
+{% for name,value in values.items() %}<label class="d-block mb-2">{{ name }} <input name="{{ name }}" value="{{ value }}" type="number" min="0" max="10" step="0.1"></label>{% endfor %}
+<button class="btn btn-primary">Повторить сохранение этой версии</button>
+</form>
+{% endblock %}

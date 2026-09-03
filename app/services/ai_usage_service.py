@@ -347,6 +347,7 @@ def fail_ai_request(
     db: Session,
     request_log: models.AIRequestLog,
     now: datetime | None = None,
+    error_code: str | None = None,
 ) -> models.AIRequestLog:
     """
     Помечает зарезервированный запрос
@@ -359,6 +360,7 @@ def fail_ai_request(
 
     completed_at = get_current_time(now)
     request_log.status = "failed"
+    request_log.error_code = error_code
 
     request_log.completed_at = completed_at
 
