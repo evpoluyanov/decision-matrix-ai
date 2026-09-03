@@ -2,6 +2,12 @@
 
 The owner approved this workflow on 2026-09-03.
 
+- Maintain `docs/BACKLOG.md` as the backlog of owner-requested changes. Add
+  remarks there with stable IDs and acceptance criteria. "Next update" or
+  "add to backlog" means record now, not implement now. Consult this backlog
+  before the next agreed development batch; retain completed entries and
+  distinguish implemented work from owner-verified Preview checks.
+
 - Inspect the current branch, git status and remotes before work. Preserve
   unrelated and unfinished user changes. Never include secrets, .env files,
   temporary databases or transferred patch/ZIP files in commits.
