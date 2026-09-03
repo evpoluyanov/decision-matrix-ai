@@ -7,14 +7,14 @@
 {% block content %}
 <h1 class="mb-3">Будущие тарифы</h1>
 <p class="lead">Decision Matrix AI пока бесплатен. Мы готовим расширенные платные возможности. Выберите вариант, которым вы могли бы воспользоваться после их запуска.</p>
-{% if saved %}<div class="alert alert-success">Спасибо! Мы проинформируем вас, когда платные возможности будут готовы. Пока Decision Matrix AI продолжает работать бесплатно.</div>{% endif %}
+{% if saved and preference %}<div class="alert alert-success" role="status">{% if preference.selected_plan == 'free_beta' %}Вы продолжаете бесплатное бета-тестирование. Выбранный вариант можно изменить на странице „Тарифы“.{% else %}Спасибо! Мы проинформируем вас, когда платные возможности будут готовы. Пока Decision Matrix AI продолжает работать бесплатно.{% endif %}</div>{% endif %}
 <div class="row g-3 my-3">
 {% for value, title, text in [
  ('project_99', 'Один дополнительный ИИ-проект — 99 ₽', 'Для следующего отдельного решения без подписки.'),
  ('pro_299', 'Pro — 299 ₽ в месяц', 'Для регулярной работы с решениями и проектами.'),
  ('free_beta', 'Пока продолжу пользоваться бесплатно', 'Все текущие функции доступны участникам бета-теста.')
 ] %}
-<div class="col-12 col-lg-4"><div class="card h-100 shadow-sm"><div class="card-body d-flex flex-column">
+<div class="col-12 col-lg-4"><div class="card h-100 shadow-sm pricing-card"><div class="card-body d-flex flex-column">
 <h2 class="h5">{{ title }}</h2><p class="text-secondary flex-grow-1">{{ text }}</p>
 {% if user %}
 <form action="/monetization/preference" method="post">
@@ -22,7 +22,7 @@
 <button class="btn {{ 'btn-primary' if value != 'free_beta' else 'btn-outline-secondary' }}" data-goal="{{ {'project_99':'project_99_interest','pro_299':'pro_299_interest','free_beta':'free_beta_choice'}[value] }}">{{ 'Сообщить мне о запуске' if value != 'free_beta' else 'Выбрать' }}</button>
 </form>
 {% else %}<a class="btn btn-outline-primary" href="/register">Зарегистрироваться и выбрать</a>{% endif %}
-{% if preference and preference.selected_plan == value %}<span class="small text-success mt-2">Текущий выбор</span>{% endif %}
+<div class="choice-slot">{% if preference and preference.selected_plan == value %}<span class="current-choice small text-success border border-success rounded px-2 py-1">Текущий выбор</span>{% endif %}</div>
 </div></div></div>
 {% endfor %}
 </div>

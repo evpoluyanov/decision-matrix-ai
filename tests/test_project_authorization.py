@@ -1626,6 +1626,7 @@ def test_saving_matrix_confirms_ai_value(
     response = client.post(
         f"/projects/{project_id}/scores",
         data={
+            "matrix_revision": "0",
             (
                 f"score_{alternative_id}_"
                 f"{criterion_id}"

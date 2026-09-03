@@ -207,5 +207,6 @@ def test_public_metadata_and_consent_safe_goals(client, monkeypatch):
     assert "Один полный проект с ИИ — бесплатно" in home
     assert home.count("Для каких решений подходит") == 1
     pricing = client.get("/pricing", headers={"Host": "dmatrix.tech"}).text
-    assert 'localStorage.getItem(consentKey) !== "yes"' in pricing
+    assert 'localStorage.getItem(consentKey) === "yes"' in pricing
+    assert 'if (!consented() || typeof window.ym !== "function") return' in pricing
     assert "window.dmatrixReachGoal" in pricing

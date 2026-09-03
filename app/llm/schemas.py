@@ -16,3 +16,4 @@ class LLMResponse:
     model: str
     usage: LLMUsage
     response_id: str | None = None
+    finish_reason: str | None = None

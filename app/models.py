@@ -107,6 +107,9 @@ class AIRequestLog(Base):
         nullable=False,
     )
 
+    client_request_key: Mapped[str | None] = mapped_column(String(64), unique=True)
+    error_code: Mapped[str | None] = mapped_column(String(50))
+
     status: Mapped[str] = mapped_column(
         String(20),
         default="started",
@@ -241,6 +244,7 @@ class AIScoreGenerationJob(Base):
     provider_attempts: Mapped[int] = mapped_column(default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="ready", nullable=False)
     last_error_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    matrix_revision: Mapped[int | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
     )
@@ -313,6 +317,7 @@ class UserFeedback(Base):
     __table_args__ = (
         CheckConstraint("rating IS NULL OR (rating >= 1 AND rating <= 5)", name="ck_feedback_rating"),
         Index("ix_user_feedback_status_created_at", "status", "created_at"),
+        UniqueConstraint("user_id", "question_key", name="uq_feedback_user_question"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -323,6 +328,7 @@ class UserFeedback(Base):
         ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True,
     )
     category: Mapped[str] = mapped_column(String(30), nullable=False)
+    question_key: Mapped[str | None] = mapped_column(String(40), nullable=True)
     rating: Mapped[int | None] = mapped_column(nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     page_path: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -361,6 +367,9 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+
+    matrix_revision: Mapped[int] = mapped_column(server_default=text("0"), nullable=False)
+    last_matrix_save_key: Mapped[str | None] = mapped_column(String(64))
 
     name: Mapped[str] = mapped_column(
         String,

@@ -1,0 +1,15 @@
+.pricing-card .choice-slot{min-height:2.7rem;display:flex;justify-content:flex-end;align-items:flex-end;padding-top:.6rem}
+.pricing-card form{margin-top:auto}
+.current-choice{white-space:nowrap}
+.operation-notice{margin:.65rem 0;padding:.7rem 1rem;border:1px solid #a9cafa;border-radius:.5rem;background:#eef5ff;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.operation-notice[data-state=uncertain],.operation-notice[data-state=failed]{background:#fff4df;border-color:#e8c483}
+.operation-spinner{display:inline-block;width:1em;height:1em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:operation-spin .85s linear infinite;flex-shrink:0;margin-right:.4rem;vertical-align:-.12em}
+@keyframes operation-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.operation-spinner{animation-duration:2s}}
+.analysis-dialog{border:1px solid #cdd5df;border-radius:.8rem;padding:1.4rem;max-width:calc(100vw - 2rem);width:32rem;color:#212529}
+.analysis-dialog::backdrop{background:rgb(0 0 0 / .42)}
+.analysis-dialog header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+.analysis-dialog h2{font-size:1.3rem;margin:0}
+.analysis-dialog .operation-message{display:flex;align-items:center;gap:.7rem;min-height:4rem}
+.analysis-dialog button:focus-visible{outline:3px solid #0d6efd;outline-offset:3px}
+@media print{.operation-notice,.analysis-dialog,#report-link{display:none}}

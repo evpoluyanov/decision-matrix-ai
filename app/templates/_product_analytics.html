@@ -3,11 +3,12 @@
 (function () {
     const counterId = {{ product_analytics_counter_id }};
     const consentKey = "dmatrix-analytics-consent-v1";
+    const consented = () => {try {return localStorage.getItem(consentKey) === "yes";} catch (_) {return false;}};
     window.dmatrixReachGoal = function (goal, params) {
-        if (localStorage.getItem(consentKey) !== "yes" || typeof window.ym !== "function") return;
+        if (!consented() || typeof window.ym !== "function") return;
         window.ym(counterId, "reachGoal", goal, params || {});
     };
-    if (localStorage.getItem(consentKey) !== "yes" || typeof window.ym === "function") return;
+    if (!consented() || typeof window.ym === "function") return;
     window.ym = window.ym || function () {(window.ym.a = window.ym.a || []).push(arguments);};
     window.ym.l = Date.now();
     const script = document.createElement("script");
@@ -15,8 +16,8 @@
     script.src = "https://mc.yandex.ru/metrika/tag.js";
     document.head.appendChild(script);
     window.ym(counterId, "init", {
-        clickmap: false, trackLinks: true, accurateTrackBounce: true,
-        webvisor: false, ecommerce: false
+        defer: true, clickmap: false, trackLinks: false, accurateTrackBounce: false,
+        webvisor: false, ecommerce: false, trackHash: false
     });
 })();
 </script>

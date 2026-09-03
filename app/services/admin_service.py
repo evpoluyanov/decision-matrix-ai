@@ -58,6 +58,16 @@ def statistics(db, days, now=None, feedback_category=None, feedback_status=None)
     marketing_user = ~users.id.in_(excluded) if excluded else True
     events = models.ProductEvent
     event_scope = (events.created_at >= start, events.created_at <= current)
+    offer_users = select(events.user_id).where(*event_scope,
+        events.event_name == "paid_offer_viewed", events.user_id.is_not(None)).distinct()
+    if excluded:
+        offer_users = offer_users.where(~events.user_id.in_(excluded))
+
+    def current_choice(plan):
+        return count(select(func.count(models.MonetizationPreference.user_id)).where(
+            models.MonetizationPreference.user_id.in_(offer_users),
+            models.MonetizationPreference.selected_plan == plan,
+        ))
 
     def unique_event(name):
         query = select(func.count(func.distinct(events.user_id))).where(
@@ -87,20 +97,21 @@ def statistics(db, days, now=None, feedback_category=None, feedback_status=None)
         "report": unique_event("report_generated"),
         "second_project": unique_event("second_project_created"),
         "offer": unique_event("paid_offer_viewed"),
-        "project_99": unique_event("project_99_selected"),
-        "pro_299": unique_event("pro_299_selected"),
-        "free_beta": unique_event("free_beta_selected"),
+        "project_99": current_choice("project_99"),
+        "pro_299": current_choice("pro_299"),
+        "free_beta": current_choice("free_beta"),
     }
     for key in ("project_99", "pro_299", "free_beta"):
         funnel[f"{key}_conversion"] = (
             funnel[key] * 100 / funnel["offer"] if funnel["offer"] else 0
         )
+    funnel["no_choice"] = max(0, funnel["offer"] - sum(funnel[key] for key in ("project_99", "pro_299", "free_beta")))
     completed = select(events.project_id, events.user_id).where(
         *event_scope, events.event_name == "result_calculated", events.project_id.is_not(None),
     )
     if excluded:
         completed = completed.where(~events.user_id.in_(excluded))
-    completed = completed.subquery()
+    completed = completed.distinct().subquery()
     completed_projects = count(select(func.count(func.distinct(completed.c.project_id))))
     completed_cost = count(select(func.sum(calls.estimated_microrub)).join(
         logs, logs.id == calls.request_log_id,
@@ -157,6 +168,7 @@ def statistics(db, days, now=None, feedback_category=None, feedback_status=None)
         "pricing": pricing,
         "configuration_error": configuration_error,
         "features": features,
+        "recent_calls": db.query(calls, logs).outerjoin(logs, logs.id == calls.request_log_id).filter(*call_scope).order_by(calls.id.desc()).limit(30).all(),
         "ai_enabled": os.getenv("AI_ENABLED", "true").lower() == "true",
         "pricing_confirmed": os.getenv("AI_PRICING_CONFIRMED", "false").lower() == "true",
         "funnel": funnel,

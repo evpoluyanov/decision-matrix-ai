@@ -3,9 +3,14 @@ from pydantic import BaseModel, Field
 from fastapi import (
     APIRouter,
     Depends,
+    Request,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+from time import perf_counter
+from app.services import operation_service
+from app.llm.errors import ProviderError
 
 from app import models
 from app.auth_dependencies import (
@@ -129,6 +134,7 @@ def reserve_ai_request_or_response(
     project: models.Project,
     feature: str,
     commit: bool = True,
+    request: Request | None = None,
 ) -> (
     models.AIRequestLog
     | JSONResponse
@@ -146,17 +152,30 @@ def reserve_ai_request_or_response(
             "status": "ai_unavailable",
             "message": "ИИ временно недоступен. Работа с проектами вручную доступна.",
         })
+    key = request.headers.get("x-operation-key") if request else None
+    if key and not operation_service.KEY.fullmatch(key):
+        return JSONResponse({"status": "invalid_key", "message": "Некорректный идентификатор операции."}, status_code=400)
+    if request is not None:
+        db.query(models.Project).filter_by(id=project.id).with_for_update().one()
+        if key:
+            previous = db.query(models.AIRequestLog).filter_by(client_request_key=key).first()
+            if previous:
+                if previous.user_id != project.owner_id or previous.project_id != project.id or previous.feature != feature:
+                    return JSONResponse({"status": "invalid_key"}, status_code=409)
+                return JSONResponse(operation_service.state(db, previous), status_code=409)
+        active = db.query(models.AIRequestLog).filter_by(
+            project_id=project.id, user_id=project.owner_id, feature=feature, status="started",
+        ).order_by(models.AIRequestLog.id.desc()).first()
+        if active:
+            return JSONResponse(operation_service.state(db, active), status_code=409)
     try:
-        return (
-            ai_usage_service
-            .reserve_ai_request(
-                db=db,
-                user_id=project.owner_id,
-                project_id=project.id,
-                feature=feature,
-                commit=commit,
-            )
-        )
+        log = ai_usage_service.reserve_ai_request(db=db, user_id=project.owner_id,
+            project_id=project.id, feature=feature, commit=False)
+        log.client_request_key = key
+        if commit:
+            db.commit()
+            db.refresh(log)
+        return log
 
     except (
         ai_usage_service
@@ -177,6 +196,7 @@ def reserve_ai_request_or_response(
 )
 def suggest_alternatives(
     project_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     project: models.Project = Depends(
         require_project_owner
@@ -205,6 +225,7 @@ def suggest_alternatives(
             db=db,
             project=project,
             feature="alternatives",
+            request=request,
         )
     )
 
@@ -321,6 +342,7 @@ def accept_alternatives(
 )
 def suggest_criteria(
     project_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     project: models.Project = Depends(
         require_project_owner
@@ -360,6 +382,7 @@ def suggest_criteria(
             db=db,
             project=project,
             feature="criteria",
+            request=request,
         )
     )
 
@@ -535,6 +558,9 @@ def suggest_scores(
             db, project, alternatives, criteria,
         )
     except ai_score_generation_service.GenerationBusyError as exc:
+        active_job = db.get(models.AIScoreGenerationJob, project.id)
+        if active_job and active_job.status == "uncertain":
+            return JSONResponse({"status": "uncertain", "message": str(exc)}, status_code=503)
         return {
             "status": "in_progress",
             "message": str(exc),
@@ -627,329 +653,114 @@ def suggest_scores(
         )
         return result
 
-    response = ai_score_generation_service.finish_batch(
-        db, job, criteria, batch, result,
-    )
+    try:
+        response = ai_score_generation_service.finish_batch(db, job, criteria, batch, result)
+    except ai_score_generation_service.MatrixChangedError as exc:
+        return JSONResponse({"status": "matrix_changed", "message": str(exc)}, status_code=409)
     growth_service.record_trial_ai_project(
         db, user_id=project.owner_id, project_id=project.id,
     )
     return response
 
-@router.post(
-    "/projects/{project_id}/ai/result-explanation"
-)
-def explain_result(
-    project_id: int,
-    db: Session = Depends(get_db),
-    project: models.Project = Depends(
-        require_project_owner
-    ),
-):
-    alternatives = (
-        alternative_service
-        .get_alternatives(
-            db,
-            project.id,
-        )
-    )
-
-    criteria = (
-        criterion_service
-        .get_criteria(
-            db,
-            project.id,
-        )
-    )
-
-    scope_error = get_ai_scope_error_response(
-        project=project,
-        alternatives_count=len(
-            alternatives
-        ),
-        criteria_count=len(
-            criteria
-        ),
-        check_matrix_size=True,
-    )
-
+def _analyze(project, request, db, feature):
+    started = perf_counter()
+    revision = score_service.matrix_version(db, project.id)
+    alternatives = alternative_service.get_alternatives(db, project.id)
+    criteria = criterion_service.get_criteria(db, project.id)
+    scope_error = get_ai_scope_error_response(project=project, alternatives_count=len(alternatives),
+        criteria_count=len(criteria), check_matrix_size=True)
     if scope_error is not None:
         return scope_error
-
-    scores = (
-        score_service
-        .get_scores(
-            db,
-            project.id,
-        )
-    )
-
-    score_summary = (
-        score_service
-        .get_score_summary(
-            scores=scores,
-            alternatives_count=len(
-                alternatives
-            ),
-            criteria_count=len(
-                criteria
-            ),
-        )
-    )
-
-    results = (
-        calculation_service
-        .calculate_results(
-            db=db,
-            project_id=project.id,
-        )
-    )
-
-    reservation = (
-        reserve_ai_request_or_response(
-            db=db,
-            project=project,
-            feature="result_explanation",
-        )
-    )
-
-    if isinstance(
-        reservation,
-        JSONResponse,
-    ):
+    scores = score_service.get_scores(db, project.id)
+    score_summary = score_service.get_score_summary(scores=scores, alternatives_count=len(alternatives), criteria_count=len(criteria))
+    results = calculation_service.calculate_results(db, project.id)
+    reservation = reserve_ai_request_or_response(db=db, project=project, feature=feature, request=request)
+    if isinstance(reservation, JSONResponse):
         return reservation
-
     request_log = reservation
-
     try:
         with ai_budget_service.request_context(db, request_log):
-            result = (
-                ai_result_service
-                .generate_result_explanation(
-                    project=project,
-                    alternatives=alternatives,
-                    criteria=criteria,
-                    scores=scores,
-                    results=results,
-                    score_summary=score_summary,
-                )
-            )
-
-    except ai_budget_service.AIBudgetExceeded as exc:
+            if feature == "decision_risks":
+                result = ai_decision_risk_service.generate_decision_risks(
+                    project=project, criteria=criteria, scores=scores, results=results, score_summary=score_summary)
+            else:
+                result = ai_result_service.generate_result_explanation(
+                    project=project, alternatives=alternatives, criteria=criteria, scores=scores, results=results, score_summary=score_summary)
+        if result.get("status") == "ok":
+            # Re-read after provider ledger commits released the transaction.
+            locked = db.query(models.Project).filter_by(id=project.id).populate_existing().with_for_update().one()
+            if locked.matrix_revision != revision:
+                raise ProviderError("Матрица изменилась. Устаревший результат не сохранён.", "matrix_changed")
+            save = project_ai_analysis_service.save_decision_risks if feature == "decision_risks" else project_ai_analysis_service.save_result_explanation
+            save(db=db, project_id=project.id, result=result)
+        if result.get("status") != "ok":
+            request_log.error_code = "no_result"
+        ai_usage_service.complete_ai_request(db=db, request_log=request_log, usage=result.get("usage", {}))
+        if result.get("status") == "ok":
+            growth_service.record_trial_ai_project(db, user_id=project.owner_id, project_id=project.id)
+        operation_service.diagnostic(request_log.id, feature, (perf_counter()-started)*1000)
+        if result.get("status") == "unsafe_content":
+            return JSONResponse(result, status_code=400)
+        return result
+    except (RuntimeError, ValueError, SQLAlchemyError) as exc:
         db.rollback()
-        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
-        return JSONResponse(status_code=429, content={
-            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
-        })
+        code = operation_service.failure_code(exc)
+        if isinstance(exc, ai_budget_service.AIBudgetExceeded):
+            code = "budget_exhausted"
+        if request_log.status == "started":
+            ai_usage_service.fail_ai_request(db=db, request_log=request_log, error_code=code)
+        operation_service.diagnostic(request_log.id, feature, (perf_counter()-started)*1000,
+            code=code, http_status=getattr(exc, "http_status", None))
+        message = {
+            "truncated_response": "Ответ ИИ обрезан лимитом токенов. Данные проекта и известные расходы сохранены.",
+            "matrix_changed": "Матрица изменилась во время анализа. Устаревший результат не сохранён.",
+            "provider_timeout": "Ожидание ответа модели завершилось. Проверяем состояние; повторный запрос автоматически не отправляется.",
+            "budget_exhausted": "Дневной бюджет ИИ исчерпан. Работа вручную доступна.",
+        }.get(code, "Не удалось завершить анализ. Матрица и предыдущие результаты доступны.")
+        return JSONResponse({"status": "budget_exhausted" if code == "budget_exhausted" else "error", "scope": "global_day" if code == "budget_exhausted" else None, "error_code": code, "request_id": request_log.id, "message": message},
+                            status_code=429 if code == "budget_exhausted" else 503)
 
-    except RuntimeError:
-        (
-            ai_usage_service
-            .fail_ai_request(
-                db=db,
-                request_log=request_log,
-            )
-        )
 
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "error",
-                "message": (
-                    "Не удалось подготовить "
-                    "объяснение результата. "
-                    "Попробуйте ещё раз."
-                ),
-            },
-        )
+@router.post("/projects/{project_id}/ai/result-explanation")
+def explain_result(project_id: int, request: Request, db: Session = Depends(get_db),
+                   project: models.Project = Depends(require_project_owner)):
+    return _analyze(project, request, db, "result_explanation")
 
-    (
-        ai_usage_service
-        .complete_ai_request(
-            db=db,
-            request_log=request_log,
-            usage=result.get(
-                "usage",
-                {},
-            ),
-        )
-    )
 
-    if result.get("status") == "unsafe_content":
-        return JSONResponse(
-            status_code=400,
-            content=result,
-        )
+@router.post("/projects/{project_id}/ai/decision-risks")
+def analyze_decision_risks(project_id: int, request: Request, db: Session = Depends(get_db),
+                          project: models.Project = Depends(require_project_owner)):
+    return _analyze(project, request, db, "decision_risks")
 
-    if result.get("status") == "ok":
-        growth_service.record_trial_ai_project(
-            db, user_id=project.owner_id, project_id=project.id,
-        )
-        (
-            project_ai_analysis_service
-            .save_result_explanation(
-                db=db,
-                project_id=project.id,
-                result=result,
-            )
-        )
 
-    return result
+@router.get("/projects/{project_id}/ai/operations/{key}")
+def operation_state(project_id: int, key: str, db: Session = Depends(get_db),
+                    project: models.Project = Depends(require_project_owner)):
+    if not operation_service.KEY.fullmatch(key):
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    log = db.query(models.AIRequestLog).filter_by(project_id=project.id, user_id=project.owner_id, client_request_key=key).first()
+    if not log:
+        return JSONResponse({"status": "not_found", "message": "Запрос не найден. Новое обращение к модели не отправлено."}, status_code=404)
+    info = operation_service.state(db, log)
+    if info["status"] == "completed" and not log.error_code:
+        saved = project_ai_analysis_service.to_report_data(project_ai_analysis_service.get_analysis(db, project.id))
+        if log.feature == "result_explanation" and saved["result"]:
+            info["result"] = {"status": "ok", **saved["result"]}
+        elif log.feature == "decision_risks" and saved["decision_risks"]:
+            info["result"] = {"status": "ok", "items": saved["decision_risks"], "preliminary": saved.get("decision_risks_preliminary", False)}
+    return info
 
-@router.post(
-    "/projects/{project_id}/ai/decision-risks"
-)
-def analyze_decision_risks(
-    project_id: int,
-    db: Session = Depends(get_db),
-    project: models.Project = Depends(
-        require_project_owner
-    ),
-):
-    alternatives = (
-        alternative_service
-        .get_alternatives(
-            db,
-            project.id,
-        )
-    )
 
-    criteria = (
-        criterion_service
-        .get_criteria(
-            db,
-            project.id,
-        )
-    )
-
-    scope_error = get_ai_scope_error_response(
-        project=project,
-        alternatives_count=len(
-            alternatives
-        ),
-        criteria_count=len(
-            criteria
-        ),
-        check_matrix_size=True,
-    )
-
-    if scope_error is not None:
-        return scope_error
-
-    scores = (
-        score_service
-        .get_scores(
-            db,
-            project.id,
-        )
-    )
-
-    score_summary = (
-        score_service
-        .get_score_summary(
-            scores=scores,
-            alternatives_count=len(
-                alternatives
-            ),
-            criteria_count=len(
-                criteria
-            ),
-        )
-    )
-
-    results = (
-        calculation_service
-        .calculate_results(
-            db=db,
-            project_id=project.id,
-        )
-    )
-
-    reservation = (
-        reserve_ai_request_or_response(
-            db=db,
-            project=project,
-            feature="decision_risks",
-        )
-    )
-
-    if isinstance(
-        reservation,
-        JSONResponse,
-    ):
-        return reservation
-
-    request_log = reservation
-
-    try:
-        with ai_budget_service.request_context(db, request_log):
-            result = (
-                ai_decision_risk_service
-                .generate_decision_risks(
-                    project=project,
-                    criteria=criteria,
-                    scores=scores,
-                    results=results,
-                    score_summary=score_summary,
-                )
-            )
-
-    except ai_budget_service.AIBudgetExceeded as exc:
-        db.rollback()
-        ai_usage_service.fail_ai_request(db=db, request_log=request_log)
-        return JSONResponse(status_code=429, content={
-            "status": "budget_exhausted", "message": str(exc), "scope": "global_day",
-        })
-
-    except RuntimeError:
-        (
-            ai_usage_service
-            .fail_ai_request(
-                db=db,
-                request_log=request_log,
-            )
-        )
-
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "error",
-                "message": (
-                    "Не удалось выполнить "
-                    "анализ рисков. "
-                    "Попробуйте ещё раз."
-                ),
-            },
-        )
-
-    (
-        ai_usage_service
-        .complete_ai_request(
-            db=db,
-            request_log=request_log,
-            usage=result.get(
-                "usage",
-                {},
-            ),
-        )
-    )
-
-    if result.get("status") == "unsafe_content":
-        return JSONResponse(
-            status_code=400,
-            content=result,
-        )
-
-    if result.get("status") == "ok":
-        growth_service.record_trial_ai_project(
-            db, user_id=project.owner_id, project_id=project.id,
-        )
-        (
-            project_ai_analysis_service
-            .save_decision_risks(
-                db=db,
-                project_id=project.id,
-                result=result,
-            )
-        )
-
-    return result
+@router.get("/projects/{project_id}/ai/scores/state")
+def score_generation_state(project_id: int, db: Session = Depends(get_db),
+                           project: models.Project = Depends(require_project_owner)):
+    job = db.get(models.AIScoreGenerationJob, project.id)
+    if job is None:
+        return {"status": "not_started"}
+    log = db.get(models.AIRequestLog, job.request_log_id)
+    info = operation_service.state(db, log)
+    if job.status == "uncertain":
+        info["status"] = "uncertain"
+    info["job_status"] = job.status
+    info["completed"] = job.next_alternative_index * len(ai_score_generation_service.decoded(job.criterion_ids_json))
+    return info

@@ -1,5 +1,6 @@
 import json
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app import models
@@ -30,6 +31,10 @@ def invalidate_analysis(
     матрицы изменились и старый анализ
     больше нельзя считать актуальным.
     """
+    # Also serializes writers and invalidates snapshots held by in-flight AI.
+    db.execute(update(models.Project).where(models.Project.id == project_id).values(
+        matrix_revision=models.Project.matrix_revision + 1,
+    ))
     analysis = get_analysis(
         db=db,
         project_id=project_id,
@@ -231,5 +236,4 @@ def to_report_data(
         "decision_risks_preliminary":
             analysis.decision_risks_preliminary,
     }
-
 

@@ -1,4 +1,5 @@
 import os
+from time import perf_counter
 
 import httpx
 
@@ -8,6 +9,8 @@ from app.llm.schemas import (
     LLMUsage,
 )
 from app.services import ai_budget_service
+from app.services import operation_service
+from app.llm.errors import ProviderError
 
 INVALID_RESPONSE_MESSAGE = (
     "LLM API вернул некорректный ответ."
@@ -45,11 +48,21 @@ class MWSProvider(LLMProvider):
         with ai_budget_service.metered_call(
             model=self.model, max_output_tokens=max_output_tokens,
         ) as call:
-            return self._generate(
-                system_prompt=system_prompt, user_prompt=user_prompt,
-                max_output_tokens=max_output_tokens, temperature=temperature,
-                json_mode=json_mode, call=call,
-            )
+            started = perf_counter()
+            try:
+                result = self._generate(
+                    system_prompt=system_prompt, user_prompt=user_prompt,
+                    max_output_tokens=max_output_tokens, temperature=temperature,
+                    json_mode=json_mode, call=call,
+                )
+            except RuntimeError as exc:
+                operation_service.diagnostic(call.request_log_id, "provider", (perf_counter()-started)*1000,
+                    code=operation_service.failure_code(exc), http_status=getattr(exc, "http_status", None),
+                    finish_reason=getattr(exc, "finish_reason", None), incoming=call.input_tokens, outgoing=call.output_tokens)
+                raise
+            operation_service.diagnostic(call.request_log_id, "provider", (perf_counter()-started)*1000,
+                finish_reason=result.finish_reason, incoming=result.usage.input_tokens, outgoing=result.usage.output_tokens)
+            return result
 
     def _generate(
         self,
@@ -85,6 +98,7 @@ class MWSProvider(LLMProvider):
                 "type": "json_object",
             }
 
+        http_started = perf_counter()
         try:
             with httpx.Client(
                 timeout=45.0,
@@ -108,20 +122,22 @@ class MWSProvider(LLMProvider):
                 response.raise_for_status()
 
         except httpx.TimeoutException as exc:
-            raise RuntimeError(
-                "LLM не ответила вовремя."
+            raise ProviderError(
+                "LLM не ответила вовремя.", "provider_timeout"
             ) from exc
 
         except httpx.HTTPStatusError as exc:
-            raise RuntimeError(
-                "LLM API вернул ошибку."
+            raise ProviderError(
+                "LLM API вернул ошибку.", "provider_http_error", http_status=exc.response.status_code
             ) from exc
 
         except httpx.RequestError as exc:
-            raise RuntimeError(
-                "Не удалось подключиться к LLM API."
+            raise ProviderError(
+                "Не удалось подключиться к LLM API.", "provider_connection"
             ) from exc
 
+        operation_service.diagnostic(call.request_log_id, "provider_http", (perf_counter()-http_started)*1000, http_status=getattr(response, "status_code", None))
+        processing_started = perf_counter()
         try:
             data = response.json()
         except ValueError as exc:
@@ -152,6 +168,9 @@ class MWSProvider(LLMProvider):
                 INVALID_RESPONSE_MESSAGE
             )
 
+        finish_reason = choices[0].get("finish_reason")
+        if finish_reason == "length":
+            raise ProviderError("Ответ модели обрезан лимитом токенов.", "truncated_response", finish_reason="length")
         message = choices[0].get(
             "message"
         )
@@ -225,6 +244,8 @@ class MWSProvider(LLMProvider):
         elif len(response_id) > 200:
             response_id = response_id[:200]
 
+        operation_service.diagnostic(call.request_log_id, "provider_response_processing", (perf_counter()-processing_started)*1000,
+            finish_reason=finish_reason, incoming=usage.input_tokens, outgoing=usage.output_tokens)
         return LLMResponse(
             content=content,
             provider="mws",
@@ -234,4 +255,5 @@ class MWSProvider(LLMProvider):
             ),
             usage=usage,
             response_id=response_id,
+            finish_reason=finish_reason if finish_reason in {"stop", "length", "content_filter"} else None,
         )

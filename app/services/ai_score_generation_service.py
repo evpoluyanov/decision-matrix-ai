@@ -61,6 +61,8 @@ def matching_active_job(db, project, alternatives, criteria, now=None):
         models.Project.id == project.id,
     ).with_for_update().one()
     job = get_job(db, project.id)
+    if job is not None and job.status == "uncertain":
+        raise GenerationBusyError("Исход предыдущего обращения неизвестен. Резерв сохранён; новый вызов не отправлен.")
     if job is None or job.status not in {"ready", "processing"}:
         return None
     request_log = db.get(models.AIRequestLog, job.request_log_id)
@@ -80,11 +82,12 @@ def matching_active_job(db, project, alternatives, criteria, now=None):
     if job.status == "processing" and current - updated_at < PROCESSING_LEASE:
         raise GenerationBusyError("Предыдущая часть матрицы ещё обрабатывается.")
     if job.status == "processing":
-        job.status = "ready"
+        job.status = "uncertain"
         job.last_error_code = "processing_lease_expired"
         job.updated_at = current
         db.commit()
         db.refresh(job)
+        raise GenerationBusyError("Завершение предыдущего обращения не подтверждено. Новый вызов не отправлен.")
     return job
 
 
@@ -148,6 +151,7 @@ def claim_batch(db, job, alternatives, criteria, now=None):
     if not batch:
         raise RuntimeError("Некорректный прогресс генерации оценок.")
     job.status = "processing"
+    job.matrix_revision = score_service.matrix_version(db, job.project_id)
     job.provider_attempts += 1
     job.last_error_code = None
     job.updated_at = current
@@ -176,7 +180,11 @@ def release_after_error(db, job, exc, now=None):
     failure_code = error_code(exc)
     job = db.get(models.AIScoreGenerationJob, job.project_id)
     if job is not None and job.status == "processing":
-        job.status = "ready"
+        unknown = db.query(models.AIProviderCall.id).filter(
+            models.AIProviderCall.request_log_id == job.request_log_id,
+            models.AIProviderCall.status != "reported",
+        ).first() is not None
+        job.status = "uncertain" if unknown else "ready"
         job.last_error_code = failure_code
         job.updated_at = now or datetime.now(timezone.utc)
         db.commit()
@@ -207,6 +215,10 @@ def finish_batch(db, job, criteria, batch, result, now=None):
     current = now or datetime.now(timezone.utc)
     job = db.get(models.AIScoreGenerationJob, job.project_id)
     request_log = db.get(models.AIRequestLog, job.request_log_id)
+    project = db.query(models.Project).filter_by(id=job.project_id).populate_existing().with_for_update().one()
+    if job.matrix_revision is not None and project.matrix_revision != job.matrix_revision:
+        cancel_job(db, job, request_log, "matrix_changed", current)
+        raise MatrixChangedError("Матрица изменилась во время генерации. Устаревшие оценки не сохранены.")
     score_service.set_ai_scores(db, result["items"], commit=False)
     # Production MWS records usage before validating model content. Unit tests
     # replace the provider, so preserve their usage without double-counting.

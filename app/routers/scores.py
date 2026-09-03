@@ -1,89 +1,48 @@
+import re
+from time import perf_counter
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-
 from app import models
 from app.auth_dependencies import require_project_owner
 from app.database import get_db
-from app.services import (
-    alternative_service,
-    criterion_service,
-    score_service,
-)
-
+from app.services import score_service
 
 router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
 
 
-@router.post(
-    "/projects/{project_id}/scores",
-)
-async def save_scores(
-    project_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    project: models.Project = Depends(
-        require_project_owner
-    ),
-):
-    form_data = await request.form()
+@router.post("/projects/{project_id}/scores")
+async def save_scores(project_id: int, request: Request, db: Session = Depends(get_db),
+                      project: models.Project = Depends(require_project_owner)):
+    form = await request.form()
+    key = str(form.get("request_key", ""))
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{16,64}", key):
+        key = None
+    started = perf_counter()
+    try:
+        revision = score_service.save_matrix(db, project.id, form, form.get("matrix_revision"), key)
+    except (score_service.MatrixSaveError, SQLAlchemyError) as exc:
+        db.rollback()
+        validation = isinstance(exc, score_service.MatrixSaveError)
+        status = exc.status if validation else 503
+        message = str(exc) if validation else "Не удалось подтвердить сохранение. Введённые значения остались на экране. Проверьте состояние перед повторной отправкой."
+        data = {"status": "error", "message": message, "field": exc.field if validation else None}
+        if request.headers.get("x-requested-with") == "fetch":
+            return JSONResponse(data, status_code=status)
+        return templates.TemplateResponse(request=request, name="matrix_save_error.html", status_code=status,
+            context={"project": project, "message": message, "values": {k:v for k,v in form.items() if re.fullmatch(r"score_\d+_\d+", k)},
+                     "matrix_revision": form.get("matrix_revision", ""), "request_key": key or ""})
+    headers = {"Server-Timing": f"matrix_save;dur={(perf_counter()-started)*1000:.2f}"}
+    if request.headers.get("x-requested-with") == "fetch":
+        return JSONResponse({"status": "ok", "matrix_revision": revision, "message": "Матрица сохранена полностью."}, headers=headers)
+    return RedirectResponse(f"/projects/{project.id}#matrix", status_code=303, headers=headers)
 
-    alternatives = alternative_service.get_alternatives(
-        db=db,
-        project_id=project.id,
-    )
 
-    criteria = criterion_service.get_criteria(
-        db=db,
-        project_id=project.id,
-    )
-
-    valid_alternative_ids = {
-        alternative.id
-        for alternative in alternatives
-    }
-
-    valid_criterion_ids = {
-        criterion.id
-        for criterion in criteria
-    }
-
-    for field_name, raw_value in form_data.items():
-        if not field_name.startswith("score_"):
-            continue
-
-        if raw_value == "":
-            continue
-
-        parts = field_name.split("_")
-
-        if len(parts) != 3:
-            continue
-
-        try:
-            alternative_id = int(parts[1])
-            criterion_id = int(parts[2])
-            value = float(raw_value)
-        except ValueError:
-            continue
-
-        if alternative_id not in valid_alternative_ids:
-            continue
-
-        if criterion_id not in valid_criterion_ids:
-            continue
-
-        if value < 0 or value > 10:
-            continue
-
-        score_service.set_score(
-            db=db,
-            alternative_id=alternative_id,
-            criterion_id=criterion_id,
-            value=value,
-        )
-
-    return RedirectResponse(
-        url=f"/projects/{project.id}",
-        status_code=303,
-    )
+@router.get("/projects/{project_id}/scores/state")
+def matrix_state(project_id: int, request_key: str = "", db: Session = Depends(get_db),
+                 project: models.Project = Depends(require_project_owner)):
+    return {"status": "saved" if request_key and project.last_matrix_save_key == request_key else "unconfirmed",
+            "matrix_revision": project.matrix_revision}

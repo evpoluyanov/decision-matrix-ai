@@ -93,3 +93,13 @@ def test_growth_migration_is_additive_in_postgresql(monkeypatch):
     ):
         assert f"CREATE TABLE {table}" in sql
     assert "DROP TABLE" not in sql
+
+
+def test_reliability_migration_is_additive_in_postgresql(monkeypatch):
+    monkeypatch.setenv("MIGRATION_DATABASE_URL", "postgresql+psycopg://unused:unused@localhost/unused")
+    output = io.StringIO()
+    command.upgrade(Config("alembic.ini", output_buffer=output), "b7e2c4d91a63:d2f48ab17390", sql=True)
+    sql = output.getvalue()
+    assert "ADD COLUMN matrix_revision INTEGER DEFAULT 0 NOT NULL" in sql
+    assert "uq_ai_request_client_key" in sql
+    assert "DROP TABLE" not in sql and "CREATE TABLE" not in sql

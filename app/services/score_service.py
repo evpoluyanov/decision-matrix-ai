@@ -1,10 +1,73 @@
+import math
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Alternative, Score
+from app.models import Alternative, Criterion, Project, Score
 
 from app.services.project_ai_analysis_service import (
     invalidate_analysis,
 )
+
+
+class MatrixSaveError(ValueError):
+    def __init__(self, message, status=422, field=None):
+        super().__init__(message)
+        self.status = status
+        self.field = field
+
+
+def matrix_version(db, project_id):
+    return db.scalar(select(Project.matrix_revision).where(Project.id == project_id))
+
+
+def save_matrix(db, project_id, form, expected_revision, request_key=None):
+    """Validate everything, lock the project, save once. No model calls."""
+    project = db.query(Project).filter_by(id=project_id).populate_existing().with_for_update().one()
+    if request_key and project.last_matrix_save_key == request_key:
+        return project.matrix_revision
+    try:
+        expected_revision = int(expected_revision)
+    except (TypeError, ValueError):
+        raise MatrixSaveError("Откройте актуальную матрицу перед сохранением.", 409)
+    if project.matrix_revision != expected_revision:
+        raise MatrixSaveError("Матрица уже изменилась в другой вкладке или после ИИ-запроса. Ввод сохранён на экране. Сверьте его с актуальной версией перед повторным сохранением.", 409)
+    alternatives = set(db.scalars(select(Alternative.id).where(Alternative.project_id == project_id)))
+    criteria = set(db.scalars(select(Criterion.id).where(Criterion.project_id == project_id)))
+    updates = {}
+    for name, raw in form.items():
+        if not name.startswith("score_"):
+            continue
+        try:
+            _, a, c = name.split("_")
+            pair = (int(a), int(c))
+            if pair[0] not in alternatives or pair[1] not in criteria:
+                raise ValueError()
+            value = None if str(raw).strip() == "" else float(raw)
+            if value is not None and (not math.isfinite(value) or not 0 <= value <= 10):
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise MatrixSaveError("Оценка должна быть числом от 0 до 10 для существующей ячейки.", field=name if len(name) < 80 else None)
+        updates[pair] = value
+    scores = get_scores(db, project_id)
+    changed = False
+    for (a, c), value in updates.items():
+        score = scores.get((a, c))
+        if score is None:
+            if value is None:
+                continue
+            db.add(Score(alternative_id=a, criterion_id=c, value=value))
+        elif score.value != value:
+            score.value = value
+        else:
+            continue
+        changed = True
+    if changed:
+        invalidate_analysis(db, project_id)
+    if request_key:
+        project.last_matrix_save_key = request_key
+    revision = project.matrix_revision
+    db.commit()
+    return revision
 
 def _get_project_id_for_alternative(
     db: Session,

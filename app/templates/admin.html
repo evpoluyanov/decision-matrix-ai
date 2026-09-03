@@ -25,6 +25,7 @@
     <p class="small text-muted mb-0">Перед каждым платным запросом резервируется максимальная стоимость.
         Поэтому отказ возможен немного раньше предела. Неизвестный результат и оборванное соединение
         не освобождают резерв. После 00:00 начинается новый дневной бюджет.</p>
+    <p class="small text-muted mt-2">Защитный учёт округляет входящие и исходящие токены каждого вызова вверх до сотен. Поэтому сумма бюджета может быть выше расчётной стоимости API даже при нулевых резервах неизвестных вызовов. Это не фактическое списание MWS. Токены рассуждений уже входят в исходящие.</p>
     {% if stats.configuration_error %}
     <p class="alert alert-warning mt-3 mb-0">{{ stats.configuration_error }}
         Проверьте настройки ИИ в окружении Vercel.</p>
@@ -63,9 +64,12 @@
 <h2 class="h5">Воронка и монетизация</h2>
 <div class="table-responsive"><table class="table table-sm"><tbody>
 {% for label, key in [('Зарегистрированные пользователи','registered'),('Подтвердившие email','verified'),('Создавшие проект','project_created'),('Использовавшие ИИ в первом проекте','trial_ai'),('Получившие рассчитанный результат','result'),('Сформировавшие отчёт','report'),('Создавшие второй проект','second_project'),('Увидевшие платное предложение','offer'),('Выбрали проект за 99 ₽','project_99'),('Выбрали Pro за 299 ₽','pro_299'),('Выбрали бесплатное продолжение','free_beta')] %}<tr><th>{{ label }}</th><td>{{ stats.funnel[key] }}</td></tr>{% endfor %}
+<tr><th>Пока не выбрали</th><td>{{ stats.funnel.no_choice }}</td></tr>
 <tr><th>Конверсия предложения: проект / Pro / бесплатно</th><td>{{ '%.1f'|format(stats.funnel.project_99_conversion) }}% / {{ '%.1f'|format(stats.funnel.pro_299_conversion) }}% / {{ '%.1f'|format(stats.funnel.free_beta_conversion) }}%</td></tr>
 <tr><th>Средняя расчётная стоимость ИИ на завершённый проект</th><td>{{ '%.4f'|format(stats.funnel.average_completed_cost) }} ₽</td></tr>
 </tbody></table></div>
+<p class="small text-muted">Тарифы: текущий выбор уникальных авторизованных пользователей с зарегистрированным показом предложения в выбранный период (от {{ stats.start.strftime('%d.%m.%Y %H:%M') }} МСК до времени обновления). Один пользователь — один вариант. Конверсия: выбравшие вариант / те же увидевшие предложение. История нажатий не суммируется.</p>
+<p class="small text-muted">Активация — первый рассчитанный рейтинг в первом ИИ-проекте, в том числе предварительный. Средняя стоимость — все известные API-расходы таких первых проектов, получивших результат за период; это не стоимость MWS и не только расходы периода. Регистрации и подтверждения — аккаунты, созданные за период.</p>
 <p class="small text-muted mb-0">Административные и настроенные тестовые аккаунты исключены из воронки, но остаются в технической статистике расходов выше.</p>
 </div></section>
 
@@ -77,9 +81,15 @@
 </div></section>
 
 <section class="card mb-4"><div class="card-body"><h2 class="h5">Ручная сверка MWS</h2>
-{% if stats.latest_reconciliation %}<p>Последняя сверка: {{ stats.latest_reconciliation.created_at.strftime('%d.%m.%Y %H:%M') }}. Расчёт приложения: {{ stats.latest_reconciliation.application_estimated_cost_rub }} ₽; к оплате по MWS: {{ stats.latest_reconciliation.amount_due_rub }} ₽; отклонение: <strong>{{ stats.latest_reconciliation.deviation_rub }} ₽</strong>.</p>{% else %}<p>Сверок пока нет.</p>{% endif %}
+{% if stats.latest_reconciliation %}<p>Последняя сверка: {{ stats.latest_reconciliation.created_at.strftime('%d.%m.%Y %H:%M') }}. Расчёт приложения: {{ stats.latest_reconciliation.application_estimated_cost_rub }} ₽; базовая стоимость MWS: {{ stats.latest_reconciliation.actual_base_cost_rub }} ₽; скидка / грант: {{ stats.latest_reconciliation.discount_or_grant_rub }} ₽; к оплате по MWS: {{ stats.latest_reconciliation.amount_due_rub }} ₽; отклонение «к оплате минус расчёт»: <strong>{{ stats.latest_reconciliation.deviation_rub }} ₽</strong>.</p>{% else %}<p>Сверок пока нет.</p>{% endif %}
+<p class="small text-muted">Отклонение от базовой стоимости MWS нужно рассматривать отдельно от скидок и гранта. Перед сверкой убедитесь, что период и состав вызовов совпадают и обе суммы приведены к одному учёту НДС. Нулевое «к оплате» при гранте не означает, что обращения были бесплатны.</p>
 <form method="post" action="/admin/mws-reconciliation" class="row g-2"><div class="col-md-6"><input class="form-control" name="period_start" required placeholder="Начало: 2026-09-01T00:00:00+03:00"></div><div class="col-md-6"><input class="form-control" name="period_end" required placeholder="Конец: 2026-10-01T00:00:00+03:00"></div><div class="col-md-3"><input class="form-control" type="number" min="0" name="input_tokens" required placeholder="Входящие токены"></div><div class="col-md-3"><input class="form-control" type="number" min="0" name="output_tokens" required placeholder="Исходящие токены"></div><div class="col-md-3"><input class="form-control" name="actual_base_cost_rub" required placeholder="Базовая стоимость"></div><div class="col-md-3"><input class="form-control" name="discount_or_grant_rub" required placeholder="Скидка/грант"></div><div class="col-md-3"><input class="form-control" name="amount_due_rub" required placeholder="К оплате"></div><div class="col-md-3"><input class="form-control" name="application_estimated_cost_rub" required placeholder="Расчёт приложения"></div><div class="col-md-4"><input class="form-control" name="source" maxlength="200" required placeholder="Источник: отчёт MWS за период"></div><div class="col-md-2"><button class="btn btn-primary">Добавить сверку</button></div></form><p class="small text-muted mt-2 mb-0">Данные вводятся вручную по информации MWS. Консоль не парсится, недокументированный Billing API не используется.</p>
 </div></section>
+<details class="mb-4"><summary>Детализация последних 30 обращений к модели за период</summary>
+<p class="small text-muted">Расчёт API и защитная сумма — разные величины. Код ошибки записывается для новых операций. Содержимое запросов здесь не выводится.</p>
+<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Запрос / вызов</th><th>Этап / состояние</th><th>Код ошибки</th><th>Вход / выход</th><th>Расчёт API, ₽</th><th>Бюджет, ₽</th></tr></thead><tbody>
+{% for call, log in stats.recent_calls %}<tr><td>{{ call.request_log_id or '—' }} / {{ call.id }}</td><td>{{ log.feature if log else 'Удалённый аккаунт' }} / {{ call.status }}</td><td>{{ log.error_code if log and log.error_code else '—' }}</td><td>{{ call.input_tokens if call.input_tokens is not none else '—' }} / {{ call.output_tokens if call.output_tokens is not none else '—' }}</td><td>{{ '%.6f'|format(call.estimated_microrub / 1000000) if call.estimated_microrub is not none else 'Неизвестно' }}</td><td>{{ '%.6f'|format(call.charged_microrub / 1000000) }}</td></tr>{% endfor %}
+</tbody></table></div></details>
 <h2 class="h5">Посещаемость и фактические списания</h2>
 <p>Аккаунты с ИИ-запросами — не все посетители сайта. Анонимную посещаемость смотрите в Метрике
     после подключения счётчика. В эту страницу она автоматически не импортируется.</p>

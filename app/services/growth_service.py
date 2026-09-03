@@ -163,8 +163,12 @@ def preference_for(db, user_id):
 def save_preference(db, *, user, selected_plan, source):
     if selected_plan not in PLANS or source not in SOURCES:
         raise ValueError("Некорректный вариант тарифа.")
+    # Serialize concurrent choices for this user; repeats are not new interest.
+    db.query(models.User).filter_by(id=user.id).with_for_update().one()
     current = datetime.now(timezone.utc)
     preference = preference_for(db, user.id)
+    if preference is not None and preference.selected_plan == selected_plan:
+        return preference
     if preference is None:
         preference = models.MonetizationPreference(user_id=user.id, created_at=current)
         db.add(preference)

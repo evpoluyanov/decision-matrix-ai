@@ -1,6 +1,6 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.models import Alternative
+from app.models import Alternative, Score
 
 
 def calculate_results(
@@ -9,6 +9,7 @@ def calculate_results(
 ) -> list[dict]:
     alternatives = (
         db.query(Alternative)
+        .options(selectinload(Alternative.scores).joinedload(Score.criterion))
         .filter_by(
             project_id=project_id
         )
