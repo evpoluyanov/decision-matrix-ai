@@ -8,10 +8,10 @@ build:
   dockerfile: Dockerfile
   skip: false
 run:
+  persistenceMount: /data
   image: null
   command: null
   args: null
-  persistenceMount: /data
-  containerPort: 80
+  containerPort: 8080
   singleton: true
   zeroDowntime: false
