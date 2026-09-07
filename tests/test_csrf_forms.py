@@ -163,3 +163,71 @@ def test_logout_accepts_origin_only_referer_without_origin(client):
     response = client.post("/logout", headers={"Referer": "https://testserver/"}, follow_redirects=False)
     assert response.status_code == 303
     assert client.get("/account", follow_redirects=False).headers["location"] == "/login"
+
+@pytest.fixture()
+def https_proxy_client(client, monkeypatch):
+    monkeypatch.delenv("VERCEL", raising=False)
+    monkeypatch.setenv("SESSION_HTTPS_ONLY", "true")
+    client.base_url = "http://testserver"
+    client.headers.pop("Origin", None)
+
+    response = client.post(
+        "/login",
+        headers={
+            "Origin": "https://testserver",
+            "Sec-Fetch-Site": "same-origin",
+        },
+        data={
+            "email": "user1@test.com",
+            "password": TEST_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/account"
+    assert client.get("/account", follow_redirects=False).status_code == 200
+    return client
+
+
+@pytest.mark.parametrize("headers", [
+    {"Origin": "https://testserver"},
+    {"Referer": "https://testserver/"},
+])
+def test_https_proxy_logout_succeeds(https_proxy_client, headers):
+    response = https_proxy_client.post(
+        "/logout", headers=headers, follow_redirects=False,
+    )
+    assert response.status_code == 303
+    account = https_proxy_client.get("/account", follow_redirects=False)
+    assert account.status_code == 303
+    assert account.headers["location"] == "/login"
+
+
+@pytest.mark.parametrize("headers", [
+    {},
+    {"Origin": "null"},
+    {"Origin": "null", "Referer": "https://testserver/"},
+    {"Origin": "https://attacker.example"},
+    {
+        "Origin": "https://attacker.example",
+        "Referer": "https://testserver/",
+    },
+    {"Referer": "https://attacker.example/"},
+    {"Origin": "http://testserver"},
+    {"Origin": "https://testserver:444"},
+    {"Origin": "https://testserver", "Sec-Fetch-Site": "cross-site"},
+    {
+        "Origin": "http://testserver",
+        "X-Forwarded-Proto": "http",
+        "X-Forwarded-Host": "testserver",
+    },
+])
+def test_https_proxy_rejects_invalid_source(https_proxy_client, headers):
+    response = https_proxy_client.post(
+        "/logout", headers=headers, follow_redirects=False,
+    )
+    assert response.status_code == 403
+    assert response.json()["status"] == "csrf_rejected"
+    assert https_proxy_client.get(
+        "/account", follow_redirects=False,
+    ).status_code == 200
