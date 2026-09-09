@@ -15,6 +15,7 @@ from app.services import (
     admin_service,
     attribution_service,
 )
+from app.legal_documents import LEGAL_DOCUMENT_VERSION
 
 logger = logging.getLogger(
     __name__
@@ -79,6 +80,8 @@ def registration_form(
         context={
             "email": "",
             "errors": [],
+            "terms_accepted": False,
+            "personal_data_consent": False,
         },
     )
 
@@ -92,6 +95,8 @@ def register_user(
     email: str = Form(..., max_length=320),
     password: str = Form(...),
     password_confirmation: str = Form(...),
+    terms_accepted: str | None = Form(None),
+    personal_data_consent: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     if request.session.get("user_id") is not None:
@@ -133,6 +138,16 @@ def register_user(
             "Пароль и его подтверждение не совпадают."
         )
 
+    if terms_accepted != "yes":
+        errors.append(
+            "Примите Пользовательское соглашение."
+        )
+
+    if personal_data_consent != "yes":
+        errors.append(
+            "Дайте согласие на обработку персональных данных."
+        )
+
     if errors:
         return templates.TemplateResponse(
             request=request,
@@ -140,6 +155,8 @@ def register_user(
             context={
                 "email": entered_email,
                 "errors": errors,
+                "terms_accepted": terms_accepted == "yes",
+                "personal_data_consent": personal_data_consent == "yes",
             },
             status_code=400,
         )
@@ -148,6 +165,8 @@ def register_user(
         db=db,
         email=normalized_email,
         password=password,
+        terms_version=LEGAL_DOCUMENT_VERSION,
+        personal_data_consent_version=LEGAL_DOCUMENT_VERSION,
     )
 
     if user is None:
@@ -159,6 +178,8 @@ def register_user(
                 "errors": [
                     "Пользователь с таким email уже зарегистрирован."
                 ],
+                "terms_accepted": terms_accepted == "yes",
+                "personal_data_consent": personal_data_consent == "yes",
             },
             status_code=409,
         )
