@@ -108,7 +108,11 @@ def main():
         with TestClient(app,base_url=base,headers={"Origin":base}) as client:
             assert client.get('/health').status_code==200
             assert client.post('/login',data={"email":"tester@example.com","password":password}).status_code==200
-            for path in ['/projects/1','/pricing','/favicon.svg','/favicon-120.png','/favicon.ico','/apple-touch-icon.png']:
+            for path in [
+                '/projects/1', '/pricing', '/privacy', '/terms', '/consent',
+                '/favicon.svg', '/favicon-120.png', '/favicon.ico',
+                '/apple-touch-icon.png',
+            ]:
                 assert client.get(path).status_code==200, path
             first=client.post('/projects/1/ai/decision-risks',headers={"X-Operation-Key":"preview-smoke-00000001"})
             assert first.status_code==(503 if args.risk_mode in {'timeout','truncated'} else 200), first.text
