@@ -49,6 +49,26 @@ class User(Base):
         nullable=False,
     )
 
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    terms_version: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+
+    personal_data_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    personal_data_consent_version: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+
     beta_reward_eligible: Mapped[bool] = mapped_column(
         Boolean,
         server_default=text("false"),
