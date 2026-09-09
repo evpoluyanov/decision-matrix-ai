@@ -38,49 +38,57 @@ def test_only_public_pages_are_in_sitemap(client, monkeypatch):
     assert 'rel="canonical" href="https://dmatrix.tech/"' in client.get("/").text
 
 
-def test_legal_drafts_are_unpublished_and_not_indexable(client, monkeypatch):
+def test_legal_documents_are_public_but_not_search_indexed(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     monkeypatch.setenv("VERCEL", "1")
     monkeypatch.setenv("VERCEL_ENV", "production")
     sitemap = client.get("/sitemap.xml").text
     robots = client.get("/robots.txt").text
-    for path in ("/privacy", "/terms"):
+    for path in ("/privacy", "/terms", "/consent"):
         response = client.get(path)
-        assert response.status_code == 404
+        assert response.status_code == 200
         assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
         assert "[УКАЗАТЬ" not in response.text
+        assert "документы готовятся" not in response.text
+        assert f'rel="canonical" href="https://dmatrix.tech{path}"' in response.text
         assert path not in sitemap
         assert f"Allow: {path}" not in robots
 
 
-def test_legal_placeholders_do_not_navigate_or_claim_acceptance(client):
-    from html.parser import HTMLParser
-
-    class PlaceholderParser(HTMLParser):
-        def __init__(self):
-            super().__init__()
-            self.placeholders = []
-
-        def handle_starttag(self, tag, attributes):
-            attributes = dict(attributes)
-            if attributes.get("title") == "Документ готовится":
-                self.placeholders.append((tag, attributes))
-
+def test_legal_links_are_visible_in_footer_and_registration(client):
     for path in ("/", "/register", "/pricing", "/login"):
         response = client.get(path)
         assert response.status_code == 200
-        assert 'href="/privacy"' not in response.text
-        assert 'href="/terms"' not in response.text
-        assert "Регистрируясь, вы подтверждаете ознакомление" not in response.text
-        parser = PlaceholderParser()
-        parser.feed(response.text)
-        assert len(parser.placeholders) == (4 if path == "/register" else 2)
-        for tag, attributes in parser.placeholders:
-            assert tag == "span"
-            assert attributes["aria-disabled"] == "true"
-            assert "href" not in attributes
-            assert "onclick" not in attributes
-            assert "tabindex" not in attributes
+        for legal_path in ("/privacy", "/terms", "/consent"):
+            assert f'href="{legal_path}"' in response.text
+        assert "документы готовятся" not in response.text
+
+    registration = client.get("/register").text
+    assert 'name="terms_accepted"' in registration
+    assert 'name="personal_data_consent"' in registration
+    assert registration.count("required") >= 5
+    assert "Я принимаю" in registration
+    assert "Я даю отдельное" in registration
+
+
+def test_legal_pages_publish_the_approved_text(client):
+    privacy = client.get("/privacy").text
+    assert "Дата редакции: 14.09.2026" in privacy
+    assert "Полуянов Евгений Владимирович, физическое лицо" in privacy
+    assert "https://dmatrix.tech/privacy" in privacy
+    assert "ai.magnetovc@gmail.com" in privacy
+    assert "только при наличии соответствующего согласия пользователя" in privacy
+
+    terms = client.get("/terms").text
+    assert "Дата редакции: 14.09.2026" in terms
+    assert "информационный и рекомендательный характер" in terms
+    assert "не заменяет профессиональную юридическую" in terms
+    assert 'href="/consent"' in terms
+
+    consent = client.get("/consent").text
+    assert "свободно и в своем интересе" in consent
+    assert "Согласие действует до достижения целей обработки или его отзыва" in consent
+    assert 'href="/privacy"' in consent
 
 
 def test_preview_has_no_indexing_or_analytics(client, monkeypatch):
