@@ -103,3 +103,25 @@ def test_reliability_migration_is_additive_in_postgresql(monkeypatch):
     assert "ADD COLUMN matrix_revision INTEGER DEFAULT 0 NOT NULL" in sql
     assert "uq_ai_request_client_key" in sql
     assert "DROP TABLE" not in sql and "CREATE TABLE" not in sql
+
+
+def test_legal_acceptance_migration_is_additive_in_postgresql(monkeypatch):
+    monkeypatch.setenv(
+        "MIGRATION_DATABASE_URL",
+        "postgresql+psycopg://unused:unused@localhost/unused",
+    )
+    output = io.StringIO()
+    command.upgrade(
+        Config("alembic.ini", output_buffer=output),
+        "f4c912ab670e:71ac9d2e4f60",
+        sql=True,
+    )
+    sql = output.getvalue()
+    for column in (
+        "terms_accepted_at",
+        "terms_version",
+        "personal_data_consent_at",
+        "personal_data_consent_version",
+    ):
+        assert f"ADD COLUMN {column}" in sql
+    assert "DROP TABLE" not in sql and "CREATE TABLE" not in sql
