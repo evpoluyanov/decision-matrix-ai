@@ -101,7 +101,11 @@ def test_register_limit_precedes_mail_and_user_creation(client, test_environment
     monkeypatch.setenv("AUTH_REGISTER_IP_LIMIT", "1")
     send = Mock()
     monkeypatch.setattr(email_verification_service, "send_email_verification_message", send)
-    data = {"email": "first@example.com", "password": TEST_PASSWORD, "password_confirmation": TEST_PASSWORD}
+    data = {
+        "email": "first@example.com", "password": TEST_PASSWORD,
+        "password_confirmation": TEST_PASSWORD,
+        "terms_accepted": "yes", "personal_data_consent": "yes",
+    }
     assert client.post("/register", data=data, follow_redirects=False).status_code == 303
     data["email"] = "second@example.com"
     assert client.post("/register", data=data).status_code == 429

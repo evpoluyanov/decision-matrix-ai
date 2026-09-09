@@ -1,3 +1,5 @@
+import re
+
 from app.services import (
     email_service,
     email_verification_service,
@@ -50,6 +52,8 @@ def test_registration_sends_verification_email(
                 TEST_REGISTRATION_PASSWORD,
             "password_confirmation":
                 TEST_REGISTRATION_PASSWORD,
+            "terms_accepted": "yes",
+            "personal_data_consent": "yes",
         },
         follow_redirects=False,
     )
@@ -99,6 +103,10 @@ def test_registration_sends_verification_email(
         )
 
         assert user.email_verified is False
+        assert user.terms_version == "2026-09-14"
+        assert user.terms_accepted_at is not None
+        assert user.personal_data_consent_version == "2026-09-14"
+        assert user.personal_data_consent_at is not None
 
 
 def test_registration_survives_email_error(
@@ -137,6 +145,8 @@ def test_registration_survives_email_error(
                 TEST_REGISTRATION_PASSWORD,
             "password_confirmation":
                 TEST_REGISTRATION_PASSWORD,
+            "terms_accepted": "yes",
+            "personal_data_consent": "yes",
         },
         follow_redirects=False,
     )
@@ -222,6 +232,8 @@ def test_duplicate_registration_does_not_send_email(
                 TEST_REGISTRATION_PASSWORD,
             "password_confirmation":
                 TEST_REGISTRATION_PASSWORD,
+            "terms_accepted": "yes",
+            "personal_data_consent": "yes",
         },
     )
 
@@ -306,6 +318,8 @@ def test_authenticated_user_cannot_register_again(
                 TEST_REGISTRATION_PASSWORD,
             "password_confirmation":
                 TEST_REGISTRATION_PASSWORD,
+            "terms_accepted": "yes",
+            "personal_data_consent": "yes",
         },
         follow_redirects=False,
     )
@@ -333,3 +347,48 @@ def test_authenticated_user_cannot_register_again(
         )
 
         assert user is None
+
+
+def test_registration_requires_separate_legal_confirmations(
+    client,
+    test_environment,
+    monkeypatch,
+):
+    sent = []
+    monkeypatch.setattr(
+        email_verification_service,
+        "send_email_verification_message",
+        lambda **kwargs: sent.append(kwargs),
+    )
+    base = {
+        "email": "no-consent@test.com",
+        "password": TEST_REGISTRATION_PASSWORD,
+        "password_confirmation": TEST_REGISTRATION_PASSWORD,
+    }
+
+    response = client.post("/register", data=base)
+    assert response.status_code == 400
+    assert "Примите Пользовательское соглашение." in response.text
+    assert "Дайте согласие на обработку персональных данных." in response.text
+
+    response = client.post(
+        "/register",
+        data={**base, "terms_accepted": "yes"},
+    )
+    assert response.status_code == 400
+    assert "Дайте согласие на обработку персональных данных." in response.text
+    assert re.search(
+        r'<input(?=[^>]*name="terms_accepted")(?=[^>]*\bchecked\b)[^>]*>',
+        response.text,
+    )
+    assert not re.search(
+        r'<input(?=[^>]*name="personal_data_consent")(?=[^>]*\bchecked\b)[^>]*>',
+        response.text,
+    )
+
+    with test_environment["TestingSessionLocal"]() as database:
+        assert user_service.get_user_by_email(
+            db=database,
+            email="no-consent@test.com",
+        ) is None
+    assert sent == []

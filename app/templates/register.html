@@ -103,19 +103,46 @@
                         >
                     </div>
 
+                    <div class="form-check mb-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            value="yes"
+                            id="terms-accepted"
+                            name="terms_accepted"
+                            {% if terms_accepted %}checked{% endif %}
+                            required
+                        >
+                        <label class="form-check-label small" for="terms-accepted">
+                            Я принимаю
+                            <a href="/terms" target="_blank" rel="noopener">Пользовательское соглашение</a>.
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            value="yes"
+                            id="personal-data-consent"
+                            name="personal_data_consent"
+                            {% if personal_data_consent %}checked{% endif %}
+                            required
+                        >
+                        <label class="form-check-label small" for="personal-data-consent">
+                            Я даю отдельное
+                            <a href="/consent" target="_blank" rel="noopener">Согласие на обработку персональных данных</a>
+                            и ознакомлен с
+                            <a href="/privacy" target="_blank" rel="noopener">Политикой обработки персональных данных</a>.
+                        </label>
+                    </div>
+
                     <button
                         type="submit"
                         class="btn btn-primary w-100"
                     >
                         Создать учётную запись
                     </button>
-                    <p class="small text-secondary mt-3 mb-0">
-                        <span aria-disabled="true" title="Документ готовится">Политика конфиденциальности</span>
-                        и
-                        <span aria-disabled="true" title="Документ готовится">Пользовательское соглашение</span>
-                        и отдельное <span aria-disabled="true" title="Черновик ожидает согласования">Согласие на обработку персональных данных</span>
-                        — документы готовятся.
-                    </p>
                 </form>
 
             </div>

@@ -167,6 +167,7 @@ def test_first_touch_utm_is_linked_once_at_registration(
     response = client.post("/register", data={
         "email": "utm@example.com", "password": TEST_PASSWORD,
         "password_confirmation": TEST_PASSWORD,
+        "terms_accepted": "yes", "personal_data_consent": "yes",
     })
     assert response.status_code == 200
     registration_email.assert_called_once()
@@ -188,6 +189,7 @@ def test_direct_first_touch_is_not_overwritten(
     response = client.post("/register", data={
         "email": "direct@example.com", "password": TEST_PASSWORD,
         "password_confirmation": TEST_PASSWORD,
+        "terms_accepted": "yes", "personal_data_consent": "yes",
     })
     assert response.status_code == 200
     registration_email.assert_called_once()
