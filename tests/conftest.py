@@ -25,13 +25,17 @@ TEST_PASSWORD = "test-password-123"
 def isolate_launch_settings(monkeypatch):
     # Tests never inherit production billing/admin/edge settings.
     for name in list(os.environ):
-        if name.startswith(("AI_", "AUTH_", "VERCEL", "ADMIN_", "YANDEX_", "PUBLIC_SITE_")):
+        if name.startswith(
+            ("AI_", "AUTH_", "VERCEL", "ADMIN_", "YANDEX_", "PUBLIC_SITE_",
+             "EMAIL_", "SMTP_", "BREVO_")
+        ):
             monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AI_PRICING_CONFIRMED", "true")
     monkeypatch.setenv("LLM_PROVIDER", "mws")
     monkeypatch.setenv("LLM_MODEL", "gpt-oss-120b")
     monkeypatch.setenv("LLM_API_KEY", "test-only-not-a-real-key")
     monkeypatch.setenv("LLM_BASE_URL", "https://llm.invalid")
+    monkeypatch.setenv("EMAIL_PROVIDER", "brevo")
     monkeypatch.setenv("BREVO_API_KEY", "test-only-not-a-real-key")
     def no_outbound_http(*args, **kwargs):
         raise AssertionError("Tests must mock outbound HTTP; production APIs are forbidden")

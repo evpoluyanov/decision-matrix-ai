@@ -29,7 +29,11 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         unsafe = request.method not in {"GET", "HEAD", "OPTIONS"}
         if unsafe and request.url.path != "/calculate":
-            scheme = "https" if os.getenv("VERCEL") == "1" else request.url.scheme
+            https_only = (
+                os.getenv("VERCEL") == "1"
+                or os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+            )
+            scheme = "https" if https_only else request.url.scheme
             expected = origin_of(f"{scheme}://{request.headers.get('host', '')}")
             origin = request.headers.get("origin")
             source = origin if origin is not None else request.headers.get("referer", "")

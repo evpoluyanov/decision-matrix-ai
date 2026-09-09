@@ -36,7 +36,12 @@ def main():
         "AI_INPUT_RUB_PER_MILLION":"13.42", "AI_OUTPUT_RUB_PER_MILLION":"54.90",
         "LLM_PROVIDER":"mws", "LLM_MODEL":"gpt-oss-120b",
         "LLM_API_KEY":"synthetic-preview-not-a-secret", "LLM_BASE_URL":"https://llm.invalid",
-        "BREVO_API_KEY":"", "BREVO_SENDER_EMAIL":""})
+        "EMAIL_PROVIDER":"brevo",
+        "SMTP_HOST":"", "SMTP_PORT":"587", "SMTP_SECURITY":"starttls",
+        "SMTP_USERNAME":"", "SMTP_PASSWORD":"",
+        "EMAIL_SENDER_EMAIL":"", "EMAIL_SENDER_NAME":"Decision Matrix AI",
+        "BREVO_API_KEY":"", "BREVO_SENDER_EMAIL":"",
+        "BREVO_SENDER_NAME":"Decision Matrix AI"})
     import httpx
     counters = {"risk":0}
 
