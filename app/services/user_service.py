@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -37,6 +39,8 @@ def create_user(
     db: Session,
     email: str,
     password: str,
+    terms_version: str | None = None,
+    personal_data_consent_version: str | None = None,
 ) -> models.User | None:
     """
     Создаёт пользователя.
@@ -52,9 +56,16 @@ def create_user(
     if existing_user is not None:
         return None
 
+    accepted_at = datetime.now(timezone.utc)
     user = models.User(
         email=email,
         password_hash=hash_password(password),
+        terms_accepted_at=accepted_at if terms_version else None,
+        terms_version=terms_version,
+        personal_data_consent_at=(
+            accepted_at if personal_data_consent_version else None
+        ),
+        personal_data_consent_version=personal_data_consent_version,
     )
 
     db.add(user)
