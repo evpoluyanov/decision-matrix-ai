@@ -9,7 +9,7 @@ import os
 from urllib.parse import urlsplit
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from app.services.public_site_service import public_site_url
 from app.services import attribution_service
 
@@ -27,8 +27,26 @@ def origin_of(value):
 
 class BrowserSecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
+        public = public_site_url()
+        public_url = urlsplit(public) if public else None
+        request_host = request.url.hostname.casefold() if request.url.hostname else None
+        canonical_host = public_url.hostname.casefold() if public_url and public_url.hostname else None
+        if (
+            request.method in {"GET", "HEAD"}
+            and canonical_host
+            and request_host == f"www.{canonical_host}"
+        ):
+            target = f"{public.rstrip('/')}{request.url.path}"
+            if request.url.query:
+                target = f"{target}?{request.url.query}"
+            response = RedirectResponse(target, status_code=308)
+        else:
+            response = None
+
         unsafe = request.method not in {"GET", "HEAD", "OPTIONS"}
-        if unsafe and request.url.path != "/calculate":
+        if response is not None:
+            pass
+        elif unsafe and request.url.path != "/calculate":
             https_only = (
                 os.getenv("VERCEL") == "1"
                 or os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
