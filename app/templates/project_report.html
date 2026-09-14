@@ -644,7 +644,7 @@
 {% if show_report_feedback %}
 <div id="report-feedback-question" class="card shadow-sm mb-4"><div class="card-body">
     <h2 class="h5">Насколько Decision Matrix AI помог вам принять решение?</h2>
-    <form action="/feedback" method="post">
+    <form id="report-feedback-form" action="/feedback" method="post">
         <div class="mb-3"><label class="form-label" for="report-rating">Оценка от 1 до 5</label><select id="report-rating" name="rating" class="form-select" required>{% for n in range(1, 6) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
         <div class="mb-3"><label class="form-label" for="report-message">Что можно улучшить? (необязательно)</label><textarea id="report-message" name="message" class="form-control" maxlength="2000"></textarea></div>
         <input type="hidden" name="category" value="result_quality"><input type="hidden" name="quick" value="true"><input type="hidden" name="page_path" value="/projects/{{ project.id }}/report"><input type="hidden" name="project_id" value="{{ project.id }}"><input type="hidden" name="return_to" value="/projects/{{ project.id }}/report">

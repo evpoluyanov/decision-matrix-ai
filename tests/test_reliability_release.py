@@ -201,7 +201,21 @@ def test_risks_10_by_10_and_failed_reanalysis_preserves_saved(client,prepared,ma
     assert report.status_code == 200 and "Check assumptions" in report.text
     page=client.get(f'/projects/{prepared["project_1_id"]}')
     assert page.text.index('id="report-link"') > page.text.index("Риски выбранной альтернативы")
+    assert 'd-flex justify-content-end mb-4' in page.text
+    assert 'id="report-link"' in page.text and 'class="btn btn-primary"' in page.text
     assert "saved-ai-analysis" in page.text
+
+
+def test_pricing_current_choice_is_inline_and_non_interactive(client, prepared):
+    client.get("/pricing")
+    client.post("/monetization/preference", data={
+        "selected_plan": "pro_299", "source": "pricing", "return_to": "/pricing",
+    })
+    page = client.get("/pricing").text
+    assert 'class="pricing-actions"' in page
+    assert 'class="current-choice" role="status">Текущий выбор</span>' in page
+    assert 'rounded px-2 py-1' not in page
+    assert 'href="/static/pricing.css"' in page
 
 
 def test_timeout_keeps_uncertain_reserve_and_status(client,prepared,monkeypatch):

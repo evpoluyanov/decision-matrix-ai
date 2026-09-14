@@ -121,6 +121,12 @@
         updateDialog(op);
     }
     function forget(op) { op.key=null; drop("dmatrix-operation:" + op.path); }
+    function clearMissingOperation(op, state) {
+        if (state.status !== "not_found") return false;
+        forget(op);
+        setState(op, "failed", state.message || "Запрос не был зарегистрирован. Новое обращение к модели не отправлено. Можно повторить вручную.");
+        return true;
+    }
     async function statusOf(op) {
         const base = op.path.slice(0,op.path.lastIndexOf("/ai/"));
         const url = op.feature === "scores" ? base+"/ai/scores/state" : base+"/ai/operations/"+op.key;
@@ -130,6 +136,7 @@
     async function checkOnly(op) {
         try {
             const state = await statusOf(op);
+            if (clearMissingOperation(op, state)) return;
             if (op.feature === "scores" && state.job_status === "ready") {
                 op.unknownScore = false;
                 forget(op);
@@ -162,6 +169,9 @@
         try {
             if (op.key) {
                 const state = await statusOf(op);
+                if (clearMissingOperation(op, state)) {
+                    return asResponse({status:"error", message:op.message},409);
+                }
                 if (state.status === "completed" || state.status === "failed") {
                     forget(op);
                     if (state.result) { setState(op,"completed","Результат получен."); return asResponse(state.result,200); }

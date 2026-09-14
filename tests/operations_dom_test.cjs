@@ -75,6 +75,45 @@ async function main(){
   u.setHandler(async()=>json({status:'ok',summary:'Retry'}));await u.context.fetch(path,{method:'POST'});
   assert.equal(u.calls.filter(c=>c.opts?.method==='POST').length,2);
 
+  // A confirmed missing operation clears the stale key but never resends automatically.
+  const missing=environment();missing.setHandler(async()=>{throw Error('disconnect');});
+  await missing.context.fetch(path,{method:'POST'});
+  const missingStorageKey='dmatrix-operation:'+path;
+  assert.equal(missing.stored.has(missingStorageKey),true);
+  missing.setHandler(async()=>json({status:'not_found',message:'Запрос не найден. Новое обращение к модели не отправлено.'},404));
+  await missing.nodes.get('analysis-check').emit('click');
+  assert.equal(missing.stored.has(missingStorageKey),false);
+  assert.equal(missing.calls.filter(c=>c.opts?.method==='POST').length,1);
+  missing.setHandler(async()=>json({status:'ok',summary:'Manual retry'}));
+  await missing.context.fetch(path,{method:'POST'});
+  assert.equal(missing.calls.filter(c=>c.opts?.method==='POST').length,2);
+
+  // Clicking the AI action with a stale key performs one status check only;
+  // the following click is the separately initiated new request.
+  const stale=environment();stale.setHandler(async()=>{throw Error('disconnect');});
+  await stale.context.fetch(path,{method:'POST'});
+  stale.setHandler(async()=>json({status:'not_found',message:'Missing'},404));
+  const cleared=await stale.context.fetch(path,{method:'POST'});
+  assert.equal(cleared.status,409);
+  assert.equal(stale.stored.has(missingStorageKey),false);
+  assert.equal(stale.calls.filter(c=>c.opts?.method==='POST').length,1);
+  stale.setHandler(async()=>json({status:'ok',summary:'Manual retry'}));
+  await stale.context.fetch(path,{method:'POST'});
+  assert.equal(stale.calls.filter(c=>c.opts?.method==='POST').length,2);
+
+  // The production incident affected both list generators; their notice-level
+  // status controls must release the same stale state.
+  for(const feature of ['alternatives','criteria']){
+    const listPath='/projects/1/ai/'+feature;
+    const listOp=environment();listOp.setHandler(async()=>{throw Error('disconnect');});
+    await listOp.context.fetch(listPath,{method:'POST'});
+    listOp.setHandler(async()=>json({status:'not_found',message:'Missing'},404));
+    const check=listOp.card.children[0].children.find(c=>c.textContent==='Проверить состояние');
+    assert.ok(check);await check.emit('click');
+    assert.equal(listOp.stored.has('dmatrix-operation:'+listPath),false);
+    assert.equal(listOp.calls.filter(c=>c.opts?.method==='POST').length,1);
+  }
+
   const batch=environment();batch.setHandler(async()=>json({status:'in_progress',message:'20 / 100',completed:20,total:100}));
   await batch.context.fetch('/projects/1/ai/scores',{method:'POST'});
   assert.equal(batch.nodes.get('ai-scores-button').disabled,true);
