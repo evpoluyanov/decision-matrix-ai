@@ -95,6 +95,66 @@ class User(Base):
         back_populates="owner",
     )
 
+
+class LegalDocumentVersion(Base):
+    __tablename__ = "legal_document_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_key",
+            "version",
+            name="uq_legal_document_key_version",
+        ),
+        Index(
+            "ix_legal_document_key_status",
+            "document_key",
+            "status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_key: Mapped[str] = mapped_column(String(30), nullable=False)
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    change_summary: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+
+class UserLegalAcceptance(Base):
+    __tablename__ = "user_legal_acceptances"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "document_version_id",
+            name="uq_user_legal_document_acceptance",
+        ),
+        Index(
+            "ix_user_legal_acceptance_user",
+            "user_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    document_version_id: Mapped[int] = mapped_column(
+        ForeignKey("legal_document_versions.id", ondelete="RESTRICT"), nullable=False,
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False,
+    )
+
 class AIRequestLog(Base):
     __tablename__ = "ai_request_logs"
 
