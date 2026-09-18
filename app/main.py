@@ -15,6 +15,7 @@ from app.routers import (
     projects,
     public_site,
     growth,
+    legal,
     scores,
 )
 from app.schemas import AlternativeResult, CalculateRequest
@@ -60,6 +61,7 @@ app.include_router(alternatives.router)
 app.include_router(criteria.router)
 app.include_router(scores.router)
 app.include_router(auth.router)
+app.include_router(legal.router)
 app.include_router(admin.router)
 app.include_router(public_site.router)
 app.include_router(growth.router)

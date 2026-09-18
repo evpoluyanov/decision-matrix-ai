@@ -3,8 +3,11 @@ import re
 from app.services import (
     email_service,
     email_verification_service,
+    legal_document_service,
     user_service,
 )
+from app import models
+from sqlalchemy import select
 
 
 TEST_REGISTRATION_PASSWORD = (
@@ -103,10 +106,16 @@ def test_registration_sends_verification_email(
         )
 
         assert user.email_verified is False
-        assert user.terms_version == "2026-09-14"
-        assert user.terms_accepted_at is not None
-        assert user.personal_data_consent_version == "2026-09-14"
-        assert user.personal_data_consent_at is not None
+        acceptances = list(database.scalars(
+            select(models.UserLegalAcceptance).where(
+                models.UserLegalAcceptance.user_id == user.id
+            )
+        ))
+        assert len(acceptances) == 3
+        assert {row.action for row in acceptances} == {
+            "accepted", "acknowledged", "consented",
+        }
+        assert legal_document_service.pending_versions(database, user.id) == []
 
 
 def test_registration_survives_email_error(

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ definition.title }} — администрирование{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width: 1000px">
+    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+        <div><h1 class="h3 mb-1">{{ definition.title }}</h1>
+        <p class="text-secondary mb-0">{% if current %}Действующая версия: {{ current.version }}{% else %}Управляемая версия ещё не опубликована{% endif %}</p></div>
+        <a class="btn btn-outline-secondary" href="/admin/legal-documents">К списку документов</a>
+    </div>
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/admin/legal-documents/{{ definition.key }}/draft" class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4"><label class="form-label" for="document-name">Документ</label><input id="document-name" class="form-control" value="{{ definition.title }}" disabled></div>
+                <div class="col-md-3"><label class="form-label" for="version">Новая версия</label><input id="version" name="version" class="form-control" maxlength="32" value="{{ draft.version if draft else suggested_version }}" required></div>
+                <div class="col-md-5"><label class="form-label" for="change-summary">Краткое описание изменений</label><input id="change-summary" name="change_summary" class="form-control" maxlength="500" value="{{ draft.change_summary if draft else '' }}" placeholder="Что изменилось для пользователя"></div>
+                <div class="col-12"><label class="form-label" for="content">Полный текст документа</label>
+                    <textarea id="content" name="content" class="form-control font-monospace" rows="28" maxlength="200000" required>{{ draft.content if draft else '' }}</textarea>
+                    <div class="form-text">Поддерживается безопасная разметка: # заголовок, ## подзаголовок, списки через «-» или «1.», **полужирный текст**. HTML не выполняется.</div>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3"><button class="btn btn-primary" type="submit">Сохранить черновик</button>{% if draft %}<a class="btn btn-outline-primary" href="/admin/legal-documents/{{ definition.key }}/preview">Предварительный просмотр</a>{% endif %}</div>
+        </div>
+    </form>
+    {% if draft %}
+    <section class="card border-danger mb-4"><div class="card-body">
+        <h2 class="h5">Публикация</h2>
+        <p>После публикации версия <strong>{{ draft.version }}</strong> станет действующей. Все пользователи должны будут подтвердить её перед продолжением работы.</p>
+        <form method="post" action="/admin/legal-documents/{{ definition.key }}/publish">
+            <input type="hidden" name="draft_id" value="{{ draft.id }}">
+            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="publish_confirm" value="yes" id="publish-confirm" required><label class="form-check-label" for="publish-confirm">Я проверил полный текст и подтверждаю публикацию.</label></div>
+            <button class="btn btn-danger" type="submit">Опубликовать версию {{ draft.version }}</button>
+        </form>
+    </div></section>
+    {% endif %}
+    <h2 class="h5">История версий</h2>
+    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Версия</th><th>Статус</th><th>Создана</th><th>Опубликована</th><th></th></tr></thead><tbody>
+    {% for item in history %}<tr><td>{{ item.version }}</td><td>{{ {'draft':'Черновик','published':'Действующая','archived':'Архивная'}.get(item.status, item.status) }}</td><td>{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}</td><td>{{ item.published_at.strftime('%d.%m.%Y %H:%M') if item.published_at else '—' }}</td><td>{% if item.status != 'draft' %}<a href="/legal/{{ definition.key }}/{{ item.version }}">Открыть</a>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="5">Версий пока нет.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endblock %}
