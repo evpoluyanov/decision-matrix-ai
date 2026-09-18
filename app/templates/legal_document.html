@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ definition.title }} — Decision Matrix AI{% endblock %}
+{% block metadata %}{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}{{ definition.path }}">{% endif %}{% endblock %}
+{% block content %}
+<article class="mx-auto" style="max-width: 880px">
+    {% if historical %}<div class="alert alert-secondary">Это архивная редакция документа. <a href="{{ definition.path }}">Открыть действующую версию</a>.</div>{% endif %}
+    <h1>{{ definition.title }}</h1>
+    <p class="text-secondary">Версия: {{ document.version }}{% if document.published_at %} · опубликована {{ document.published_at.strftime('%d.%m.%Y') }}{% endif %}</p>
+    <div class="legal-document-content">{{ rendered_content }}</div>
+</article>
+{% endblock %}
