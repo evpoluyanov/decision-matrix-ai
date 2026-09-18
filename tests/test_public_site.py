@@ -73,14 +73,14 @@ def test_legal_links_are_visible_in_footer_and_registration(client):
 
 def test_legal_pages_publish_the_approved_text(client):
     privacy = client.get("/privacy").text
-    assert "Дата редакции: 14.09.2026" in privacy
+    assert "Версия: 2026-09-14" in privacy
     assert "Полуянов Евгений Владимирович, физическое лицо" in privacy
     assert "https://dmatrix.tech/privacy" in privacy
     assert "ai.magnetovc@gmail.com" in privacy
     assert "только при наличии соответствующего согласия пользователя" in privacy
 
     terms = client.get("/terms").text
-    assert "Дата редакции: 14.09.2026" in terms
+    assert "Версия: 2026-09-14" in terms
     assert "информационный и рекомендательный характер" in terms
     assert "не заменяет профессиональную юридическую" in terms
     assert 'href="/consent"' in terms

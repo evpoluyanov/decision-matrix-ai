@@ -14,8 +14,8 @@ from app.services import (
     auth_rate_limit_service,
     admin_service,
     attribution_service,
+    legal_document_service,
 )
-from app.legal_documents import LEGAL_DOCUMENT_VERSION
 
 logger = logging.getLogger(
     __name__
@@ -67,11 +67,22 @@ def normalize_email_address(
 )
 def registration_form(
     request: Request,
+    db: Session = Depends(get_db),
 ):
     if request.session.get("user_id") is not None:
         return RedirectResponse(
             url="/account",
             status_code=303,
+        )
+
+    try:
+        legal_document_service.registration_versions(db)
+    except legal_document_service.LegalDocumentsNotReadyError as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="registration_unavailable.html",
+            context={"message": str(exc)},
+            status_code=503,
         )
 
     return templates.TemplateResponse(
@@ -103,6 +114,16 @@ def register_user(
         return RedirectResponse(
             url="/account",
             status_code=303,
+        )
+
+    try:
+        legal_versions = legal_document_service.registration_versions(db)
+    except legal_document_service.LegalDocumentsNotReadyError as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="registration_unavailable.html",
+            context={"message": str(exc)},
+            status_code=503,
         )
 
     entered_email = email.strip()
@@ -165,8 +186,7 @@ def register_user(
         db=db,
         email=normalized_email,
         password=password,
-        terms_version=LEGAL_DOCUMENT_VERSION,
-        personal_data_consent_version=LEGAL_DOCUMENT_VERSION,
+        legal_versions=legal_versions,
     )
 
     if user is None:
@@ -613,6 +633,12 @@ def login_user(
 
     request.session["user_id"] = user.id
 
+    if legal_document_service.pending_versions(db, user.id):
+        return RedirectResponse(
+            url="/legal/updates?next=%2Faccount",
+            status_code=303,
+        )
+
     return RedirectResponse(
         url="/account",
         status_code=303,
@@ -650,6 +676,12 @@ def account(
             status_code=303,
         )
 
+    if legal_document_service.pending_versions(db, user.id):
+        return RedirectResponse(
+            url="/legal/updates?next=%2Faccount",
+            status_code=303,
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="account.html",
@@ -673,35 +705,8 @@ def change_password(
     new_password: str = Form(...),
     new_password_confirmation: str = Form(...),
     db: Session = Depends(get_db),
+    user=Depends(require_user),
 ):
-    user_id = request.session.get(
-        "user_id"
-    )
-
-    if not isinstance(
-        user_id,
-        int,
-    ):
-        request.session.clear()
-
-        return RedirectResponse(
-            url="/login",
-            status_code=303,
-        )
-
-    user = user_service.get_user_by_id(
-        db=db,
-        user_id=user_id,
-    )
-
-    if user is None:
-        request.session.clear()
-
-        return RedirectResponse(
-            url="/login",
-            status_code=303,
-        )
-
     auth_rate_limit_service.enforce(db, request, "password", user_id=user.id)
     errors = []
 
