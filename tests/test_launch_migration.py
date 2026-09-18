@@ -43,8 +43,6 @@ def test_upgrade_downgrade_upgrade_preserves_existing_users_and_logs(tmp_path, m
     command.upgrade(config, "head")
     assert "ai_daily_budgets" in inspect(engine).get_table_names()
     assert "ai_score_generation_jobs" in inspect(engine).get_table_names()
-    assert "legal_document_versions" in inspect(engine).get_table_names()
-    assert "user_legal_acceptances" in inspect(engine).get_table_names()
     engine.dispose()
 
 
@@ -127,26 +125,3 @@ def test_legal_acceptance_migration_is_additive_in_postgresql(monkeypatch):
     ):
         assert f"ADD COLUMN {column}" in sql
     assert "DROP TABLE" not in sql and "CREATE TABLE" not in sql
-
-
-def test_versioned_legal_documents_migration_starts_empty_and_is_additive(monkeypatch):
-    """The owner explicitly chose not to copy legacy texts or acceptance data."""
-    monkeypatch.setenv(
-        "MIGRATION_DATABASE_URL",
-        "postgresql+psycopg://unused:unused@localhost/unused",
-    )
-    output = io.StringIO()
-    command.upgrade(
-        Config("alembic.ini", output_buffer=output),
-        "71ac9d2e4f60:8e4f1c2d9a70",
-        sql=True,
-    )
-    sql = output.getvalue()
-    assert "CREATE TABLE legal_document_versions" in sql
-    assert "CREATE TABLE user_legal_acceptances" in sql
-    assert "ON DELETE SET NULL" in sql
-    assert "ON DELETE CASCADE" in sql
-    assert "ON DELETE RESTRICT" in sql
-    assert "INSERT INTO" not in sql
-    assert "UPDATE users" not in sql
-    assert "ALTER TABLE users" not in sql

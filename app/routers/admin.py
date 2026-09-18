@@ -1,47 +1,15 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.legal_documents import LEGAL_DOCUMENTS, legal_document_definition
-from app.services import (
-    admin_service,
-    feedback_service,
-    legal_document_service,
-    mws_reconciliation_service,
-)
+from app.services import admin_service, feedback_service, mws_reconciliation_service
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-
-
-def legal_editor_response(request, db, document_key, *, error=None, status_code=200):
-    try:
-        definition = legal_document_definition(document_key)
-    except ValueError as exc:
-        raise HTTPException(404, "Документ не найден.") from exc
-    draft = legal_document_service.latest_draft(db, document_key)
-    return templates.TemplateResponse(
-        request=request,
-        name="admin_legal_document_edit.html",
-        context={
-            "definition": definition,
-            "current": legal_document_service.current_version(db, document_key),
-            "draft": draft,
-            "history": legal_document_service.version_history(db, document_key),
-            "suggested_version": (
-                draft.version if draft else legal_document_service.suggest_version(
-                    db, document_key,
-                )
-            ),
-            "error": error,
-        },
-        status_code=status_code,
-        headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"},
-    )
 
 
 @router.get("/admin")
@@ -93,115 +61,3 @@ def add_reconciliation(
         application_estimated_cost_rub=application_estimated_cost_rub, source=source,
     )
     return RedirectResponse("/admin", status_code=303)
-
-
-@router.get("/admin/legal-documents", response_class=HTMLResponse)
-def legal_documents_dashboard(
-    request: Request,
-    db: Session = Depends(get_db),
-    user=Depends(admin_service.require_admin),
-):
-    return templates.TemplateResponse(
-        request=request,
-        name="admin_legal_documents.html",
-        context={
-            "documents": legal_document_service.dashboard_documents(db),
-            "definitions": LEGAL_DOCUMENTS,
-        },
-        headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"},
-    )
-
-
-@router.get("/admin/legal-documents/{document_key}", response_class=HTMLResponse)
-def edit_legal_document(
-    document_key: str,
-    request: Request,
-    db: Session = Depends(get_db),
-    user=Depends(admin_service.require_admin),
-):
-    return legal_editor_response(request, db, document_key)
-
-
-@router.post("/admin/legal-documents/{document_key}/draft")
-def save_legal_document_draft(
-    document_key: str,
-    request: Request,
-    version: str = Form(..., max_length=32),
-    change_summary: str = Form("", max_length=500),
-    content: str = Form(..., max_length=legal_document_service.MAX_DOCUMENT_LENGTH),
-    db: Session = Depends(get_db),
-    user=Depends(admin_service.require_admin),
-):
-    try:
-        legal_document_service.save_draft(
-            db,
-            document_key=document_key,
-            version=version,
-            content=content,
-            change_summary=change_summary,
-            admin_user_id=user.id,
-        )
-    except (ValueError, legal_document_service.LegalDocumentError) as exc:
-        return legal_editor_response(
-            request, db, document_key, error=str(exc), status_code=400,
-        )
-    return RedirectResponse(
-        f"/admin/legal-documents/{document_key}", status_code=303,
-    )
-
-
-@router.get("/admin/legal-documents/{document_key}/preview", response_class=HTMLResponse)
-def preview_legal_document(
-    document_key: str,
-    request: Request,
-    db: Session = Depends(get_db),
-    user=Depends(admin_service.require_admin),
-):
-    try:
-        definition = legal_document_definition(document_key)
-    except ValueError as exc:
-        raise HTTPException(404, "Документ не найден.") from exc
-    draft = legal_document_service.latest_draft(db, document_key)
-    if draft is None:
-        raise HTTPException(404, "Сначала сохраните черновик.")
-    return templates.TemplateResponse(
-        request=request,
-        name="admin_legal_preview.html",
-        context={
-            "definition": definition,
-            "draft": draft,
-            "rendered_content": legal_document_service.render_markdown(draft.content),
-        },
-        headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"},
-    )
-
-
-@router.post("/admin/legal-documents/{document_key}/publish")
-def publish_legal_document(
-    document_key: str,
-    request: Request,
-    draft_id: int = Form(...),
-    publish_confirm: str | None = Form(None),
-    db: Session = Depends(get_db),
-    user=Depends(admin_service.require_admin),
-):
-    if publish_confirm != "yes":
-        return legal_editor_response(
-            request,
-            db,
-            document_key,
-            error="Подтвердите публикацию новой версии.",
-            status_code=400,
-        )
-    try:
-        legal_document_service.publish_draft(
-            db,
-            document_key=document_key,
-            draft_id=draft_id,
-            admin_user_id=user.id,
-        )
-    except (ValueError, legal_document_service.LegalDocumentError) as exc:
-        return legal_editor_response(
-            request, db, document_key, error=str(exc), status_code=400,
-        )
-    return RedirectResponse("/admin/legal-documents", status_code=303)

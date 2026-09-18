@@ -1,9 +1,10 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models
-from app.legal_documents import LEGAL_DOCUMENTS
 from app.security import hash_password, verify_password
 
 
@@ -38,7 +39,8 @@ def create_user(
     db: Session,
     email: str,
     password: str,
-    legal_versions: list[models.LegalDocumentVersion] | None = None,
+    terms_version: str | None = None,
+    personal_data_consent_version: str | None = None,
 ) -> models.User | None:
     """
     Создаёт пользователя.
@@ -54,23 +56,21 @@ def create_user(
     if existing_user is not None:
         return None
 
+    accepted_at = datetime.now(timezone.utc)
     user = models.User(
         email=email,
         password_hash=hash_password(password),
+        terms_accepted_at=accepted_at if terms_version else None,
+        terms_version=terms_version,
+        personal_data_consent_at=(
+            accepted_at if personal_data_consent_version else None
+        ),
+        personal_data_consent_version=personal_data_consent_version,
     )
 
     db.add(user)
 
     try:
-        db.flush()
-        for version in legal_versions or []:
-            db.add(models.UserLegalAcceptance(
-                user_id=user.id,
-                document_version_id=version.id,
-                action=LEGAL_DOCUMENTS[
-                    version.document_key
-                ].acceptance_action,
-            ))
         db.commit()
     except IntegrityError:
         db.rollback()

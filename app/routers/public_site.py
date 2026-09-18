@@ -1,15 +1,11 @@
 from xml.sax.saxutils import escape
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.legal_documents import LEGAL_DOCUMENTS
 from app.legal_documents import LEGAL_DOCUMENT_DATE
-from app.services import legal_document_service
 from app.services.public_site_service import public_site_url
 
 router = APIRouter()
@@ -43,71 +39,30 @@ def apple_icon():
     return icon_response("apple-touch-icon.png")
 
 
-def legal_page(request, db, document_key, legacy_template_name):
-    version = legal_document_service.current_version(db, document_key)
-    if version is None:
-        return templates.TemplateResponse(
-            request=request,
-            name=legacy_template_name,
-            context={
-                "canonical_url": public_site_url(),
-                "document_date": LEGAL_DOCUMENT_DATE,
-            },
-        )
-    definition = LEGAL_DOCUMENTS[document_key]
+def legal_page(request, template_name):
     return templates.TemplateResponse(
         request=request,
-        name="legal_document.html",
+        name=template_name,
         context={
             "canonical_url": public_site_url(),
-            "definition": definition,
-            "document": version,
-            "rendered_content": legal_document_service.render_markdown(version.content),
-            "historical": False,
+            "document_date": LEGAL_DOCUMENT_DATE,
         },
     )
 
 
 @router.get("/privacy")
-def privacy(request: Request, db: Session = Depends(get_db)):
-    return legal_page(request, db, "privacy", "privacy.html")
+def privacy(request: Request):
+    return legal_page(request, "privacy.html")
 
 
 @router.get("/terms")
-def terms(request: Request, db: Session = Depends(get_db)):
-    return legal_page(request, db, "terms", "terms.html")
+def terms(request: Request):
+    return legal_page(request, "terms.html")
 
 
 @router.get("/consent")
-def consent(request: Request, db: Session = Depends(get_db)):
-    return legal_page(request, db, "consent", "consent.html")
-
-
-@router.get("/legal/{document_key}/{version}")
-def legal_version(
-    document_key: str,
-    version: str,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    try:
-        definition = LEGAL_DOCUMENTS[document_key]
-    except KeyError as exc:
-        raise HTTPException(404, "Документ не найден.") from exc
-    document = legal_document_service.version_by_name(db, document_key, version)
-    if document is None:
-        raise HTTPException(404, "Версия документа не найдена.")
-    return templates.TemplateResponse(
-        request=request,
-        name="legal_document.html",
-        context={
-            "canonical_url": None,
-            "definition": definition,
-            "document": document,
-            "rendered_content": legal_document_service.render_markdown(document.content),
-            "historical": document.status == "archived",
-        },
-    )
+def consent(request: Request):
+    return legal_page(request, "consent.html")
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse)

@@ -1,14 +1,12 @@
-from urllib.parse import quote
-
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app import models
 from app.database import get_db
-from app.services import legal_document_service, project_service, user_service
+from app.services import project_service, user_service
 
 
-def require_authenticated_user(
+def require_user(
     request: Request,
     db: Session = Depends(get_db),
 ) -> models.User:
@@ -42,34 +40,6 @@ def require_authenticated_user(
         )
 
     return user
-
-
-def require_user(
-    request: Request,
-    current_user: models.User = Depends(require_authenticated_user),
-    db: Session = Depends(get_db),
-) -> models.User:
-    """Require authentication and all current legal confirmations."""
-    pending = legal_document_service.pending_versions(
-        db, current_user.id,
-    )
-    admin_bootstrap = request.url.path.startswith(
-        "/admin/legal-documents"
-    )
-    if pending and not admin_bootstrap:
-        target = request.url.path
-        if request.url.query:
-            target += f"?{request.url.query}"
-        raise HTTPException(
-            status_code=303,
-            headers={
-                "Location": (
-                    "/legal/updates?next="
-                    + quote(target, safe="")
-                )
-            },
-        )
-    return current_user
 
 
 def require_project_owner(

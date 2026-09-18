@@ -1,6 +1,4 @@
 import os
-from datetime import datetime, timezone
-from hashlib import sha256
 
 import pytest
 import httpx
@@ -120,54 +118,6 @@ def test_environment():
     )
 
     setup_db.flush()
-
-    legal_contents = {
-        "terms": (
-            "# Пользовательское соглашение Decision Matrix AI\n\n"
-            "Результаты имеют информационный и рекомендательный характер.\n\n"
-            "Сервис не заменяет профессиональную юридическую консультацию.\n\n"
-            "[Согласие на обработку данных](/consent)"
-        ),
-        "privacy": (
-            "# Политика обработки данных пользователей\n\n"
-            "Полуянов Евгений Владимирович, физическое лицо.\n\n"
-            "https://dmatrix.tech/privacy\n\n"
-            "ai.magnetovc@gmail.com\n\n"
-            "Аналитика используется только при наличии соответствующего согласия пользователя."
-        ),
-        "consent": (
-            "# Согласие на обработку данных пользователя\n\n"
-            "Я свободно и в своем интересе даю согласие.\n\n"
-            "Согласие действует до достижения целей обработки или его отзыва.\n\n"
-            "[Политика обработки данных](/privacy)"
-        ),
-    }
-    legal_versions = []
-    for document_key, content in legal_contents.items():
-        version = models.LegalDocumentVersion(
-            document_key=document_key,
-            version="2026-09-14",
-            content=content,
-            change_summary="Первая тестовая редакция",
-            status="published",
-            content_sha256=sha256(content.encode("utf-8")).hexdigest(),
-            published_at=datetime.now(timezone.utc),
-        )
-        setup_db.add(version)
-        legal_versions.append(version)
-    setup_db.flush()
-    for user in (user_1, user_2):
-        for version in legal_versions:
-            action = {
-                "terms": "accepted",
-                "privacy": "acknowledged",
-                "consent": "consented",
-            }[version.document_key]
-            setup_db.add(models.UserLegalAcceptance(
-                user_id=user.id,
-                document_version_id=version.id,
-                action=action,
-            ))
 
     project_1 = models.Project(
         name="Проект пользователя 1",
