@@ -378,14 +378,14 @@ def test_registration_requires_separate_legal_confirmations(
     response = client.post("/register", data=base)
     assert response.status_code == 400
     assert "Примите Пользовательское соглашение." in response.text
-    assert "Дайте согласие на обработку данных пользователя." in response.text
+    assert "Дайте согласие на обработку персональных данных." in response.text
 
     response = client.post(
         "/register",
         data={**base, "terms_accepted": "yes"},
     )
     assert response.status_code == 400
-    assert "Дайте согласие на обработку данных пользователя." in response.text
+    assert "Дайте согласие на обработку персональных данных." in response.text
     assert re.search(
         r'<input(?=[^>]*name="terms_accepted")(?=[^>]*\bchecked\b)[^>]*>',
         response.text,

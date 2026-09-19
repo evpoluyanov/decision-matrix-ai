@@ -16,6 +16,10 @@ os.environ["SESSION_HTTPS_ONLY"] = "false"
 
 from app import models
 from app.database import Base, get_db
+from app.legal_documents import (
+    LEGAL_DOCUMENT_VERSION,
+    default_legal_document_content,
+)
 from app.main import app
 from app.security import hash_password
 
@@ -122,31 +126,14 @@ def test_environment():
     setup_db.flush()
 
     legal_contents = {
-        "terms": (
-            "# Пользовательское соглашение Decision Matrix AI\n\n"
-            "Результаты имеют информационный и рекомендательный характер.\n\n"
-            "Сервис не заменяет профессиональную юридическую консультацию.\n\n"
-            "[Согласие на обработку данных](/consent)"
-        ),
-        "privacy": (
-            "# Политика обработки данных пользователей\n\n"
-            "Полуянов Евгений Владимирович, физическое лицо.\n\n"
-            "https://dmatrix.tech/privacy\n\n"
-            "ai.magnetovc@gmail.com\n\n"
-            "Аналитика используется только при наличии соответствующего согласия пользователя."
-        ),
-        "consent": (
-            "# Согласие на обработку данных пользователя\n\n"
-            "Я свободно и в своем интересе даю согласие.\n\n"
-            "Согласие действует до достижения целей обработки или его отзыва.\n\n"
-            "[Политика обработки данных](/privacy)"
-        ),
+        key: default_legal_document_content(key)
+        for key in ("terms", "privacy", "consent")
     }
     legal_versions = []
     for document_key, content in legal_contents.items():
         version = models.LegalDocumentVersion(
             document_key=document_key,
-            version="2026-09-14",
+            version=LEGAL_DOCUMENT_VERSION,
             content=content,
             change_summary="Первая тестовая редакция",
             status="published",

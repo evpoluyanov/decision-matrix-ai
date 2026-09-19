@@ -166,7 +166,7 @@ def register_user(
 
     if personal_data_consent != "yes":
         errors.append(
-            "Дайте согласие на обработку данных пользователя."
+            "Дайте согласие на обработку персональных данных."
         )
 
     if errors:

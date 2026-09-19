@@ -1,0 +1,11 @@
+<aside class="cookie-consent shadow-lg" role="dialog" aria-live="polite" aria-label="Настройки файлов cookie">
+    <div class="cookie-consent__body">
+        <p class="mb-2"><strong>Настройки cookie</strong></p>
+        <p class="small mb-3">Строго необходимые cookie обеспечивают вход и безопасность. Яндекс Метрика и аналитические cookie включатся только с вашего согласия. Отказ не ограничит работу сервиса. <a href="/cookies">Подробнее</a>.</p>
+        <form method="post" action="/cookie-consent" class="d-flex flex-wrap gap-2">
+            <input type="hidden" name="next_path" value="{{ cookie_return_path }}">
+            <button class="btn btn-primary btn-sm" type="submit" name="analytics" value="yes">Разрешить аналитику</button>
+            <button class="btn btn-outline-secondary btn-sm" type="submit" name="analytics" value="no">Без аналитики</button>
+        </form>
+    </div>
+</aside>

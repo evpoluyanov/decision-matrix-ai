@@ -1,6 +1,7 @@
 from sqlalchemy import delete, select
 
 from app import models
+from app.legal_documents import LEGAL_DOCUMENT_DATE, LEGAL_DOCUMENT_VERSION
 from app.services import legal_document_service
 from tests.conftest import TEST_PASSWORD
 
@@ -28,7 +29,7 @@ def test_admin_draft_preview_publish_and_mandatory_confirmation(
     dashboard = client.get("/admin/legal-documents")
     assert dashboard.status_code == 200
     assert "Пользовательское соглашение" in dashboard.text
-    assert "2026-09-14" in dashboard.text
+    assert LEGAL_DOCUMENT_VERSION in dashboard.text
 
     saved = client.post(
         "/admin/legal-documents/terms/draft",
@@ -116,7 +117,7 @@ def test_admin_draft_preview_publish_and_mandatory_confirmation(
         assert [item.version for item in pending] == ["2026-09-18.1"]
         new_version_id = pending[0].id
         old_version = legal_document_service.version_by_name(
-            db, "terms", "2026-09-14",
+            db, "terms", LEGAL_DOCUMENT_VERSION,
         )
         assert old_version.status == "archived"
 
@@ -227,7 +228,7 @@ def test_no_legacy_data_is_required_and_registration_fails_closed(
     # Static approved pages remain visible until the owner publishes managed versions.
     fallback = client.get("/terms")
     assert fallback.status_code == 200
-    assert "Дата редакции: 14.09.2026" in fallback.text
+    assert f"дата редакции: {LEGAL_DOCUMENT_DATE}" in fallback.text
 
     registration = client.get("/register")
     assert registration.status_code == 503
@@ -238,10 +239,10 @@ def test_published_versions_are_immutable_and_history_remains_public(
     client,
     test_environment,
 ):
-    old = client.get("/legal/terms/2026-09-14")
+    old = client.get(f"/legal/terms/{LEGAL_DOCUMENT_VERSION}")
     assert old.status_code == 200
     assert "Пользовательское соглашение" in old.text
-    assert client.get("/legal/unknown/2026-09-14").status_code == 404
+    assert client.get(f"/legal/unknown/{LEGAL_DOCUMENT_VERSION}").status_code == 404
 
 
 def test_version_suggestion_increments_within_one_day(test_environment):

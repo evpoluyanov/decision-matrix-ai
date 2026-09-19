@@ -6,7 +6,11 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.legal_documents import LEGAL_DOCUMENTS, legal_document_definition
+from app.legal_documents import (
+    LEGAL_DOCUMENTS,
+    default_legal_document_content,
+    legal_document_definition,
+)
 from app.services import (
     admin_service,
     feedback_service,
@@ -36,6 +40,11 @@ def legal_editor_response(request, db, document_key, *, error=None, status_code=
                 draft.version if draft else legal_document_service.suggest_version(
                     db, document_key,
                 )
+            ),
+            "suggested_content": (
+                draft.content
+                if draft
+                else default_legal_document_content(document_key)
             ),
             "error": error,
         },

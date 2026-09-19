@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Cookie и настройки — Decision Matrix AI{% endblock %}
+{% block metadata %}{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/cookies">{% endif %}{% endblock %}
+{% block content %}
+<article class="mx-auto" style="max-width: 880px">
+    <h1>Cookie и настройки</h1>
+    <p class="text-secondary">Дата редакции: {{ document_date }}</p>
+    <p>Decision Matrix AI разделяет строго необходимые и необязательные аналитические файлы cookie. Отказ от аналитики не ограничивает работу сервиса.</p>
+
+    <h2 class="h4 mt-4">Строго необходимые</h2>
+    <ul>
+        <li><code>decision_matrix_session</code> — вход, безопасность, подтверждение юридических документов и сохранение состояния обязательных операций; срок до 14 дней.</li>
+        <li><code>dmatrix_cookie_consent</code> — подписанная сервером запись выбора аналитики и версии уведомления; срок до 180 дней.</li>
+    </ul>
+    <p>Эти cookie нужны для запрошенных функций, безопасности и запоминания выбора. Их нельзя отключить в интерфейсе сервиса, но можно удалить в браузере; тогда потребуется войти или выбрать настройки повторно.</p>
+
+    <h2 class="h4 mt-4">Необязательная аналитика</h2>
+    <p>После отдельного согласия загружается Яндекс Метрика. Она может устанавливать cookie с префиксом <code>_ym_</code> и cookie доменов Яндекса, получать технический идентификатор, сведения о браузере и устройстве, посещённой разрешённой странице, источнике перехода и продуктовых событиях.</p>
+    <p>Вебвизор, карта кликов, отслеживание ссылок, электронная коммерция и передача email, содержимого аккаунта или проектов отключены. Сроки отдельных cookie определяются Яндексом и могут различаться. Подробнее — в <a href="https://yandex.ru/legal/metrica_termsofuse/ru/" rel="noreferrer">условиях Яндекс Метрики</a>.</p>
+
+    <h2 class="h4 mt-4">Локальное хранилище браузера</h2>
+    <p><code>sessionStorage</code> используется для восстановления положения страницы и состояния незавершённой операции в текущей вкладке. Эти значения не отправляются поставщику аналитики и удаляются браузером после закрытия вкладки.</p>
+
+    <h2 class="h4 mt-4">Ваш выбор</h2>
+    {% if cookie_consent_choice == "yes" %}
+    <p class="alert alert-success">Сейчас аналитика разрешена.</p>
+    {% elif cookie_consent_choice == "no" %}
+    <p class="alert alert-secondary">Сейчас аналитика отключена.</p>
+    {% elif cookie_settings_available %}
+    <p class="alert alert-warning">Вы ещё не выбрали настройку аналитики.</p>
+    {% else %}
+    <p class="alert alert-secondary">Счётчик аналитики в этом окружении не подключён.</p>
+    {% endif %}
+
+    {% if cookie_settings_available %}
+    <form method="post" action="/cookie-consent" class="d-flex flex-wrap gap-2 mb-4">
+        <input type="hidden" name="next_path" value="/cookies">
+        <button class="btn btn-primary" type="submit" name="analytics" value="yes">Разрешить аналитику</button>
+        <button class="btn btn-outline-secondary" type="submit" name="analytics" value="no">Отключить аналитику</button>
+    </form>
+    {% endif %}
+
+    <p>При отключении сервис прекращает новые обращения к Метрике и удаляет доступные ему cookie Метрики со своего домена. Cookie на доменах Яндекса можно удалить в настройках браузера. Подробности обработки персональных данных приведены в <a href="/privacy">Политике в отношении обработки персональных данных</a>.</p>
+</article>
+{% endblock %}
