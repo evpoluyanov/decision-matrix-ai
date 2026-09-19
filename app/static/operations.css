@@ -12,4 +12,8 @@
 .analysis-dialog h2{font-size:1.3rem;margin:0}
 .analysis-dialog .operation-message{display:flex;align-items:center;gap:.7rem;min-height:4rem}
 .analysis-dialog button:focus-visible{outline:3px solid #0d6efd;outline-offset:3px}
-@media print{.operation-notice,.analysis-dialog,#report-link{display:none}}
+.cookie-consent{position:fixed;z-index:1080;left:1rem;right:1rem;bottom:1rem;margin:auto;max-width:52rem;border:1px solid #cbd3da;border-radius:.75rem;background:#fff;color:#212529}
+.cookie-consent__body{padding:1rem 1.15rem}
+.cookie-consent a:focus-visible,.cookie-consent button:focus-visible{outline:3px solid #0d6efd;outline-offset:3px}
+@media(max-width:575.98px){.cookie-consent{left:.5rem;right:.5rem;bottom:.5rem}.cookie-consent__body{padding:.85rem}}
+@media print{.operation-notice,.analysis-dialog,#report-link,.cookie-consent{display:none}}

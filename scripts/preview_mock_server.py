@@ -110,8 +110,11 @@ def main():
             assert client.post('/login',data={"email":"tester@example.com","password":password}).status_code==200
             for path in [
                 '/projects/1', '/pricing', '/privacy', '/terms', '/consent',
+                '/cookies',
                 '/favicon.svg', '/favicon-120.png', '/favicon.ico',
                 '/apple-touch-icon.png',
+                '/static/vendor/bootstrap-5.3.7.min.css',
+                '/static/vendor/bootstrap-5.3.7.bundle.min.js',
             ]:
                 assert client.get(path).status_code==200, path
             first=client.post('/projects/1/ai/decision-risks',headers={"X-Operation-Key":"preview-smoke-00000001"})

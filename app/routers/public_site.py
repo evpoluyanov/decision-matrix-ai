@@ -1,15 +1,30 @@
 from xml.sax.saxutils import escape
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import (
+    FileResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app import models
 from app.database import get_db
-from app.legal_documents import LEGAL_DOCUMENTS
-from app.legal_documents import LEGAL_DOCUMENT_DATE
-from app.services import legal_document_service
+from app.legal_documents import (
+    LEGAL_DOCUMENTS,
+    LEGAL_DOCUMENT_DATE,
+    LEGAL_DOCUMENT_VERSION,
+    default_legal_document_content,
+)
+from app.services import (
+    attribution_service,
+    cookie_consent_service,
+    legal_document_service,
+    public_site_service,
+)
 from app.services.public_site_service import public_site_url
 
 router = APIRouter()
@@ -43,18 +58,24 @@ def apple_icon():
     return icon_response("apple-touch-icon.png")
 
 
-def legal_page(request, db, document_key, legacy_template_name):
+def legal_page(request, db, document_key):
     version = legal_document_service.current_version(db, document_key)
+    definition = LEGAL_DOCUMENTS[document_key]
     if version is None:
         return templates.TemplateResponse(
             request=request,
-            name=legacy_template_name,
+            name="legal_document_fallback.html",
             context={
                 "canonical_url": public_site_url(),
                 "document_date": LEGAL_DOCUMENT_DATE,
+                "document_version": LEGAL_DOCUMENT_VERSION,
+                "definition": definition,
+                "rendered_content": legal_document_service.render_markdown(
+                    default_legal_document_content(document_key)
+                ),
+                **public_site_service.cookie_context(request),
             },
         )
-    definition = LEGAL_DOCUMENTS[document_key]
     return templates.TemplateResponse(
         request=request,
         name="legal_document.html",
@@ -64,23 +85,71 @@ def legal_page(request, db, document_key, legacy_template_name):
             "document": version,
             "rendered_content": legal_document_service.render_markdown(version.content),
             "historical": False,
+            **public_site_service.cookie_context(request),
         },
     )
 
 
 @router.get("/privacy")
 def privacy(request: Request, db: Session = Depends(get_db)):
-    return legal_page(request, db, "privacy", "privacy.html")
+    return legal_page(request, db, "privacy")
 
 
 @router.get("/terms")
 def terms(request: Request, db: Session = Depends(get_db)):
-    return legal_page(request, db, "terms", "terms.html")
+    return legal_page(request, db, "terms")
 
 
 @router.get("/consent")
 def consent(request: Request, db: Session = Depends(get_db)):
-    return legal_page(request, db, "consent", "consent.html")
+    return legal_page(request, db, "consent")
+
+
+@router.get("/cookies")
+def cookies_policy(request: Request):
+    context = public_site_service.cookie_context(request)
+    # The page itself contains the complete settings form; do not duplicate
+    # the compact banner there.
+    context["cookie_consent_required"] = False
+    return templates.TemplateResponse(
+        request=request,
+        name="cookies.html",
+        context={
+            "canonical_url": public_site_url(),
+            "document_date": LEGAL_DOCUMENT_DATE,
+            **context,
+        },
+    )
+
+
+@router.post("/cookie-consent")
+def set_cookie_consent(
+    request: Request,
+    analytics: str = Form(...),
+    next_path: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    if analytics not in {"yes", "no"}:
+        raise HTTPException(400, "Выберите, разрешать ли аналитические cookie.")
+    if analytics == "no":
+        request.session.pop(attribution_service.SESSION_KEY, None)
+        visitor_id = request.session.pop("product_visitor_id", None)
+        if isinstance(visitor_id, str):
+            db.query(models.ProductEvent).filter_by(
+                dedupe_key=f"pricing_viewed:visitor:{visitor_id}"
+            ).delete(synchronize_session=False)
+        user_id = request.session.get("user_id")
+        if isinstance(user_id, int):
+            db.query(models.UserAttribution).filter_by(user_id=user_id).delete(
+                synchronize_session=False
+            )
+        db.commit()
+    response = RedirectResponse(
+        cookie_consent_service.safe_return_path(next_path),
+        status_code=303,
+    )
+    cookie_consent_service.set_choice(response, request, analytics)
+    return response
 
 
 @router.get("/legal/{document_key}/{version}")
@@ -106,6 +175,7 @@ def legal_version(
             "document": document,
             "rendered_content": legal_document_service.render_markdown(document.content),
             "historical": document.status == "archived",
+            **public_site_service.cookie_context(request),
         },
     )
 

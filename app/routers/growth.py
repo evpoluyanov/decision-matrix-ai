@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from app import models
 from app.auth_dependencies import require_user
 from app.database import get_db
-from app.services import feedback_service, growth_service, public_site_service
+from app.services import (
+    cookie_consent_service,
+    feedback_service,
+    growth_service,
+    public_site_service,
+)
 
 
 router = APIRouter()
@@ -27,18 +32,32 @@ def analytics_context(request):
 @router.get("/pricing", response_class=HTMLResponse)
 def pricing(request: Request, db: Session = Depends(get_db), saved: int = 0):
     user = optional_user(request, db)
-    visitor = request.session.get("product_visitor_id")
-    if not isinstance(visitor, str):
-        visitor = secrets.token_urlsafe(12)
-        request.session["product_visitor_id"] = visitor
-    identity = f"user:{user.id}" if user else f"visitor:{visitor}"
-    growth_service.record_event(
-        db, "pricing_viewed", user=user,
-        dedupe_key=f"pricing_viewed:{identity}",
-    )
-    if user:
-        growth_service.record_event(db, "paid_offer_viewed", user=user, metadata={"source": "pricing"},
-            dedupe_key=f"paid_offer_viewed:user:{user.id}:source:pricing:project:0")
+    analytics_allowed = cookie_consent_service.analytics_allowed(request)
+    if user is not None:
+        # These first-party events describe an authenticated product action and
+        # are covered by the service/privacy terms, not by optional Metrica.
+        growth_service.record_event(
+            db, "pricing_viewed", user=user,
+            dedupe_key=f"pricing_viewed:user:{user.id}",
+        )
+        growth_service.record_event(
+            db,
+            "paid_offer_viewed",
+            user=user,
+            metadata={"source": "pricing"},
+            dedupe_key=(
+                f"paid_offer_viewed:user:{user.id}:source:pricing:project:0"
+            ),
+        )
+    elif analytics_allowed:
+        visitor = request.session.get("product_visitor_id")
+        if not isinstance(visitor, str):
+            visitor = secrets.token_urlsafe(12)
+            request.session["product_visitor_id"] = visitor
+        growth_service.record_event(
+            db, "pricing_viewed",
+            dedupe_key=f"pricing_viewed:visitor:{visitor}",
+        )
     return templates.TemplateResponse(
         request=request, name="pricing.html",
         context={

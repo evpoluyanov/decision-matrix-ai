@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ definition.title }} — Decision Matrix AI{% endblock %}
+{% block metadata %}{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}{{ definition.path }}">{% endif %}{% endblock %}
+{% block content %}
+<article class="mx-auto" style="max-width: 880px">
+    <h1>{{ definition.title }}</h1>
+    <p class="text-secondary">Версия: {{ document_version }} · дата редакции: {{ document_date }}</p>
+    <div class="legal-document-content">{{ rendered_content }}</div>
+</article>
+{% endblock %}

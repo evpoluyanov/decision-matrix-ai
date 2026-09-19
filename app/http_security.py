@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, RedirectResponse
 from app.services.public_site_service import public_site_url
-from app.services import attribution_service
+from app.services import attribution_service, cookie_consent_service
 
 
 def origin_of(value):
@@ -89,6 +89,10 @@ class FirstTouchAttributionMiddleware(BaseHTTPMiddleware):
     """Capture only sanitised first-touch campaign fields in the signed session."""
 
     async def dispatch(self, request, call_next):
-        if request.method == "GET" and request.url.path in {"/", "/pricing", "/register", "/login"}:
+        if (
+            request.method == "GET"
+            and request.url.path in {"/", "/pricing", "/register", "/login"}
+            and cookie_consent_service.analytics_allowed(request)
+        ):
             attribution_service.capture_first_touch(request)
         return await call_next(request)

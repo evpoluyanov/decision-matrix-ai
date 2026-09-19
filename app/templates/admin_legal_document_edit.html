@@ -15,7 +15,7 @@
                 <div class="col-md-3"><label class="form-label" for="version">Новая версия</label><input id="version" name="version" class="form-control" maxlength="32" value="{{ draft.version if draft else suggested_version }}" required></div>
                 <div class="col-md-5"><label class="form-label" for="change-summary">Краткое описание изменений</label><input id="change-summary" name="change_summary" class="form-control" maxlength="500" value="{{ draft.change_summary if draft else '' }}" placeholder="Что изменилось для пользователя"></div>
                 <div class="col-12"><label class="form-label" for="content">Полный текст документа</label>
-                    <textarea id="content" name="content" class="form-control font-monospace" rows="28" maxlength="200000" required>{{ draft.content if draft else '' }}</textarea>
+                    <textarea id="content" name="content" class="form-control font-monospace" rows="28" maxlength="200000" required>{{ suggested_content }}</textarea>
                     <div class="form-text">Поддерживается безопасная разметка: # заголовок, ## подзаголовок, списки через «-» или «1.», **полужирный текст**. HTML не выполняется.</div>
                 </div>
             </div>

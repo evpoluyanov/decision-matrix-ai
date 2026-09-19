@@ -2,13 +2,11 @@
 <script>
 (function () {
     const counterId = {{ product_analytics_counter_id }};
-    const consentKey = "dmatrix-analytics-consent-v1";
-    const consented = () => {try {return localStorage.getItem(consentKey) === "yes";} catch (_) {return false;}};
     window.dmatrixReachGoal = function (goal, params) {
-        if (!consented() || typeof window.ym !== "function") return;
+        if (typeof window.ym !== "function") return;
         window.ym(counterId, "reachGoal", goal, params || {});
     };
-    if (!consented() || typeof window.ym === "function") return;
+    if (typeof window.ym === "function") return;
     window.ym = window.ym || function () {(window.ym.a = window.ym.a || []).push(arguments);};
     window.ym.l = Date.now();
     const script = document.createElement("script");

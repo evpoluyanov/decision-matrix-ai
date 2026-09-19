@@ -3,7 +3,7 @@
 {% block content %}
 <div class="mx-auto" style="max-width: 920px">
     <h1 class="h3">Обновлены юридические документы</h1>
-    <p class="text-secondary">Для продолжения работы ознакомьтесь с актуальными редакциями и подтвердите каждую из них.</p>
+    <p class="text-secondary">Для продолжения работы ознакомьтесь с актуальными редакциями. Пользовательское соглашение и согласие на обработку персональных данных подтверждаются отдельно; ознакомление с Политикой фиксируется отдельной отметкой.</p>
     {% if error %}<div class="alert alert-warning" role="alert">{{ error }}</div>{% endif %}
     <form method="post" action="/legal/updates">
         <input type="hidden" name="next" value="{{ next_path }}">

@@ -41,6 +41,15 @@ def verify_user(environment):
         db.commit()
 
 
+def allow_analytics(client):
+    response = client.post(
+        "/cookie-consent",
+        data={"analytics": "yes", "next_path": "/"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+
 def complete_trial(environment):
     with environment["TestingSessionLocal"]() as db:
         user = db.get(models.User, environment["user_1_id"])
@@ -160,6 +169,7 @@ def test_second_project_offer_appears_on_first_ai_click_without_paywall(client, 
 def test_first_touch_utm_is_linked_once_at_registration(
     client, test_environment, registration_email,
 ):
+    allow_analytics(client)
     client.get(
         "/?utm_source=telegram&utm_medium=post&utm_campaign=beta&utm_content=launch",
         headers={"Referer": "https://example.org/path?private=value"},
@@ -184,6 +194,7 @@ def test_first_touch_utm_is_linked_once_at_registration(
 def test_direct_first_touch_is_not_overwritten(
     client, test_environment, registration_email,
 ):
+    allow_analytics(client)
     client.get("/")
     client.get("/?utm_source=later")
     response = client.post("/register", data={
@@ -201,6 +212,23 @@ def test_direct_first_touch_is_not_overwritten(
         assert attribution.utm_source is None
 
 
+def test_first_touch_is_not_stored_without_optional_analytics_consent(
+    client, test_environment, registration_email,
+):
+    client.get("/?utm_source=telegram")
+    response = client.post("/register", data={
+        "email": "private-source@example.com", "password": TEST_PASSWORD,
+        "password_confirmation": TEST_PASSWORD,
+        "terms_accepted": "yes", "personal_data_consent": "yes",
+    })
+    assert response.status_code == 200
+    with test_environment["TestingSessionLocal"]() as db:
+        user = db.query(models.User).filter_by(
+            email="private-source@example.com"
+        ).one()
+        assert db.query(models.UserAttribution).filter_by(user_id=user.id).first() is None
+
+
 def test_public_metadata_and_consent_safe_goals(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     monkeypatch.setenv("YANDEX_METRIKA_ID", "112070895")
@@ -209,6 +237,16 @@ def test_public_metadata_and_consent_safe_goals(client, monkeypatch):
     assert "Один полный проект с ИИ — бесплатно" in home
     assert home.count("Для каких решений подходит") == 1
     pricing = client.get("/pricing", headers={"Host": "dmatrix.tech"}).text
-    assert 'localStorage.getItem(consentKey) === "yes"' in pricing
-    assert 'if (!consented() || typeof window.ym !== "function") return' in pricing
+    assert "cookie-consent" in pricing
+    assert "mc.yandex.ru" not in pricing
+    assert "const counterId = 112070895" not in pricing
+    response = client.post(
+        "/cookie-consent",
+        data={"analytics": "yes", "next_path": "/pricing"},
+        headers={"Host": "dmatrix.tech", "Origin": "http://dmatrix.tech"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    pricing = client.get("/pricing", headers={"Host": "dmatrix.tech"}).text
+    assert "localStorage.getItem" not in pricing
     assert "window.dmatrixReachGoal" in pricing
