@@ -49,6 +49,21 @@
                             Главная
                         </a>
                         <a class="nav-link" href="/pricing">Тарифы</a>
+                        <div class="nav-item dropdown">
+                            <button
+                                class="nav-link dropdown-toggle btn btn-link"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                            >
+                                Материалы
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="/vybor-postavshchika">Выбор поставщика</a></li>
+                                <li><a class="dropdown-item" href="/vybor-podryadchika">Выбор подрядчика</a></li>
+                                <li><a class="dropdown-item" href="/vzveshennaya-matritsa-resheniy">Взвешенная матрица</a></li>
+                            </ul>
+                        </div>
 
                         {% if request.session.get("user_id") %}
 
@@ -112,6 +127,13 @@
                 <a href="/consent">Согласие на обработку персональных данных</a>
                 ·
                 <a href="/cookies">Cookie и настройки</a>
+            </p>
+            <p class="small mb-0 mt-1">
+                <a href="/vybor-postavshchika">Выбор поставщика</a>
+                ·
+                <a href="/vybor-podryadchika">Выбор подрядчика</a>
+                ·
+                <a href="/vzveshennaya-matritsa-resheniy">Взвешенная матрица решений</a>
             </p>
         </div>
     </footer>

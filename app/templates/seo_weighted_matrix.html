@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Взвешенная матрица решений: пример и расчёт — Decision Matrix AI{% endblock %}
+
+{% block metadata %}
+<meta name="description" content="Что такое взвешенная матрица решений, как назначить веса критериям и рассчитать итоговый рейтинг. Формула и заполненный пример.">
+{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/vzveshennaya-matritsa-resheniy">{% endif %}
+<meta property="og:title" content="Взвешенная матрица решений: формула и пример">
+<meta property="og:description" content="Пошаговый расчёт рейтинга альтернатив с учётом важности критериев.">
+<meta property="og:type" content="article">
+{% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}/vzveshennaya-matritsa-resheniy"><meta property="og:image" content="{{ canonical_url }}/static/og-decision-matrix.png">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
+{% block content %}
+<article>
+    <nav aria-label="Хлебные крошки" class="small mb-3">
+        <a href="/">Главная</a> <span aria-hidden="true">/</span> Взвешенная матрица решений
+    </nav>
+
+    <header class="mb-5">
+        <p class="text-primary fw-semibold mb-2">Руководство</p>
+        <h1 class="display-6 fw-semibold">Взвешенная матрица решений</h1>
+        <p class="lead text-secondary">
+            Метод помогает сравнить несколько вариантов по набору критериев,
+            когда одни критерии важнее других. Итог — не автоматический приказ,
+            а прозрачная основа для обсуждения решения.
+        </p>
+        <a class="btn btn-primary" href="{{ '/' if request.session.get('user_id') else '/register' }}">Рассчитать свою матрицу</a>
+    </header>
+
+    <section class="mb-5" aria-labelledby="weighted-purpose-title">
+        <h2 id="weighted-purpose-title" class="h3">Когда применять метод</h2>
+        <p>Взвешенная матрица подходит, если есть минимум два варианта и несколько измеримых факторов выбора. Например:</p>
+        <ul>
+            <li>выбор поставщика, подрядчика или программного продукта;</li>
+            <li>сравнение оборудования, помещений или инвестиционных вариантов;</li>
+            <li>оценка сценариев управленческого решения;</li>
+            <li>коллегиальный выбор, который потребуется обосновать.</li>
+        </ul>
+    </section>
+
+    <section class="mb-5" aria-labelledby="weighted-formula-title">
+        <h2 id="weighted-formula-title" class="h3">Формула взвешенной оценки</h2>
+        <div class="card bg-light border-0"><div class="card-body p-4">
+            <p class="h5 mb-2"><var>Итог варианта</var> = Σ (<var>оценка по критерию</var> × <var>вес критерия</var>) / 100</p>
+            <p class="mb-0 text-secondary">
+                Если оценки заданы от 0 до 10, итог также будет находиться в диапазоне от 0 до 10.
+                Сумма весов должна равняться 100%.
+            </p>
+        </div></div>
+    </section>
+
+    <section class="mb-5" aria-labelledby="weighted-steps-title">
+        <h2 id="weighted-steps-title" class="h3">Как составить матрицу</h2>
+        <ol>
+            <li><strong>Определите альтернативы.</strong> Сравнивайте варианты одного уровня и назначения.</li>
+            <li><strong>Выберите критерии.</strong> Они должны быть понятными, независимыми и проверяемыми.</li>
+            <li><strong>Назначьте веса.</strong> Чем важнее критерий, тем больше его вклад в результат.</li>
+            <li><strong>Задайте шкалу.</strong> Опишите, что означают низкий, средний и высокий баллы.</li>
+            <li><strong>Оцените варианты.</strong> Используйте одинаковые источники данных и правила.</li>
+            <li><strong>Проверьте устойчивость.</strong> Измените спорные веса и посмотрите, меняется ли лидер.</li>
+        </ol>
+    </section>
+
+    <section class="mb-5" aria-labelledby="weighted-example-title">
+        <h2 id="weighted-example-title" class="h3">Пример расчёта</h2>
+        <p>Компания выбирает одну из трёх программ. Оценки выставлены по шкале от 0 до 10.</p>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light"><tr><th scope="col">Критерий</th><th scope="col">Вес</th><th scope="col">Вариант А</th><th scope="col">Вариант Б</th><th scope="col">Вариант В</th></tr></thead>
+                <tbody>
+                    <tr><th scope="row">Полная стоимость</th><td>30%</td><td>8</td><td>6</td><td>9</td></tr>
+                    <tr><th scope="row">Функциональность</th><td>30%</td><td>7</td><td>9</td><td>6</td></tr>
+                    <tr><th scope="row">Сложность внедрения</th><td>20%</td><td>9</td><td>7</td><td>8</td></tr>
+                    <tr><th scope="row">Поддержка</th><td>20%</td><td>6</td><td>9</td><td>7</td></tr>
+                </tbody>
+                <tfoot class="table-primary"><tr><th scope="row">Взвешенный результат</th><th>100%</th><th>7,50</th><th>7,70</th><th>7,50</th></tr></tfoot>
+            </table>
+        </div>
+        <p>
+            Вариант Б получает 7,70 и занимает первое место. Например, его результат рассчитан так:
+            6 × 30% + 9 × 30% + 7 × 20% + 9 × 20% = 7,70.
+        </p>
+    </section>
+
+    <section class="mb-5" aria-labelledby="weighted-weights-title">
+        <h2 id="weighted-weights-title" class="h3">Как назначать веса без самообмана</h2>
+        <ul>
+            <li>сначала согласуйте критерии, затем оценивайте конкретные варианты;</li>
+            <li>не делайте почти все критерии одинаково важными — это скрывает приоритеты;</li>
+            <li>не учитывайте один фактор дважды под разными названиями;</li>
+            <li>обязательные требования оформляйте как фильтры, а не как обычные баллы;</li>
+            <li>сохраните пояснение к весам и оценкам, чтобы результат можно было проверить.</li>
+        </ul>
+    </section>
+
+    <section class="mb-4" aria-labelledby="weighted-ai-title">
+        <h2 id="weighted-ai-title" class="h3">Как использовать ИИ</h2>
+        <p>
+            ИИ может предложить альтернативы, критерии, начальные веса и оценки,
+            а также объяснить результат и риски. Факты и исходные данные необходимо
+            проверять: окончательное решение остаётся за пользователем.
+        </p>
+    </section>
+
+    {% include "_seo_cta.html" %}
+    {% include "_seo_related.html" %}
+</article>
+
+{% if metrika_counter_id %}{% include "_analytics_pageview.html" %}{% endif %}
+{% endblock %}

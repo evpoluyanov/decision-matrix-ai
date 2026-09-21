@@ -122,6 +122,41 @@ def cookies_policy(request: Request):
     )
 
 
+def seo_page(request: Request, template_name: str, page_key: str):
+    return templates.TemplateResponse(
+        request=request,
+        name=template_name,
+        context={
+            "seo_page_key": page_key,
+            **public_site_service.page_context(request),
+        },
+    )
+
+
+@router.api_route(
+    "/vybor-postavshchika",
+    methods=["GET", "HEAD"],
+)
+def supplier_selection(request: Request):
+    return seo_page(request, "seo_supplier_selection.html", "supplier")
+
+
+@router.api_route(
+    "/vybor-podryadchika",
+    methods=["GET", "HEAD"],
+)
+def contractor_selection(request: Request):
+    return seo_page(request, "seo_contractor_selection.html", "contractor")
+
+
+@router.api_route(
+    "/vzveshennaya-matritsa-resheniy",
+    methods=["GET", "HEAD"],
+)
+def weighted_decision_matrix(request: Request):
+    return seo_page(request, "seo_weighted_matrix.html", "weighted")
+
+
 @router.post("/cookie-consent")
 def set_cookie_consent(
     request: Request,
@@ -185,9 +220,13 @@ def robots():
     site = public_site_url()
     if not site:
         return "User-agent: *\nDisallow: /\n"
+    allowed_pages = "".join(
+        f"Allow: {path}$\n" for path, _title in public_site_service.INDEXABLE_PUBLIC_PAGES
+        if path != "/"
+    )
     return (
         "User-agent: *\nDisallow: /\n"
-        "Allow: /$\nAllow: /pricing$\n"
+        f"Allow: /$\n{allowed_pages}"
         "Allow: /favicon.svg$\nAllow: /favicon-120.png$\nAllow: /favicon.ico$\n"
         "Allow: /apple-touch-icon.png$\nAllow: /static/\n"
         f"Sitemap: {site}/sitemap.xml\n"
@@ -201,7 +240,7 @@ def sitemap():
     if site:
         entries = "".join(
             f"<url><loc>{escape(site)}{path}</loc></url>"
-            for path in ("/", "/pricing")
+            for path, _title in public_site_service.INDEXABLE_PUBLIC_PAGES
         )
     return Response(
         '<?xml version="1.0" encoding="UTF-8"?>'

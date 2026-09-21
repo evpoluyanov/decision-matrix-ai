@@ -1,0 +1,16 @@
+<section class="card border-primary-subtle bg-primary-subtle my-5" aria-labelledby="seo-cta-title">
+    <div class="card-body p-4 p-lg-5 text-center">
+        <h2 id="seo-cta-title" class="h3">Соберите матрицу для своей задачи</h2>
+        <p class="mb-4">
+            Добавьте варианты и критерии, задайте веса и получите рейтинг,
+            объяснение результата и анализ рисков. Предложения ИИ можно
+            проверить и изменить вручную.
+        </p>
+        {% if request.session.get("user_id") %}
+        <a class="btn btn-primary" href="/">Создать проект</a>
+        {% else %}
+        <a class="btn btn-primary" href="/register">Создать бесплатный проект</a>
+        <div class="small text-muted mt-2">Один полный проект с ИИ — бесплатно. Без банковской карты.</div>
+        {% endif %}
+    </div>
+</section>

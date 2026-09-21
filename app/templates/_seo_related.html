@@ -1,0 +1,35 @@
+<section class="mb-5" aria-labelledby="related-materials-title">
+    <h2 id="related-materials-title" class="h3 mb-3">Другие материалы</h2>
+    <div class="row g-3">
+        {% if seo_page_key != "supplier" %}
+        <div class="col-12 col-lg-4">
+            <a class="card h-100 text-decoration-none text-body" href="/vybor-postavshchika">
+                <div class="card-body">
+                    <h3 class="h5">Выбор поставщика</h3>
+                    <p class="text-secondary mb-0">Критерии, веса и заполненный пример оценки трёх поставщиков.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+        {% if seo_page_key != "contractor" %}
+        <div class="col-12 col-lg-4">
+            <a class="card h-100 text-decoration-none text-body" href="/vybor-podryadchika">
+                <div class="card-body">
+                    <h3 class="h5">Выбор подрядчика</h3>
+                    <p class="text-secondary mb-0">Практическая матрица для сравнения опыта, цены, сроков и рисков.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+        {% if seo_page_key != "weighted" %}
+        <div class="col-12 col-lg-4">
+            <a class="card h-100 text-decoration-none text-body" href="/vzveshennaya-matritsa-resheniy">
+                <div class="card-body">
+                    <h3 class="h5">Взвешенная матрица решений</h3>
+                    <p class="text-secondary mb-0">Формула, пример расчёта и правила назначения весов.</p>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>

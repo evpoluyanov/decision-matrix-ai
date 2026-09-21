@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Как выбрать подрядчика: критерии и матрица оценки — Decision Matrix AI{% endblock %}
+
+{% block metadata %}
+<meta name="description" content="Как выбрать подрядчика: критерии опыта, команды, цены, сроков и рисков, заполненный пример матрицы и обоснованный рейтинг вариантов.">
+{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/vybor-podryadchika">{% endif %}
+<meta property="og:title" content="Как выбрать подрядчика: критерии и матрица оценки">
+<meta property="og:description" content="Практический способ сравнить подрядчиков по опыту, ресурсам, цене, срокам и рискам.">
+<meta property="og:type" content="article">
+{% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}/vybor-podryadchika"><meta property="og:image" content="{{ canonical_url }}/static/og-decision-matrix.png">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
+{% block content %}
+<article>
+    <nav aria-label="Хлебные крошки" class="small mb-3">
+        <a href="/">Главная</a> <span aria-hidden="true">/</span> Выбор подрядчика
+    </nav>
+
+    <header class="row align-items-center g-4 mb-5">
+        <div class="col-12 col-lg-8">
+            <p class="text-primary fw-semibold mb-2">Практический пример</p>
+            <h1 class="display-6 fw-semibold">Как выбрать подрядчика по критериям</h1>
+            <p class="lead text-secondary mb-3">
+                Сравните кандидатов по опыту, ресурсам, цене, срокам и рискам.
+                Взвешенная оценка делает выбор прозрачнее, но не заменяет проверку документов и договора.
+            </p>
+            <a class="btn btn-primary" href="{{ '/' if request.session.get('user_id') else '/register' }}">Создать матрицу подрядчиков</a>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0"><div class="card-body">
+                <h2 class="h5">Матрица полезна, когда</h2>
+                <ul class="mb-0">
+                    <li>предложения отличаются не только ценой;</li>
+                    <li>решение принимает несколько участников;</li>
+                    <li>нужно объяснить выбор руководству;</li>
+                    <li>есть близкие по рейтингу кандидаты.</li>
+                </ul>
+            </div></div>
+        </div>
+    </header>
+
+    <section class="mb-5" aria-labelledby="contractor-criteria-title">
+        <h2 id="contractor-criteria-title" class="h3">Основные критерии выбора подрядчика</h2>
+        <div class="row g-3">
+            {% for title, text in [
+                ('Релевантный опыт', 'Проекты сопоставимого масштаба, отрасли и сложности, а не только общий срок работы компании.'),
+                ('Команда и ресурсы', 'Ключевые специалисты, оборудование, доступность команды и способность выдержать нагрузку.'),
+                ('Стоимость', 'Цена работ, порядок оплаты, состав сметы и правила изменения стоимости.'),
+                ('Сроки', 'Реалистичность графика, этапы, контрольные точки и ответственность за задержки.'),
+                ('Гарантия и поддержка', 'Исправление недостатков, сопровождение после сдачи и понятный порядок обращений.'),
+                ('Репутация и риски', 'Судебные споры, финансовая устойчивость, рекомендации и зависимость от субподрядчиков.')
+            ] %}
+            <div class="col-12 col-md-6"><div class="card h-100"><div class="card-body">
+                <h3 class="h5">{{ title }}</h3><p class="text-secondary mb-0">{{ text }}</p>
+            </div></div></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="mb-5" aria-labelledby="contractor-process-title">
+        <h2 id="contractor-process-title" class="h3">Порядок оценки подрядчиков</h2>
+        <ol>
+            <li>Опишите результат работ и обязательные требования к исполнителю.</li>
+            <li>Проверьте допуски, документы и стоп-факторы до расчёта рейтинга.</li>
+            <li>Согласуйте критерии, веса и шкалу оценки со всеми участниками выбора.</li>
+            <li>Попросите подтверждение ключевых оценок: кейсы, смету, состав команды и график.</li>
+            <li>Рассчитайте рейтинг, затем проведите отдельную проверку рисков лидера.</li>
+        </ol>
+    </section>
+
+    <section class="mb-5" aria-labelledby="contractor-example-title">
+        <h2 id="contractor-example-title" class="h3">Пример матрицы оценки подрядчиков</h2>
+        <p>Три условных подрядчика оцениваются по шкале от 0 до 10.</p>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light"><tr><th scope="col">Критерий</th><th scope="col">Вес</th><th scope="col">Подрядчик А</th><th scope="col">Подрядчик Б</th><th scope="col">Подрядчик В</th></tr></thead>
+                <tbody>
+                    <tr><th scope="row">Релевантный опыт</th><td>25%</td><td>9</td><td>7</td><td>8</td></tr>
+                    <tr><th scope="row">Команда и ресурсы</th><td>20%</td><td>8</td><td>9</td><td>6</td></tr>
+                    <tr><th scope="row">Стоимость</th><td>20%</td><td>6</td><td>8</td><td>9</td></tr>
+                    <tr><th scope="row">Сроки</th><td>15%</td><td>8</td><td>9</td><td>6</td></tr>
+                    <tr><th scope="row">Гарантия и поддержка</th><td>10%</td><td>9</td><td>7</td><td>8</td></tr>
+                    <tr><th scope="row">Репутация и риски</th><td>10%</td><td>8</td><td>7</td><td>6</td></tr>
+                </tbody>
+                <tfoot class="table-primary"><tr><th scope="row">Взвешенный результат</th><th>100%</th><th>7,95</th><th>7,90</th><th>7,30</th></tr></tfoot>
+            </table>
+        </div>
+        <div class="alert alert-light border" role="note">
+            Подрядчик А лидирует с результатом 7,95, но подрядчик Б отстаёт только на 0,05.
+            Для такого решения полезно изменить спорные веса и проверить, сохраняется ли лидер.
+        </div>
+    </section>
+
+    <section class="mb-4" aria-labelledby="contractor-check-title">
+        <h2 id="contractor-check-title" class="h3">Что проверить до договора</h2>
+        <ul>
+            <li>кто именно войдёт в команду и можно ли менять ключевых специалистов;</li>
+            <li>что входит в цену, а какие работы будут считаться дополнительными;</li>
+            <li>как принимаются этапы и устраняются недостатки;</li>
+            <li>кому принадлежат результаты, документация и исходные материалы;</li>
+            <li>какие риски нельзя компенсировать высоким итоговым баллом.</li>
+        </ul>
+    </section>
+
+    {% include "_seo_cta.html" %}
+    {% include "_seo_related.html" %}
+</article>
+
+{% if metrika_counter_id %}{% include "_analytics_pageview.html" %}{% endif %}
+{% endblock %}

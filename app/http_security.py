@@ -10,8 +10,8 @@ from urllib.parse import urlsplit
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, RedirectResponse
-from app.services.public_site_service import public_site_url
-from app.services import attribution_service, cookie_consent_service
+from app.services.public_site_service import INDEXABLE_PUBLIC_PATHS, public_site_url
+from app.services import attribution_service, cookie_consent_service, public_site_service
 
 
 def origin_of(value):
@@ -71,16 +71,19 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
         # the CSRF check above. Keep the origin, never URL paths/query tokens.
         response.headers["Referrer-Policy"] = "strict-origin"
         response.headers["Cache-Control"] = "private, no-store"
-        if (os.getenv("VERCEL") == "1" and os.getenv("VERCEL_ENV") != "production") or (
-            request.url.path == "/" and not public_site_url()
-        ):
-            response.headers["X-Robots-Tag"] = "noindex, nofollow"
-        elif request.url.path not in {
-            "/", "/pricing",
+        public_assets = {
             "/favicon.svg", "/favicon-120.png", "/favicon.ico", "/apple-touch-icon.png",
             "/static/operations.css", "/static/operations.js",
             "/robots.txt", "/sitemap.xml", "/static/og-decision-matrix.png",
-        }:
+        }
+        is_nonproduction = (
+            os.getenv("VERCEL") == "1" and os.getenv("VERCEL_ENV") != "production"
+        )
+        if is_nonproduction or (
+            request.url.path in INDEXABLE_PUBLIC_PATHS and not public
+        ):
+            response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        elif request.url.path not in INDEXABLE_PUBLIC_PATHS | public_assets:
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
         return response
 
@@ -91,7 +94,7 @@ class FirstTouchAttributionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if (
             request.method == "GET"
-            and request.url.path in {"/", "/pricing", "/register", "/login"}
+            and request.url.path in public_site_service.ATTRIBUTION_PATHS
             and cookie_consent_service.analytics_allowed(request)
         ):
             attribution_service.capture_first_touch(request)

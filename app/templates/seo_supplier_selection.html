@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Как выбрать поставщика: критерии и матрица оценки — Decision Matrix AI{% endblock %}
+
+{% block metadata %}
+<meta name="description" content="Как выбрать поставщика по понятным критериям: веса, балльная оценка, заполненный пример матрицы и итоговый рейтинг трёх поставщиков.">
+{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/vybor-postavshchika">{% endif %}
+<meta property="og:title" content="Как выбрать поставщика: критерии и матрица оценки">
+<meta property="og:description" content="Сравните поставщиков по цене, качеству, срокам, надёжности и условиям сотрудничества.">
+<meta property="og:type" content="article">
+{% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}/vybor-postavshchika"><meta property="og:image" content="{{ canonical_url }}/static/og-decision-matrix.png">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
+{% block content %}
+<article>
+    <nav aria-label="Хлебные крошки" class="small mb-3">
+        <a href="/">Главная</a> <span aria-hidden="true">/</span> Выбор поставщика
+    </nav>
+
+    <header class="row align-items-center g-4 mb-5">
+        <div class="col-12 col-lg-8">
+            <p class="text-primary fw-semibold mb-2">Практический пример</p>
+            <h1 class="display-6 fw-semibold">Как выбрать поставщика по критериям</h1>
+            <p class="lead text-secondary mb-3">
+                Матрица оценки помогает сравнить предложения по одним правилам,
+                учесть разную важность критериев и зафиксировать обоснование выбора.
+            </p>
+            <a class="btn btn-primary" href="{{ '/' if request.session.get('user_id') else '/register' }}">Создать матрицу поставщиков</a>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h2 class="h5">Подходит для выбора</h2>
+                    <ul class="mb-0">
+                        <li>поставщика товаров или оборудования;</li>
+                        <li>поставщика услуг;</li>
+                        <li>партнёра в закупочной логистике;</li>
+                        <li>основного и резервного поставщика.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="mb-5" aria-labelledby="supplier-criteria-title">
+        <h2 id="supplier-criteria-title" class="h3">Критерии выбора поставщика</h2>
+        <p>Набор критериев зависит от закупки. Для первой версии матрицы обычно достаточно пяти–семи факторов:</p>
+        <div class="row g-3">
+            {% for title, text in [
+                ('Цена и полная стоимость', 'Не только цена единицы, но и доставка, обслуживание, налоги и возможные дополнительные расходы.'),
+                ('Качество', 'Соответствие требованиям, стабильность характеристик, сертификаты и доля брака.'),
+                ('Сроки поставки', 'Обычный срок, способность соблюдать график и действовать при срочном заказе.'),
+                ('Надёжность', 'Опыт, финансовая устойчивость, рекомендации и исполнение прошлых обязательств.'),
+                ('Условия сотрудничества', 'Оплата, гарантия, возврат, минимальная партия и готовность обсуждать изменения.'),
+                ('Риски', 'Зависимость от одного канала, санкционные, логистические, валютные и юридические ограничения.')
+            ] %}
+            <div class="col-12 col-md-6"><div class="card h-100"><div class="card-body">
+                <h3 class="h5">{{ title }}</h3><p class="text-secondary mb-0">{{ text }}</p>
+            </div></div></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="mb-5" aria-labelledby="supplier-steps-title">
+        <h2 id="supplier-steps-title" class="h3">Как провести оценку</h2>
+        <ol>
+            <li>Зафиксируйте обязательные требования. Несоответствующие варианты исключите до балльной оценки.</li>
+            <li>Выберите критерии, которые действительно различают поставщиков.</li>
+            <li>Распределите веса так, чтобы их сумма составляла 100%.</li>
+            <li>Оцените каждого поставщика по единой шкале, например от 0 до 10.</li>
+            <li>Сравните итоговый рейтинг и отдельно проверьте риски двух лидеров.</li>
+        </ol>
+    </section>
+
+    <section class="mb-5" aria-labelledby="supplier-example-title">
+        <h2 id="supplier-example-title" class="h3">Заполненный пример матрицы поставщиков</h2>
+        <p>Условная компания сравнивает три предложения. Баллы выставлены по шкале от 0 до 10.</p>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light"><tr><th scope="col">Критерий</th><th scope="col">Вес</th><th scope="col">Поставщик А</th><th scope="col">Поставщик Б</th><th scope="col">Поставщик В</th></tr></thead>
+                <tbody>
+                    <tr><th scope="row">Цена и полная стоимость</th><td>25%</td><td>8</td><td>6</td><td>9</td></tr>
+                    <tr><th scope="row">Качество</th><td>30%</td><td>7</td><td>9</td><td>6</td></tr>
+                    <tr><th scope="row">Сроки поставки</th><td>20%</td><td>9</td><td>7</td><td>8</td></tr>
+                    <tr><th scope="row">Надёжность</th><td>15%</td><td>8</td><td>9</td><td>7</td></tr>
+                    <tr><th scope="row">Условия сотрудничества</th><td>10%</td><td>6</td><td>8</td><td>7</td></tr>
+                </tbody>
+                <tfoot class="table-primary"><tr><th scope="row">Взвешенный результат</th><th>100%</th><th>7,70</th><th>7,75</th><th>7,40</th></tr></tfoot>
+            </table>
+        </div>
+        <div class="alert alert-light border" role="note">
+            Поставщик Б получил лучший результат — 7,75, но разрыв с поставщиком А всего 0,05.
+            Перед решением стоит проверить чувствительность результата к весам и иметь резервный вариант.
+        </div>
+    </section>
+
+    <section class="mb-4" aria-labelledby="supplier-errors-title">
+        <h2 id="supplier-errors-title" class="h3">Что может исказить результат</h2>
+        <ul>
+            <li>разные правила выставления баллов для разных поставщиков;</li>
+            <li>дублирующие критерии, которые дважды учитывают одно преимущество;</li>
+            <li>оценки без подтверждающих документов и фактов;</li>
+            <li>игнорирование обязательных требований ради высокого итогового балла;</li>
+            <li>выбор только по рейтингу без проверки рисков и условий договора.</li>
+        </ul>
+    </section>
+
+    {% include "_seo_cta.html" %}
+    {% include "_seo_related.html" %}
+</article>
+
+{% if metrika_counter_id %}{% include "_analytics_pageview.html" %}{% endif %}
+{% endblock %}

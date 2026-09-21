@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}
-Decision Matrix AI
+Матрица принятия решений с ИИ — Decision Matrix AI
 {% endblock %}
 
 {% block metadata %}
-<meta name="description" content="Decision Matrix AI — матрица принятия решений: сравните альтернативы, выберите критерии и веса, получите объяснение результата и рисков с помощью ИИ.">
+<meta name="description" content="Матрица принятия решений с ИИ: сравните альтернативы по критериям и весам, получите рейтинг, объяснение результата и анализ рисков.">
 {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/">{% endif %}
 <meta property="og:title" content="Decision Matrix AI — сложный выбор по понятным критериям">
 <meta property="og:description" content="Сравните альтернативы, задайте критерии и веса, получите рейтинг, объяснение результата и анализ рисков">
@@ -105,14 +105,14 @@ Decision Matrix AI
         <div class="col-12 col-lg-8 text-center">
 
             <h1 class="display-6 fw-semibold mb-3">
-                Decision Matrix AI
+                Матрица принятия решений с ИИ
             </h1>
 
             <p class="lead text-secondary mb-4">
-                Помогает принимать сложные решения:
-                структурирует альтернативы и критерии,
-                предлагает оценки с помощью ИИ
-                и объясняет итоговый результат.
+                Сравните альтернативы по понятным критериям,
+                задайте их важность и получите взвешенный рейтинг.
+                ИИ поможет подготовить данные, объяснить результат
+                и проанализировать риски.
             </p>
 
             <div
@@ -298,12 +298,36 @@ Decision Matrix AI
         </div>
     </section>
 
-    <section class="pb-5" aria-labelledby="examples-title">
+    <section class="pb-4" aria-labelledby="examples-title">
         <h2 id="examples-title" class="h3 text-center mb-4">Для каких решений подходит</h2>
         <div class="row g-3">
-            {% for example in ['Выбор подрядчика или поставщика', 'Выбор программы, оборудования или сервиса', 'Сравнение вариантов управленческого решения'] %}
-            <div class="col-12 col-md-4"><div class="card h-100"><div class="card-body"><h3 class="h6 mb-0">{{ example }}</h3></div></div></div>
-            {% endfor %}
+            <div class="col-12 col-md-4"><div class="card h-100"><div class="card-body">
+                <h3 class="h5">Выбор подрядчика или поставщика</h3>
+                <p class="text-secondary">Сопоставьте цену, качество, сроки, опыт и риски по единым правилам.</p>
+                <a href="/vybor-postavshchika">Матрица поставщиков</a>
+                <span aria-hidden="true"> · </span>
+                <a href="/vybor-podryadchika">Матрица подрядчиков</a>
+            </div></div></div>
+            <div class="col-12 col-md-4"><div class="card h-100"><div class="card-body">
+                <h3 class="h5">Выбор программы, оборудования или сервиса</h3>
+                <p class="text-secondary mb-0">Учтите стоимость владения, функциональность, внедрение, поддержку и ограничения.</p>
+            </div></div></div>
+            <div class="col-12 col-md-4"><div class="card h-100"><div class="card-body">
+                <h3 class="h5">Сравнение управленческих решений</h3>
+                <p class="text-secondary mb-0">Зафиксируйте приоритеты, проверьте допущения и подготовьте объяснимое обоснование.</p>
+            </div></div></div>
+        </div>
+    </section>
+
+    <section class="pb-5" aria-labelledby="guide-title">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4 d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                <div>
+                    <h2 id="guide-title" class="h4 mb-2">Как работает взвешенная матрица решений</h2>
+                    <p class="text-secondary mb-0">Разберите формулу, правила назначения весов и заполненный пример расчёта.</p>
+                </div>
+                <a class="btn btn-outline-primary flex-shrink-0" href="/vzveshennaya-matritsa-resheniy">Открыть руководство</a>
+            </div>
         </div>
     </section>
 

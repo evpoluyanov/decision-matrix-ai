@@ -4,6 +4,27 @@ from urllib.parse import urlsplit
 from app.services import cookie_consent_service
 
 
+INDEXABLE_PUBLIC_PAGES = (
+    ("/", "Матрица принятия решений с ИИ — Decision Matrix AI"),
+    ("/pricing", "Тарифы — Decision Matrix AI"),
+    (
+        "/vybor-postavshchika",
+        "Как выбрать поставщика: критерии и матрица оценки — Decision Matrix AI",
+    ),
+    (
+        "/vybor-podryadchika",
+        "Как выбрать подрядчика: критерии и матрица оценки — Decision Matrix AI",
+    ),
+    (
+        "/vzveshennaya-matritsa-resheniy",
+        "Взвешенная матрица решений: пример и расчёт — Decision Matrix AI",
+    ),
+)
+INDEXABLE_PUBLIC_PATHS = frozenset(path for path, _title in INDEXABLE_PUBLIC_PAGES)
+PUBLIC_PAGE_TITLES = dict(INDEXABLE_PUBLIC_PAGES)
+ATTRIBUTION_PATHS = INDEXABLE_PUBLIC_PATHS | frozenset({"/register", "/login"})
+
+
 def public_site_url():
     # Separate from APP_BASE_URL: indexing is opt-in after the domain is ready.
     value = os.getenv("PUBLIC_SITE_URL", "").rstrip("/")
@@ -47,8 +68,13 @@ def page_context(request):
     matches_host = public and request.url.hostname == urlsplit(public).hostname
     cookies = cookie_context(request)
     allowed = cookies["cookie_consent_choice"] == "yes"
+    path = request.url.path
+    if path not in INDEXABLE_PUBLIC_PATHS:
+        path = "/"
     return {
         "canonical_url": public,
+        "analytics_page_path": path,
+        "analytics_page_title": PUBLIC_PAGE_TITLES[path],
         "metrika_counter_id": (
             metrika_id()
             if matches_host and allowed and not request.session.get("user_id")

@@ -1,6 +1,8 @@
 <script>
 (() => {
     const counterId = {{ metrika_counter_id | tojson }};
+    const pagePath = {{ analytics_page_path | default("/") | tojson }};
+    const pageTitle = {{ analytics_page_title | default("Decision Matrix AI") | tojson }};
     if (typeof window.ym !== 'function') {
         window.ym = function() { (window.ym.a = window.ym.a || []).push(arguments); };
         window.ym.l = Date.now();
@@ -14,8 +16,8 @@
         });
     }
     const referrer = document.referrer ? document.referrer.split(/[?#]/)[0] : '';
-    window.ym(counterId, 'hit', location.origin + '/', {
-        title: 'Decision Matrix AI',
+    window.ym(counterId, 'hit', location.origin + pagePath, {
+        title: pageTitle,
         referer: referrer
     });
 })();
