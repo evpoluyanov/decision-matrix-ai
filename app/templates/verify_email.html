@@ -20,9 +20,15 @@
                     {{ result_message }}
                 </p>
 
+                <div class="d-flex align-items-center gap-2 mb-3" role="status" aria-live="polite">
+                    <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+                    <span>Это займёт несколько секунд.</span>
+                </div>
+
                 <form
                     method="post"
                     action="/verify-email"
+                    id="verify-email-form"
                 >
                     <input
                         type="hidden"
@@ -32,9 +38,9 @@
 
                     <button
                         type="submit"
-                        class="btn btn-primary"
+                        class="btn btn-outline-primary btn-sm"
                     >
-                        Подтвердить email
+                        Продолжить вручную
                     </button>
                 </form>
             </div>
@@ -106,4 +112,10 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+{% if confirmation_required %}
+<script src="/static/verify-email.js" defer></script>
+{% endif %}
 {% endblock %}

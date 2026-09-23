@@ -21,6 +21,14 @@
                     с личными проектами.
                 </p>
 
+                {% if draft_question %}
+                <div class="alert alert-light border">
+                    <div class="small text-secondary mb-1">Ваш выбор сохранён</div>
+                    <div class="fw-semibold">{{ draft_question }}</div>
+                    <div class="small mt-2">После подтверждения email мы сразу откроем это решение.</div>
+                </div>
+                {% endif %}
+
                 {% if errors %}
                     <div
                         class="alert alert-danger"

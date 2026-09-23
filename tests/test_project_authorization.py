@@ -38,7 +38,8 @@ def login(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/account"
+    expected_project = "1" if email == "user1@test.com" else "2"
+    assert response.headers["location"] == f"/projects/{expected_project}"
 
 
 def test_projects_require_login(
@@ -2429,12 +2430,12 @@ def test_guest_home_does_not_show_project_form(
     assert 'name="project_name"' not in response.text
 
     assert (
-        'name="project_description"'
+        'name="decision_details"'
         not in response.text
     )
 
 
-def test_authenticated_home_shows_project_form(
+def test_authenticated_home_opens_simplified_start_form(
     client,
     test_environment,
 ):
@@ -2447,13 +2448,11 @@ def test_authenticated_home_shows_project_form(
 
     assert response.status_code == 200
 
-    assert (
-        'name="project_name"'
-        in response.text
-    )
+    assert 'name="decision_question"' in response.text
+    assert "Что вы хотите выбрать?" in response.text
 
     assert (
-        'name="project_description"'
+        'name="decision_details"'
         in response.text
     )
 

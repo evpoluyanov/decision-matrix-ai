@@ -22,7 +22,7 @@ INDEXABLE_PUBLIC_PAGES = (
 )
 INDEXABLE_PUBLIC_PATHS = frozenset(path for path, _title in INDEXABLE_PUBLIC_PAGES)
 PUBLIC_PAGE_TITLES = dict(INDEXABLE_PUBLIC_PAGES)
-ATTRIBUTION_PATHS = INDEXABLE_PUBLIC_PATHS | frozenset({"/register", "/login"})
+ATTRIBUTION_PATHS = INDEXABLE_PUBLIC_PATHS | frozenset({"/start", "/register", "/login"})
 
 
 def public_site_url():

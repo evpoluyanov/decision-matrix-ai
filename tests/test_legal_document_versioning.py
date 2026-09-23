@@ -25,7 +25,7 @@ def test_admin_draft_preview_publish_and_mandatory_confirmation(
     monkeypatch,
 ):
     make_admin(monkeypatch, test_environment)
-    assert login(client).headers["location"] == "/account"
+    assert login(client).headers["location"] == "/projects/1"
     dashboard = client.get("/admin/legal-documents")
     assert dashboard.status_code == 200
     assert "Пользовательское соглашение" in dashboard.text
@@ -172,7 +172,7 @@ def test_every_user_gets_update_on_next_login(
 
     response = login(client, "user2@test.com")
     assert response.status_code == 303
-    assert response.headers["location"] == "/legal/updates?next=%2Faccount"
+    assert response.headers["location"] == "/legal/updates?next=%2Fprojects%2F2"
     page = client.get(response.headers["location"])
     assert "Я ознакомился с новой редакцией Политики" in page.text
 

@@ -4,13 +4,13 @@ from app.services import (
 )
 
 
-def test_verify_email_get_does_not_confirm_user(
+def test_verify_email_get_prepares_automatic_confirmation_without_mutation(
     client,
     test_environment,
 ):
     """
-    Открытие ссылки должно показать кнопку,
-    но не изменять пользователя.
+    Открытие ссылки готовит автоматический POST,
+    но сам GET не изменяет пользователя.
     """
     user_id = test_environment[
         "user_1_id"
@@ -37,10 +37,8 @@ def test_verify_email_get_does_not_confirm_user(
         in response.text
     )
 
-    assert (
-        "Подтвердить email"
-        in response.text
-    )
+    assert "Подтверждаем адрес" in response.text
+    assert "/static/verify-email.js" in response.text
 
     assert (
         'action="/verify-email"'
@@ -68,8 +66,8 @@ def test_verify_email_post_confirms_user(
     test_environment,
 ):
     """
-    Отправка формы должна подтвердить email
-    и перенаправить на страницу результата.
+    Отправка формы должна подтвердить email,
+    авторизовать пользователя и открыть его проект.
     """
     user_id = test_environment[
         "user_1_id"
@@ -92,9 +90,7 @@ def test_verify_email_post_confirms_user(
 
     assert response.status_code == 303
 
-    assert response.headers[
-        "location"
-    ] == "/verify-email/result"
+    assert response.headers["location"] == "/projects/1"
 
     TestingSessionLocal = (
         test_environment[
@@ -111,16 +107,9 @@ def test_verify_email_post_confirms_user(
         assert user is not None
         assert user.email_verified is True
 
-    result_page = client.get(
-        "/verify-email/result"
-    )
-
-    assert result_page.status_code == 200
-
-    assert (
-        "Email успешно подтверждён"
-        in result_page.text
-    )
+    project_page = client.get(response.headers["location"])
+    assert project_page.status_code == 200
+    assert "Проект пользователя 1" in project_page.text
 
 
 def test_verify_email_route_is_repeatable(
@@ -151,12 +140,6 @@ def test_verify_email_route_is_repeatable(
     )
 
     assert first_response.status_code == 303
-
-    result_page = client.get(
-        "/verify-email/result"
-    )
-
-    assert result_page.status_code == 200
 
     second_response = client.get(
         "/verify-email",
@@ -323,7 +306,7 @@ def test_email_verification_result_requires_post(
         "location"
     ] == "/login"
 
-def test_verification_result_shows_current_account(
+def test_repeat_confirmation_for_current_account_returns_to_work(
     client,
     test_environment,
 ):
@@ -380,23 +363,4 @@ def test_verification_result_shows_current_account(
 
     assert confirmation_response.status_code == 303
 
-    result_page = client.get(
-        "/verify-email/result"
-    )
-
-    assert result_page.status_code == 200
-
-    assert (
-        "Email уже подтверждён"
-        in result_page.text
-    )
-
-    assert (
-        "Текущий личный кабинет"
-        in result_page.text
-    )
-
-    assert (
-        'href="/account"'
-        in result_page.text
-    )
+    assert confirmation_response.headers["location"] == "/projects/1"

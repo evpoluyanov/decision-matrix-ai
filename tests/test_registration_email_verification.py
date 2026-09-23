@@ -277,7 +277,7 @@ def test_authenticated_user_cannot_open_registration(
 
     assert response.headers[
         "location"
-    ] == "/account"
+    ] == "/start"
 
 
 def test_authenticated_user_cannot_register_again(
@@ -337,7 +337,7 @@ def test_authenticated_user_cannot_register_again(
 
     assert response.headers[
         "location"
-    ] == "/account"
+    ] == "/start"
 
     assert email_was_sent is False
 

@@ -10,113 +10,58 @@
 </div></div></div></div>
 {% endif %}
 
+{% if created or welcome %}
+<div class="alert alert-success shadow-sm" role="status">
+    <strong>{{ 'Email подтверждён. ' if welcome else '' }}Решение сохранено.</strong>
+    Теперь проверьте варианты и укажите, что для вас важно.
+</div>
+{% endif %}
 <div class="mb-4">
-
-    <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
-        <p class="text-muted mb-0">
-            Проект №{{ project.id }}
-        </p>
-
-
-        <a
-            href="/projects"
-            class="btn btn-outline-secondary btn-sm"
-        >
-            Назад к проектам
-        </a>
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+            <div class="small text-muted">Решение №{{ project.id }}</div>
+            <h1 class="h3 mb-0">{{ project.name }}</h1>
+        </div>
+        <a href="/projects" class="btn btn-outline-secondary btn-sm">Все решения</a>
     </div>
 
+    <div class="d-flex flex-wrap gap-2 small mb-3" aria-label="Этапы выбора">
+        <span class="badge text-bg-primary">1. Варианты</span>
+        <span class="badge text-bg-light border text-dark">2. Что важно</span>
+        <span class="badge text-bg-light border text-dark">3. Рекомендация</span>
+    </div>
 
-
-    <form
-        action="/projects/{{ project.id }}/edit"
-        method="post"
-        class="mb-3"
-    >
-        <div class="mb-2">
-            <label
-                for="project-name"
-                class="form-label small text-muted mb-1"
-            >
-                Наименование проекта
-            </label>
-
-            <input
-                id="project-name"
-                type="text"
-                name="project_name"
-                value="{{ project.name }}"
-                class="form-control"
-                maxlength="200"
-                required
-            >
-        </div>
-
-        <div class="mb-2">
-            <label
-                for="project-description"
-                class="form-label small text-muted mb-1"
-            >
-                Описание проекта для ИИ
-            </label>
-
-            <textarea
-                id="project-description"
-                name="project_description"
-                class="form-control"
-                rows="3"
-                placeholder="Опишите задачу, условия и ограничения"
-                maxlength="5000"
-            >{{ project.description or '' }}</textarea>
-
-            <div class="form-text">
-                Описание используется ИИ для подготовки
-                альтернатив, критериев, весов и оценок.
+    <details class="card border-0 bg-white shadow-sm">
+        <summary class="card-body py-3 text-primary">Настройки решения</summary>
+        <div class="card-body pt-0">
+            <form action="/projects/{{ project.id }}/edit" method="post" class="mb-3">
+                <div class="mb-2">
+                    <label for="project-name" class="form-label small text-muted mb-1">Название</label>
+                    <input id="project-name" type="text" name="project_name" value="{{ project.name }}" class="form-control" maxlength="200" required>
+                </div>
+                <div class="mb-2">
+                    <label for="project-description" class="form-label small text-muted mb-1">Важные условия для ИИ</label>
+                    <textarea id="project-description" name="project_description" class="form-control" rows="3" placeholder="Бюджет, сроки и ограничения" maxlength="5000">{{ project.description or '' }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Сохранить</button>
+            </form>
+            <div class="d-flex flex-wrap gap-2">
+                <form action="/projects/{{ project.id }}/copy" method="post">
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Копировать</button>
+                </form>
+                <form action="/projects/{{ project.id }}/delete" method="post" onsubmit="return confirm('Удалить решение и все связанные данные?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Удалить</button>
+                </form>
             </div>
         </div>
-
-        <button
-            type="submit"
-            class="btn btn-primary btn-sm"
-        >
-            Сохранить проект
-        </button>
-    </form>
-    
-    <div class="d-flex flex-wrap gap-2">
-        <form
-            action="/projects/{{ project.id }}/copy"
-            method="post"
-        >
-            <button
-                type="submit"
-                class="btn btn-outline-primary"
-            >
-                Копировать
-            </button>
-        </form>
-
-        <form
-            action="/projects/{{ project.id }}/delete"
-            method="post"
-            onsubmit="return confirm('Удалить проект и все связанные данные?');"
-        >
-            <button
-                type="submit"
-                class="btn btn-outline-danger"
-            >
-                Удалить проект
-            </button>
-        </form>
-    </div>
-
+    </details>
 </div>
 
 
 <div class="row g-4 mb-4">
 
     <!-- Альтернативы -->
-    <div class="col-lg-6">
+    <div class="col-12">
         <div class="card shadow-sm h-100">
 
             <div
@@ -125,7 +70,7 @@
                     align-items-center"
             >
                 <h2 class="h5 mb-0">
-                    Альтернативы
+                    1. Варианты
                 </h2>
 
                 <button
@@ -135,7 +80,7 @@
                     title="Предложить альтернативы с ИИ"
                     aria-label="Предложить альтернативы с ИИ"
                 >
-                    ✦
+                    ✦ Предложить
                 </button>
             </div>
 
@@ -270,8 +215,13 @@
 
 
     <!-- Критерии -->
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
+    <div class="col-12">
+        <details class="card border-0 shadow-sm">
+            <summary class="card-body py-3 text-primary">
+                Точные веса и обоснования критериев
+            </summary>
+            <div class="card-body pt-0">
+        <div class="card border-0 h-100">
 
             <div
                 class="card-header bg-white
@@ -280,7 +230,7 @@
             >
                 <div class="d-flex align-items-center gap-2">
                     <h2 class="h5 mb-0">
-                        Критерии
+                        Расширенная настройка критериев
                     </h2>
 
                     <span class="badge text-bg-secondary">
@@ -471,9 +421,79 @@
 
             </div>
         </div>
+            </div>
+        </details>
     </div>
 
 </div>
+
+<div class="card shadow-sm mb-4" id="priorities">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="h5 mb-1">2. Что для вас важно?</h2>
+            <div class="small text-secondary">Выберите важность без расчёта процентов.</div>
+        </div>
+        <button
+            id="simple-ai-criteria-button"
+            type="button"
+            class="btn btn-outline-primary btn-sm"
+            title="Предложить, что важно, с помощью ИИ"
+        >✦ Предложить</button>
+    </div>
+    <div class="card-body">
+        {% if criteria %}
+        <div class="d-flex flex-column gap-2 mb-3">
+            {% for criterion in criteria %}
+            <div class="border rounded p-2 d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-between">
+                <span class="fw-semibold">{{ criterion.name }}</span>
+                <form method="post" action="/criteria/{{ criterion.id }}/importance" class="d-flex align-items-center gap-2">
+                    <label class="small text-secondary" for="importance-{{ criterion.id }}">Важность</label>
+                    <select id="importance-{{ criterion.id }}" name="importance" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="very" {% if criterion_importance[criterion.id] == 'very' %}selected{% endif %}>Очень важно</option>
+                        <option value="important" {% if criterion_importance[criterion.id] == 'important' %}selected{% endif %}>Важно</option>
+                        <option value="desirable" {% if criterion_importance[criterion.id] == 'desirable' %}selected{% endif %}>Желательно</option>
+                    </select>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary">Добавьте несколько условий или попросите ИИ предложить их.</p>
+        {% endif %}
+
+        <form method="post" action="/projects/{{ project.id }}/criteria" class="row g-2 align-items-end">
+            <div class="col-12 col-md">
+                <label class="form-label small" for="simple-criterion-name">Добавить своё условие</label>
+                <input id="simple-criterion-name" name="name" class="form-control" maxlength="100" placeholder="Например: стоимость владения" required>
+            </div>
+            <div class="col-8 col-md-3">
+                <label class="form-label small" for="simple-criterion-importance">Важность</label>
+                <select id="simple-criterion-importance" name="importance" class="form-select">
+                    <option value="very">Очень важно</option>
+                    <option value="important" selected>Важно</option>
+                    <option value="desirable">Желательно</option>
+                </select>
+            </div>
+            <div class="col-4 col-md-auto">
+                <button class="btn btn-primary w-100" type="submit">Добавить</button>
+            </div>
+        </form>
+
+        {% if alternatives and criteria %}
+        <div class="mt-4">
+            <button id="simple-ai-scores-button" type="button" class="btn btn-primary btn-lg">
+                ✦ Получить рекомендацию
+            </button>
+            <p class="small text-secondary mt-2 mb-0">
+                ИИ подготовит черновые оценки. Важные факты можно проверить и изменить в подробном расчёте.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<details class="mb-4" id="detailed-calculation">
+<summary class="btn btn-outline-secondary mb-3">Подробный расчёт и матрица</summary>
 
 <div class="card shadow-sm mb-4" id="matrix">
 
@@ -703,6 +723,8 @@
     </div>
 </div>
 
+</details>
+
 
 <div
     class="modal fade"
@@ -774,7 +796,7 @@
             align-items-center"
     >
         <h2 class="h5 mb-0">
-            Результаты
+            3. Рекомендация
         </h2>
 
         {% if results %}
@@ -784,7 +806,7 @@
                 class="btn btn-outline-primary btn-sm"
                 title="Объяснить результат с помощью ИИ"
             >
-                ✦ Объяснить
+                ✦ Почему этот вариант?
             </button>
         {% endif %}
     </div>
@@ -799,14 +821,8 @@
                     <strong>
                         Предварительный результат.
                     </strong>
-
-                    В расчёте используются
-                    неподтверждённые оценки ИИ:
-                    {{ score_summary.ai_only }}.
-
-                    Проверьте их и нажмите
-                    «Сохранить матрицу»,
-                    чтобы подтвердить значения.
+                    ИИ подготовил {{ score_summary.ai_only }} черновых оценок.
+                    При необходимости проверьте их в «Подробном расчёте».
                 </div>
 
             {% elif score_summary.empty > 0 %}
@@ -829,6 +845,17 @@
         {% endif %}
 
         {% if results %}
+
+            <div class="p-4 mb-3 rounded-3 bg-primary-subtle border border-primary-subtle">
+                <div class="small text-secondary mb-1">
+                    {{ 'Рекомендуемый вариант' if score_summary.is_fully_confirmed else 'Предварительно лучший вариант' }}
+                </div>
+                <div class="h3 mb-1">{{ results[0].alternative.name }}</div>
+                <div class="text-secondary">Итоговая оценка: {{ results[0].total }}</div>
+            </div>
+
+            <details>
+                <summary class="text-primary mb-3">Показать рейтинг и вклад условий</summary>
 
             <div class="table-responsive">
                 <table
@@ -931,6 +958,7 @@
 
                 </table>
             </div>
+            </details>
 
         {% else %}
 
@@ -1137,7 +1165,7 @@
                 type="button"
                 class="btn btn-outline-primary btn-sm"
             >
-                ✦ Анализировать
+                ✦ Что проверить
             </button>
         {% endif %}
     </div>
@@ -2143,6 +2171,24 @@ document.addEventListener(
 {% endblock %}
 
 {% block scripts %}
+{% if second_project_event %}
+<script>window.dmatrixReachGoal && window.dmatrixReachGoal("second_project_created");</script>
+{% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const pairs = [
+        ["simple-ai-criteria-button", "ai-criteria-button"],
+        ["simple-ai-scores-button", "ai-scores-button"]
+    ];
+    pairs.forEach(function (ids) {
+        const simple = document.getElementById(ids[0]);
+        const original = document.getElementById(ids[1]);
+        if (simple && original) {
+            simple.addEventListener("click", function () { original.click(); });
+        }
+    });
+});
+</script>
 {% if show_second_project_offer %}
 <script>
 (function(){

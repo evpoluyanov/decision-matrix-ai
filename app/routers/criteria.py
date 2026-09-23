@@ -27,19 +27,30 @@ def create_criterion(
         min_length=1,
         max_length=MAX_ENTITY_NAME_LENGTH,
     ),
-    weight_percent: float = Form(...),
+    weight_percent: float | None = Form(None),
+    importance: str | None = Form(None),
     db: Session = Depends(get_db),
     project: models.Project = Depends(
         require_project_owner
     ),
 ):
     try:
-        criterion_service.create_criterion(
-            db=db,
-            project_id=project.id,
-            name=name,
-            weight_percent=weight_percent,
-        )
+        if importance is not None:
+            criterion_service.create_simple_criterion(
+                db=db,
+                project_id=project.id,
+                name=name,
+                importance=importance,
+            )
+        else:
+            if weight_percent is None:
+                raise ValueError("Не указан вес")
+            criterion_service.create_criterion(
+                db=db,
+                project_id=project.id,
+                name=name,
+                weight_percent=weight_percent,
+            )
     except ValueError:
         return RedirectResponse(
             url=(
@@ -51,6 +62,23 @@ def create_criterion(
 
     return RedirectResponse(
         url=f"/projects/{project.id}",
+        status_code=303,
+    )
+
+
+@router.post("/criteria/{criterion_id}/importance")
+def set_criterion_importance(
+    importance: str = Form(...),
+    db: Session = Depends(get_db),
+    criterion: models.Criterion = Depends(require_criterion_owner),
+):
+    criterion_service.set_simple_importance(
+        db=db,
+        criterion=criterion,
+        importance=importance,
+    )
+    return RedirectResponse(
+        url=f"/projects/{criterion.project_id}#priorities",
         status_code=303,
     )
 

@@ -18,8 +18,10 @@
 
                 <p class="mb-0">
                     Учётная запись создана.
-                    Мы отправили вам ссылку
-                    для подтверждения email.
+                    Мы отправили ссылку на
+                    <strong>{{ registration_email }}</strong>.
+                    Перейдите по ней — адрес подтвердится,
+                    и мы сразу откроем ваше решение.
                 </p>
             </div>
 
@@ -39,11 +41,25 @@
 
         {% endif %}
 
+        {% if verification_notice %}
+        <div class="alert alert-info">{{ verification_notice }}</div>
+        {% endif %}
+
+        <form method="post" action="/register/resend-verification" class="mb-3">
+            <button type="submit" class="btn btn-outline-primary">
+                Отправить письмо ещё раз
+            </button>
+        </form>
+
+        <p class="small text-secondary">
+            Если адрес указан неверно, вернитесь к регистрации с правильным адресом.
+        </p>
+
         <a
-            href="/"
+            href="/register"
             class="btn btn-outline-secondary"
         >
-            Вернуться на главную
+            Вернуться к регистрации
         </a>
 
     </div>

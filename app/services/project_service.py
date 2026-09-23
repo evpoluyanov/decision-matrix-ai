@@ -42,6 +42,20 @@ def get_projects(
     )
 
 
+def get_latest_project(
+    db: Session,
+    owner_id: int,
+) -> models.Project | None:
+    """Возвращает последний созданный проект пользователя."""
+    statement = (
+        select(models.Project)
+        .where(models.Project.owner_id == owner_id)
+        .order_by(models.Project.id.desc())
+        .limit(1)
+    )
+    return db.scalar(statement)
+
+
 def create_project(
     db: Session,
     project_name: str,

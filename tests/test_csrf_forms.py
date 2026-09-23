@@ -67,7 +67,7 @@ def sign_in(client):
         "email": "user1@test.com", "password": TEST_PASSWORD,
     })
     assert response.status_code == 303
-    assert response.headers["location"] == "/account"
+    assert response.headers["location"] == "/projects/1"
 
 
 def test_login_and_logout_forms_clear_session(form_client):
@@ -101,7 +101,7 @@ def test_verification_form_uses_hidden_token(form_client, test_environment):
     page = form_client.get("/verify-email", params={"token": token})
     response = submit_form(form_client, page, "/verify-email")
     assert response.status_code == 303
-    assert response.headers["location"] == "/verify-email/result"
+    assert response.headers["location"] == "/projects/1"
     with test_environment["TestingSessionLocal"]() as db:
         assert db.get(models.User, user_id).email_verified is True
 
@@ -184,7 +184,7 @@ def https_proxy_client(client, monkeypatch):
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/account"
+    assert response.headers["location"] == "/projects/1"
     assert client.get("/account", follow_redirects=False).status_code == 200
     return client
 

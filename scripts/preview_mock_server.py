@@ -109,10 +109,12 @@ def main():
             assert client.get('/health').status_code==200
             assert client.post('/login',data={"email":"tester@example.com","password":password}).status_code==200
             for path in [
-                '/projects/1', '/pricing', '/privacy', '/terms', '/consent',
+                '/projects/1', '/start', '/pricing', '/privacy', '/terms', '/consent',
                 '/cookies',
                 '/favicon.svg', '/favicon-120.png', '/favicon.ico',
                 '/apple-touch-icon.png',
+                '/static/start-decision.js',
+                '/static/verify-email.js',
                 '/static/vendor/bootstrap-5.3.7.min.css',
                 '/static/vendor/bootstrap-5.3.7.bundle.min.js',
             ]:

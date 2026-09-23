@@ -34,15 +34,83 @@ def _validate_total_weight(
         raise ValueError(
             "Вес должен быть от 0 до 100 процентов"
         )
-
-    if (
-        existing_weight + new_weight
-        > 1.000001
-    ):
+    if existing_weight + new_weight > 1.000001:
         raise ValueError(
-            "Сумма весов критериев "
-            "не может превышать 100%"
+            "Сумма весов критериев не может превышать 100%"
         )
+
+
+IMPORTANCE_POINTS = {
+    "very": 3,
+    "important": 2,
+    "desirable": 1,
+}
+
+
+def importance_level(weight: float, maximum_weight: float) -> str:
+    """Преобразует точный вес в понятный пользователю уровень."""
+    if maximum_weight <= 0 or weight <= 0:
+        return "important"
+    if weight >= 0.35:
+        return "very"
+    if weight >= 0.15:
+        return "important"
+    return "desirable"
+
+
+def _renormalize_importance(db: Session, criteria, levels: dict[int, str]):
+    total_points = sum(IMPORTANCE_POINTS[levels[item.id]] for item in criteria)
+    for item in criteria:
+        item.weight = IMPORTANCE_POINTS[levels[item.id]] / total_points
+
+
+def create_simple_criterion(
+    db: Session,
+    project_id: int,
+    name: str,
+    importance: str,
+):
+    if importance not in IMPORTANCE_POINTS:
+        raise ValueError("Неизвестный уровень важности")
+    criteria = get_criteria(db, project_id)
+    maximum = max((item.weight for item in criteria), default=0)
+    levels = {
+        item.id: importance_level(item.weight, maximum)
+        for item in criteria
+    }
+    criterion = models.Criterion(
+        name=name.strip(),
+        weight=1.0,
+        project_id=project_id,
+    )
+    db.add(criterion)
+    db.flush()
+    criteria.append(criterion)
+    levels[criterion.id] = importance
+    _renormalize_importance(db, criteria, levels)
+    invalidate_analysis(db=db, project_id=project_id)
+    db.commit()
+    db.refresh(criterion)
+    return criterion
+
+
+def set_simple_importance(
+    db: Session,
+    criterion: models.Criterion,
+    importance: str,
+):
+    if importance not in IMPORTANCE_POINTS:
+        raise ValueError("Неизвестный уровень важности")
+    criteria = get_criteria(db, criterion.project_id)
+    maximum = max((item.weight for item in criteria), default=0)
+    levels = {
+        item.id: importance_level(item.weight, maximum)
+        for item in criteria
+    }
+    levels[criterion.id] = importance
+    _renormalize_importance(db, criteria, levels)
+    invalidate_analysis(db=db, project_id=criterion.project_id)
+    db.commit()
 
 
 def create_criterion(

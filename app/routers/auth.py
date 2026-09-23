@@ -15,6 +15,7 @@ from app.services import (
     admin_service,
     attribution_service,
     legal_document_service,
+    project_service,
 )
 
 logger = logging.getLogger(
@@ -27,6 +28,21 @@ templates = Jinja2Templates(directory="app/templates")
 
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
+
+
+def post_auth_destination(db: Session, user, preferred_project_id=None) -> str:
+    if isinstance(preferred_project_id, int):
+        preferred = project_service.get_project_for_owner(
+            db=db,
+            project_id=preferred_project_id,
+            owner_id=user.id,
+        )
+        if preferred is not None:
+            return f"/projects/{preferred.id}?welcome=1"
+    latest = project_service.get_latest_project(db=db, owner_id=user.id)
+    if latest is not None:
+        return f"/projects/{latest.id}"
+    return "/start"
 
 
 def limit_form(db, request, action, email, template):
@@ -71,7 +87,7 @@ def registration_form(
 ):
     if request.session.get("user_id") is not None:
         return RedirectResponse(
-            url="/account",
+            url="/start",
             status_code=303,
         )
 
@@ -93,6 +109,11 @@ def registration_form(
             "errors": [],
             "terms_accepted": False,
             "personal_data_consent": False,
+            "draft_question": (
+                request.session.get("decision_draft", {}).get("question", "")
+                if isinstance(request.session.get("decision_draft"), dict)
+                else ""
+            ),
         },
     )
 
@@ -112,7 +133,7 @@ def register_user(
 ):
     if request.session.get("user_id") is not None:
         return RedirectResponse(
-            url="/account",
+            url="/start",
             status_code=303,
         )
 
@@ -210,6 +231,18 @@ def register_user(
         user=user,
     )
 
+    draft = request.session.get("decision_draft")
+    registration_project_id = None
+    if isinstance(draft, dict) and str(draft.get("question", "")).strip():
+        project = project_service.create_project(
+            db=db,
+            project_name=str(draft["question"]).strip()[:200],
+            project_description=(str(draft.get("details", "")).strip() or None),
+            owner_id=user.id,
+        )
+        registration_project_id = project.id
+        request.session.pop("decision_draft", None)
+
     try:
         (
             email_verification_service
@@ -235,6 +268,10 @@ def register_user(
     request.session[
         "registration_email_sent"
     ] = email_sent
+    request.session["registration_email"] = user.email
+    request.session["registration_user_id"] = user.id
+    if registration_project_id is not None:
+        request.session["registration_project_id"] = registration_project_id
 
     return RedirectResponse(
         url="/register/success",
@@ -264,8 +301,37 @@ def registration_success(
         name="register_success.html",
         context={
             "email_sent": email_sent,
+            "registration_email": request.session.get("registration_email", ""),
+            "verification_notice": request.session.pop("registration_notice", None),
         },
     )
+
+
+@router.post("/register/resend-verification")
+def resend_registration_verification(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user_id = request.session.get("registration_user_id")
+    user = user_service.get_user_by_id(db=db, user_id=user_id) if isinstance(user_id, int) else None
+    if user is None:
+        return RedirectResponse("/register", status_code=303)
+    if user.email_verified:
+        request.session["registration_notice"] = "Email уже подтверждён. Можно войти."
+    else:
+        auth_rate_limit_service.enforce(db, request, "resend", user_id=user.id)
+        try:
+            email_verification_service.send_email_verification_message(
+                recipient_email=user.email,
+                user_id=user.id,
+            )
+        except (email_service.EmailServiceError, email_verification_service.EmailVerificationError):
+            logger.warning("Не удалось повторно отправить подтверждение email.")
+            request.session["registration_notice"] = "Не удалось отправить письмо. Попробуйте позже."
+        else:
+            request.session["registration_notice"] = "Новое письмо отправлено. Проверьте входящие и спам."
+            request.session["registration_email_sent"] = True
+    return RedirectResponse("/register/success", status_code=303)
 
 @router.get(
     "/verify-email",
@@ -385,9 +451,8 @@ def verify_email_address(
                 "Подтвердите email"
             ),
             "result_message": (
-                "Нажмите кнопку, чтобы "
-                "подтвердить адрес электронной "
-                "почты."
+                "Подтверждаем адрес и открываем "
+                "ваше первое решение…"
             ),
             "token": token,
         },
@@ -478,6 +543,7 @@ def confirm_email_address(
             status_code=400,
         )
 
+    preferred_project_id = request.session.get("registration_project_id")
     status_changed = (
         user_service.mark_email_as_verified(
             db=db,
@@ -486,20 +552,21 @@ def confirm_email_address(
     )
 
     if status_changed:
-        verification_result = "confirmed"
-    else:
-        verification_result = (
-            "already_confirmed"
+        destination = post_auth_destination(db, user, preferred_project_id)
+        request.session.clear()
+        request.session["user_id"] = user.id
+        if legal_document_service.pending_versions(db, user.id):
+            from urllib.parse import quote
+            destination = "/legal/updates?next=" + quote(destination, safe="")
+        return RedirectResponse(url=destination, status_code=303)
+
+    if request.session.get("user_id") == user.id:
+        return RedirectResponse(
+            url=post_auth_destination(db, user),
+            status_code=303,
         )
 
-    request.session[
-        "email_verification_result"
-    ] = verification_result
-
-    return RedirectResponse(
-        url="/verify-email/result",
-        status_code=303,
-    )
+    return RedirectResponse(url="/login?verified=1", status_code=303)
 
 
 @router.get(
@@ -575,7 +642,7 @@ def login_form(
 ):
     if request.session.get("user_id") is not None:
         return RedirectResponse(
-            url="/account",
+            url="/start",
             status_code=303,
         )
 
@@ -633,14 +700,16 @@ def login_user(
 
     request.session["user_id"] = user.id
 
+    destination = post_auth_destination(db, user)
     if legal_document_service.pending_versions(db, user.id):
+        from urllib.parse import quote
         return RedirectResponse(
-            url="/legal/updates?next=%2Faccount",
+            url="/legal/updates?next=" + quote(destination, safe=""),
             status_code=303,
         )
 
     return RedirectResponse(
-        url="/account",
+        url=destination,
         status_code=303,
     )
 

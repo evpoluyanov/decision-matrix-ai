@@ -48,6 +48,9 @@ def project_detail(
         require_project_owner
     ),
     weight_error: int | None = None,
+    created: int | None = None,
+    welcome: int | None = None,
+    second_project_event: int | None = None,
 ):
     alternatives = alternative_service.get_alternatives(
         db,
@@ -58,6 +61,7 @@ def project_detail(
         db,
         project.id,
     )
+    maximum_weight = max((item.weight for item in criteria), default=0)
 
     scores = score_service.get_scores(
         db,
@@ -105,6 +109,15 @@ def project_detail(
             "results": results,
             "risk_analysis": risk_analysis,
             "weight_error": weight_error,
+            "created": created == 1,
+            "welcome": welcome == 1,
+            "second_project_event": second_project_event == 1,
+            "criterion_importance": {
+                item.id: criterion_service.importance_level(
+                    item.weight, maximum_weight,
+                )
+                for item in criteria
+            },
             "saved_ai_analysis": project_ai_analysis_service.to_report_data(
                 project_ai_analysis_service.get_analysis(db, project.id)),
             "show_second_project_offer": growth_service.should_offer_for_second_project(

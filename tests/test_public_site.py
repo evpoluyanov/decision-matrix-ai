@@ -22,19 +22,16 @@ def test_public_landing_explains_complete_decision_flow(client):
     response = client.get("/")
     assert response.status_code == 200
     assert 'id="how-it-works"' in response.text
-    assert response.text.count('data-step="') == 6
+    assert response.text.count('data-step="') == 3
     for text in (
-        "Создайте проект",
-        "Добавьте альтернативы",
-        "Задайте критерии и веса",
-        "Заполните матрицу оценок",
-        "Получите итог выбора",
-        "Сформируйте отчёт",
+        "Опишите выбор",
+        "Проверьте варианты и приоритеты",
+        "Получите рекомендацию",
         "ИИ помогает на каждом этапе",
     ):
         assert text in response.text
-    assert "не может превышать 100%" in response.text
-    assert 'href="/register"' in response.text
+    assert "подробном расчёте" in response.text
+    assert 'href="/start"' in response.text
 
 
 def test_indexing_is_opt_in(client):
@@ -47,8 +44,11 @@ def test_only_public_pages_are_in_sitemap(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     result = client.get("/sitemap.xml")
     assert result.status_code == 200
-    assert result.text.count("<loc>") == 2
-    for path in ("/", "/pricing"):
+    assert result.text.count("<loc>") == 5
+    for path in (
+        "/", "/pricing", "/vybor-postavshchika",
+        "/vybor-podryadchika", "/vzveshennaya-matritsa-resheniy",
+    ):
         assert f"https://dmatrix.tech{path}</loc>" in result.text
     assert "projects" not in result.text
     assert "admin" not in result.text
