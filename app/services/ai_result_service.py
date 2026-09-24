@@ -20,15 +20,6 @@ def generate_result_explanation(
         else ""
     )
 
-    if not description:
-        return {
-            "status": "insufficient_context",
-            "message": (
-                "Недостаточно контекста для объяснения результата. "
-                "Конкретизируйте описание проекта."
-            ),
-        }
-
     if not results:
         return {
             "status": "no_results",
@@ -81,12 +72,6 @@ def generate_result_explanation(
             if effective_value is None:
                 continue
 
-            source = (
-                "confirmed"
-                if score.value is not None
-                else "ai"
-            )
-
             factors.append(
                 {
                     "criterion": criterion.name,
@@ -104,7 +89,6 @@ def generate_result_explanation(
                         criterion.id,
                         0,
                     ),
-                    "source": source,
                 }
             )
 
@@ -131,8 +115,6 @@ def generate_result_explanation(
         "Не придумывай внешние факты об альтернативах. "
         "Выдели главные факторы результата, сильные и слабые "
         "стороны лидера и ближайшего конкурента. "
-        "Если оценки ИИ ещё не подтверждены, явно укажи, "
-        "что результат предварительный. "
         "Пиши кратко и конкретно. "
         "Ответ только JSON в формате: "
         "{"
@@ -148,20 +130,10 @@ def generate_result_explanation(
     user_data = {
         "project": {
             "name": project.name,
-            "description": description,
+            "description": description or project.name,
         },
         "ranking": result_data,
-        "score_summary": {
-            "confirmed": (
-                score_summary["confirmed"]
-            ),
-            "ai_only": (
-                score_summary["ai_only"]
-            ),
-            "total": (
-                score_summary["total"]
-            ),
-        },
+        "score_summary": {"total": score_summary["total"]},
     }
 
     user_prompt = json.dumps(

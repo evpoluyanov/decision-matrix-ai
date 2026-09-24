@@ -9,15 +9,14 @@
             return;
         }
 
-        function selectCard(card, fillExample) {
+        function selectExample(card, fillExample) {
             cards.forEach((item) => {
                 const selected = item === card;
                 item.setAttribute("aria-pressed", selected ? "true" : "false");
-                item.classList.toggle("border-primary", selected);
-                item.classList.toggle("border", selected);
+                item.classList.toggle("active", selected);
             });
             templateKey.value = card.dataset.templateKey || "custom";
-            if (fillExample && (!question.value.trim() || question.dataset.templateFilled === "true")) {
+            if (fillExample) {
                 question.value = card.dataset.templateExample || "";
                 question.dataset.templateFilled = "true";
             }
@@ -26,9 +25,9 @@
         }
 
         cards.forEach((card) => {
-            card.addEventListener("click", () => selectCard(card, true));
+            card.addEventListener("click", () => selectExample(card, true));
             if (card.getAttribute("aria-pressed") === "true") {
-                selectCard(card, false);
+                selectExample(card, false);
             }
         });
 

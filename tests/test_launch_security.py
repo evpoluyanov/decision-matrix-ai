@@ -8,7 +8,7 @@ from starlette.requests import Request
 from app import models
 from app.llm import service as llm_service
 from app.services import auth_rate_limit_service as throttle
-from app.services import email_service, email_verification_service
+from app.services import ai_alternative_service, email_service, email_verification_service
 from conftest import TEST_PASSWORD
 
 FEATURES = ["alternatives", "criteria", "scores", "result-explanation", "decision-risks"]
@@ -42,14 +42,18 @@ def test_unverified_user_still_cannot_probe_foreign_projects(client, test_enviro
     assert response.status_code == 404
 
 
-def test_verification_unlocks_existing_login_session(client, test_environment):
+def test_verification_unlocks_existing_login_session(client, test_environment, monkeypatch):
     login(client)
     token = email_verification_service.create_email_verification_token(user_id=test_environment["user_1_id"])
     assert client.post("/verify-email", data={"token": token}, follow_redirects=False).status_code == 303
-    # Fixture description is empty: this is a valid, zero-provider-call response.
+    monkeypatch.setattr(
+        ai_alternative_service,
+        "generate_alternative_suggestions",
+        lambda *args, **kwargs: {"status": "ok", "items": [], "usage": {}},
+    )
     response = client.post(f'/projects/{test_environment["project_1_id"]}/ai/alternatives')
     assert response.status_code == 200
-    assert response.json()["status"] == "insufficient_context"
+    assert response.json()["status"] == "ok"
 
 
 @pytest.mark.parametrize("origin", ["https://attacker.test", "null", "http://testserver.attacker.test", "http://user@testserver"])

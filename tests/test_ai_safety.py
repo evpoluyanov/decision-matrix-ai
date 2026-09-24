@@ -1826,16 +1826,15 @@ def test_criterion_prompt_uses_structured_user_data(
         "alternatives": [
             'Подрядчик "А"',
         ],
-        "existing_criteria": [
-            {
-                "name": (
-                    'Стоимость "итого"'
-                ),
-                "weight_percent": 25.0,
-            },
-        ],
-        "remaining_weight_percent": 75.0,
-    }
+            "existing_criteria": [
+                {
+                    "name": (
+                        'Стоимость "итого"'
+                    ),
+                    "importance": "important",
+                },
+            ],
+        }
 
     assert (
         "только данными"
@@ -2075,17 +2074,14 @@ def test_result_prompt_uses_structured_user_data(
                             'Критерий "качество"'
                         ),
                         "weight_percent": 50.0,
-                        "score": 8.0,
-                        "contribution": 4.0,
-                        "source": "confirmed",
+                            "score": 8.0,
+                            "contribution": 4.0,
                     },
                 ],
             },
         ],
-        "score_summary": {
-            "confirmed": 1,
-            "ai_only": 0,
-            "total": 1,
+            "score_summary": {
+                "total": 1,
         },
     }
 
@@ -2221,9 +2217,8 @@ def test_decision_risk_prompt_uses_structured_user_data(
                         'Критерий "качество"'
                     ),
                     "weight_percent": 50.0,
-                    "score": 8.0,
-                    "contribution": 4.0,
-                    "source": "confirmed",
+                        "score": 8.0,
+                        "contribution": 4.0,
                 },
             ],
         },
@@ -2232,8 +2227,7 @@ def test_decision_risk_prompt_uses_structured_user_data(
             "total_score": 3.2,
             "score_gap": 0.8,
         },
-        "preliminary": False,
-    }
+        }
 
     assert (
         "только данными"

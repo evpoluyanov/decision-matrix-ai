@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from app import models
-from app.services import email_service, growth_service
+from app.services import ai_alternative_service, email_service, growth_service
 from conftest import TEST_PASSWORD
 
 
@@ -124,7 +124,7 @@ def test_report_shows_offer_only_after_trial_has_result(client, test_environment
         )
 
 
-def test_pricing_preference_can_change_and_does_not_block_beta(client, test_environment):
+def test_pricing_preference_can_change_and_does_not_block_beta(client, test_environment, monkeypatch):
     verify_user(test_environment)
     login(client)
     page = client.get("/pricing")
@@ -143,6 +143,11 @@ def test_pricing_preference_can_change_and_does_not_block_beta(client, test_envi
         assert preference.notify_on_launch is False
     # No paywall: project and its AI endpoint remain reachable after choosing.
     assert client.get(f'/projects/{test_environment["project_1_id"]}').status_code == 200
+    monkeypatch.setattr(
+        ai_alternative_service,
+        "generate_alternative_suggestions",
+        lambda *args, **kwargs: {"status": "ok", "items": [], "usage": {}},
+    )
     assert client.post(f'/projects/{test_environment["project_1_id"]}/ai/alternatives').status_code != 402
 
 

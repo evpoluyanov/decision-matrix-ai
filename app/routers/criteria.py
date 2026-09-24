@@ -72,11 +72,17 @@ def set_criterion_importance(
     db: Session = Depends(get_db),
     criterion: models.Criterion = Depends(require_criterion_owner),
 ):
-    criterion_service.set_simple_importance(
-        db=db,
-        criterion=criterion,
-        importance=importance,
-    )
+    try:
+        criterion_service.set_simple_importance(
+            db=db,
+            criterion=criterion,
+            importance=importance,
+        )
+    except ValueError:
+        return RedirectResponse(
+            url=f"/projects/{criterion.project_id}?weight_error=1#priorities",
+            status_code=303,
+        )
     return RedirectResponse(
         url=f"/projects/{criterion.project_id}#priorities",
         status_code=303,
@@ -101,6 +107,24 @@ def delete_criterion(
 
     return RedirectResponse(
         url=f"/projects/{project_id}",
+        status_code=303,
+    )
+
+
+@router.post("/projects/{project_id}/criteria/delete")
+def delete_selected_criteria(
+    project_id: int,
+    criterion_ids: list[int] = Form(default=[]),
+    db: Session = Depends(get_db),
+    project: models.Project = Depends(require_project_owner),
+):
+    criterion_service.delete_criteria(
+        db=db,
+        project_id=project.id,
+        criterion_ids=criterion_ids,
+    )
+    return RedirectResponse(
+        url=f"/projects/{project.id}#priorities",
         status_code=303,
     )
 

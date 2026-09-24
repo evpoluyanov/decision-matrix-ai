@@ -30,7 +30,13 @@ MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
 
 
-def post_auth_destination(db: Session, user, preferred_project_id=None) -> str:
+def post_auth_destination(
+    db: Session,
+    user,
+    preferred_project_id=None,
+    *,
+    welcome: bool = False,
+) -> str:
     if isinstance(preferred_project_id, int):
         preferred = project_service.get_project_for_owner(
             db=db,
@@ -38,7 +44,10 @@ def post_auth_destination(db: Session, user, preferred_project_id=None) -> str:
             owner_id=user.id,
         )
         if preferred is not None:
-            return f"/projects/{preferred.id}?welcome=1"
+            query = "autofill=1"
+            if welcome:
+                query += "&welcome=1"
+            return f"/projects/{preferred.id}?{query}"
     latest = project_service.get_latest_project(db=db, owner_id=user.id)
     if latest is not None:
         return f"/projects/{latest.id}"
@@ -552,7 +561,12 @@ def confirm_email_address(
     )
 
     if status_changed:
-        destination = post_auth_destination(db, user, preferred_project_id)
+        destination = post_auth_destination(
+            db,
+            user,
+            preferred_project_id,
+            welcome=True,
+        )
         request.session.clear()
         request.session["user_id"] = user.id
         if legal_document_service.pending_versions(db, user.id):
@@ -652,6 +666,11 @@ def login_form(
         context={
             "email": "",
             "error": None,
+            "draft_question": (
+                request.session.get("decision_draft", {}).get("question", "")
+                if isinstance(request.session.get("decision_draft"), dict)
+                else ""
+            ),
         },
     )
 
@@ -692,15 +711,31 @@ def login_user(
             context={
                 "email": entered_email,
                 "error": "Неверный email или пароль.",
+                "draft_question": (
+                    request.session.get("decision_draft", {}).get("question", "")
+                    if isinstance(request.session.get("decision_draft"), dict)
+                    else ""
+                ),
             },
             status_code=401,
         )
+
+    draft = request.session.get("decision_draft")
+    preferred_project_id = None
+    if isinstance(draft, dict) and str(draft.get("question", "")).strip():
+        project = project_service.create_project(
+            db=db,
+            project_name=str(draft["question"]).strip()[:200],
+            project_description=(str(draft.get("details", "")).strip() or None),
+            owner_id=user.id,
+        )
+        preferred_project_id = project.id
 
     request.session.clear()
 
     request.session["user_id"] = user.id
 
-    destination = post_auth_destination(db, user)
+    destination = post_auth_destination(db, user, preferred_project_id)
     if legal_document_service.pending_versions(db, user.id):
         from urllib.parse import quote
         return RedirectResponse(

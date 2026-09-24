@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from fastapi import (
@@ -70,12 +72,22 @@ class AcceptedCriterion(BaseModel):
         max_length=100,
     )
 
-    weight_percent: float = Field(
+    importance: Literal[
+        "critical",
+        "important",
+        "desirable",
+    ] | None = None
+
+    # Compatibility with pages opened immediately before this release.
+    # New clients send only ``importance``.
+    weight_percent: float | None = Field(
+        default=None,
         ge=0,
         le=100,
     )
 
-    ai_suggested_weight_percent: float = Field(
+    ai_suggested_weight_percent: float | None = Field(
+        default=None,
         ge=0,
         le=100,
     )
@@ -473,6 +485,16 @@ def accept_criteria(
     suggestions = [
         {
             "name": item.name,
+            "importance": (
+                item.importance
+                or (
+                    "critical"
+                    if (item.weight_percent or 0) >= 35
+                    else "important"
+                    if (item.weight_percent or 0) >= 15
+                    else "desirable"
+                )
+            ),
             "weight_percent": (
                 item.weight_percent
             ),

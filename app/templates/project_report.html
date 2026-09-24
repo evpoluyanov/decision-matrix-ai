@@ -51,57 +51,9 @@
 </div>
 
 
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-
-        <h2 class="h5 mb-3">
-            Состояние модели
-        </h2>
-
-        <div class="d-flex flex-wrap gap-2">
-
-            <span class="badge text-bg-dark">
-                Подтверждено:
-                {{ score_summary.confirmed }}
-                из
-                {{ score_summary.total }}
-            </span>
-
-            {% if score_summary.ai_only > 0 %}
-                <span class="badge text-bg-secondary">
-                    Предложения ИИ:
-                    {{ score_summary.ai_only }}
-                </span>
-            {% endif %}
-
-            {% if score_summary.empty > 0 %}
-                <span class="badge text-bg-light border text-dark">
-                    Не заполнено:
-                    {{ score_summary.empty }}
-                </span>
-            {% endif %}
-
-        </div>
-
-        {% if score_summary.has_unconfirmed_ai %}
-            <div class="alert alert-warning py-2 mt-3 mb-0">
-                Результат предварительный:
-                используются неподтверждённые оценки ИИ.
-            </div>
-
-        {% elif score_summary.empty > 0 %}
-            <div class="alert alert-light border py-2 mt-3 mb-0">
-                Матрица заполнена не полностью.
-            </div>
-
-        {% elif score_summary.is_fully_confirmed %}
-            <div class="alert alert-success py-2 mt-3 mb-0">
-                Все оценки матрицы подтверждены.
-            </div>
-        {% endif %}
-
-    </div>
-</div>
+{% if score_summary.empty > 0 %}
+<div class="alert alert-light border mb-4">Матрица заполнена не полностью: не хватает {{ score_summary.empty }} оценок.</div>
+{% endif %}
 
 
 <div class="card shadow-sm mb-4">
@@ -250,9 +202,7 @@
 
                                             {% elif score.ai_value is not none %}
 
-                                                <span class="text-secondary">
-                                                    {{ score.ai_value }}
-                                                </span>
+                                                {{ score.ai_value }}
 
                                             {% else %}
 
@@ -278,11 +228,6 @@
 
                 </table>
 
-            </div>
-
-            <div class="small text-muted mt-2">
-                Серым показаны предложения ИИ,
-                которые ещё не подтверждены.
             </div>
 
         {% else %}
@@ -330,12 +275,7 @@
 
                         {% for result in results %}
 
-                            <tr
-                                {% if loop.first
-                                   and score_summary.is_fully_confirmed %}
-                                    class="table-success"
-                                {% endif %}
-                            >
+                            <tr {% if loop.first %}class="table-success"{% endif %}>
 
                                 <td>
                                     {{ loop.index }}
@@ -346,24 +286,7 @@
 
                                     {% if loop.first %}
 
-                                        {% if score_summary.is_fully_confirmed %}
-                                            <span
-                                                class="badge
-                                                       text-bg-success
-                                                       ms-2"
-                                            >
-                                                Лучший результат
-                                            </span>
-
-                                        {% else %}
-                                            <span
-                                                class="badge
-                                                       text-bg-secondary
-                                                       ms-2"
-                                            >
-                                                Предварительно лучший
-                                            </span>
-                                        {% endif %}
+                                        <span class="badge text-bg-success ms-2">Лучший результат</span>
 
                                     {% endif %}
                                 </td>
@@ -406,11 +329,6 @@
                 Объяснение результата
             </h2>
 
-            {% if ai_report.result.preliminary %}
-                <span class="badge text-bg-secondary">
-                    Предварительное
-                </span>
-            {% endif %}
         </div>
 
         <p class="mb-3">
@@ -528,11 +446,6 @@
                 Риски выбранной альтернативы
             </h2>
 
-            {% if ai_report.decision_risks_preliminary %}
-                <span class="badge text-bg-secondary">
-                    Предварительное
-                </span>
-            {% endif %}
         </div>
 
         <div class="d-flex flex-column gap-2">
@@ -609,15 +522,9 @@
                     {{ results[0].total }}
                 </strong>.
 
-                {% if score_summary.has_unconfirmed_ai %}
-                    Результат является предварительным,
-                    поскольку часть оценок ИИ
-                    ещё не подтверждена.
-                {% elif score_summary.empty > 0 %}
+                {% if score_summary.empty > 0 %}
                     Матрица заполнена не полностью,
                     поэтому результат требует уточнения.
-                {% else %}
-                    Все используемые оценки подтверждены.
                 {% endif %}
 
             </p>

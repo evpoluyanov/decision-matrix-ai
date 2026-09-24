@@ -24,14 +24,6 @@ def generate_decision_risks(
         else ""
     )
 
-    if not description:
-        return {
-            "status": "insufficient_context",
-            "message":
-                INSUFFICIENT_CONTEXT_MESSAGE,
-            "items": [],
-        }
-
     if not results:
         return {
             "status": "no_results",
@@ -99,12 +91,6 @@ def generate_decision_risks(
                         criterion.id,
                         0,
                     ),
-                "source": (
-                    "confirmed"
-                    if score.value
-                    is not None
-                    else "ai"
-                ),
             }
         )
 
@@ -155,8 +141,7 @@ def generate_decision_risks(
         "которых нет во входных данных. "
 
         "Не повторяй технические риски самой "
-        "матрицы вроде неполной суммы весов "
-        "или неподтверждённых AI-оценок. "
+        "матрицы вроде неполной суммы весов. "
         "Нас интересуют риски принятия "
         "и реализации выбранного решения. "
 
@@ -183,7 +168,7 @@ def generate_decision_risks(
     user_data = {
         "project": {
             "name": project.name,
-            "description": description,
+            "description": description or project.name,
         },
         "leader": {
             "name": leader.name,
@@ -193,11 +178,6 @@ def generate_decision_risks(
             "factors": factors,
         },
         "runner_up": runner_up,
-        "preliminary": (
-            score_summary[
-                "has_unconfirmed_ai"
-            ]
-        ),
     }
 
     user_prompt = json.dumps(

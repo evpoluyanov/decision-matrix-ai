@@ -165,12 +165,7 @@ def set_ai_score(
     ai_value: float,
     ai_explanation: str,
 ) -> Score:
-    """
-    Сохраняет новое независимое предложение ИИ.
-
-    Подтверждённое value никогда не меняется.
-    Старое ai_value заменяется новым.
-    """
+    """Store an AI score as the current editable matrix value."""
 
     score = get_score(
         db=db,
@@ -191,6 +186,7 @@ def set_ai_score(
 
     changed = (
         score is None
+        or score.value != ai_value
         or score.ai_value != ai_value
         or score.ai_explanation
         != normalized_explanation
@@ -200,7 +196,7 @@ def set_ai_score(
         score = Score(
             alternative_id=alternative_id,
             criterion_id=criterion_id,
-            value=None,
+            value=ai_value,
             ai_value=ai_value,
             ai_explanation=ai_explanation.strip(),
         )
@@ -208,6 +204,7 @@ def set_ai_score(
         db.add(score)
 
     else:
+        score.value = ai_value
         score.ai_value = ai_value
         score.ai_explanation = (
             normalized_explanation
@@ -261,7 +258,7 @@ def set_ai_scores(
                 criterion_id=(
                     suggestion["criterion_id"]
                 ),
-                value=None,
+                value=suggestion["ai_value"],
             )
 
             db.add(score)
@@ -273,7 +270,7 @@ def set_ai_scores(
         )
 
         changed = (
-            score is None
+            score.value != suggestion["ai_value"]
             or score.ai_value
             != suggestion["ai_value"]
             or score.ai_explanation
@@ -297,6 +294,7 @@ def set_ai_scores(
                     project_id
                 )
 
+        score.value = suggestion["ai_value"]
         score.ai_value = (
             suggestion["ai_value"]
         )

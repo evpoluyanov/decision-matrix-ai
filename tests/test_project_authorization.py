@@ -352,6 +352,7 @@ def test_ai_alternatives_require_project_owner(
 def test_ai_alternatives_return_insufficient_context(
     client,
     test_environment,
+    monkeypatch,
 ):
     login(
         client,
@@ -360,6 +361,22 @@ def test_ai_alternatives_return_insufficient_context(
 
     project_id = (
         test_environment["project_1_id"]
+    )
+
+    monkeypatch.setattr(
+        ai_alternative_service.llm_service,
+        "generate",
+        lambda **kwargs: LLMResponse(
+            content='{"s":"insufficient"}',
+            provider="test-provider",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=0,
+                output_tokens=0,
+                reasoning_tokens=0,
+                total_tokens=0,
+            ),
+        ),
     )
 
     response = client.post(
@@ -943,6 +960,7 @@ def test_ai_criteria_require_project_owner(
 def test_ai_criteria_return_insufficient_context(
     client,
     test_environment,
+    monkeypatch,
 ):
     login(
         client,
@@ -951,6 +969,22 @@ def test_ai_criteria_return_insufficient_context(
 
     project_id = (
         test_environment["project_1_id"]
+    )
+
+    monkeypatch.setattr(
+        ai_criterion_service.llm_service,
+        "generate",
+        lambda **kwargs: LLMResponse(
+            content='{"s":"insufficient"}',
+            provider="test-provider",
+            model="test-model",
+            usage=LLMUsage(
+                input_tokens=0,
+                output_tokens=0,
+                reasoning_tokens=0,
+                total_tokens=0,
+            ),
+        ),
     )
 
     response = client.post(
@@ -1033,7 +1067,7 @@ def test_ai_criteria_return_llm_suggestions(
                     "i": [
                         {
                             "n": "Безопасность",
-                            "w": 40,
+                            "c": "critical",
                             "cr": (
                                 "Ключевой фактор "
                                 "для семейного автомобиля."
@@ -1088,7 +1122,7 @@ def test_ai_criteria_return_llm_suggestions(
     assert data["items"] == [
         {
             "name": "Безопасность",
-            "weight_percent": 40.0,
+            "importance": "critical",
             "criterion_explanation": (
                 "Ключевой фактор "
                 "для семейного автомобиля."
@@ -1178,7 +1212,8 @@ def test_accept_ai_criteria_preserves_original_ai_weight(
         .one()
     )
 
-    assert criterion.weight == 0.35
+    assert criterion.importance == "critical"
+    assert criterion.weight == pytest.approx(2 / 3)
     assert (
         criterion.ai_suggested_weight
         == 0.25
@@ -1192,7 +1227,7 @@ def test_accept_ai_criteria_preserves_original_ai_weight(
     db.close()
 
 
-def test_edit_criterion_cannot_exceed_total_weight(
+def test_legacy_criterion_edit_maps_weight_to_importance(
     client,
     test_environment,
 ):
@@ -1250,13 +1285,7 @@ def test_edit_criterion_cannot_exceed_total_weight(
 
     assert response.status_code == 303
 
-    assert (
-        response.headers["location"]
-        == (
-            f"/projects/{project_id}"
-            "?weight_error=1"
-        )
-    )
+    assert response.headers["location"] == f"/projects/{project_id}"
 
     db = TestingSessionLocal()
 
@@ -1265,7 +1294,10 @@ def test_edit_criterion_cannot_exceed_total_weight(
         criterion_id,
     )
 
-    assert criterion.weight == 0.4
+    assert criterion.importance == "critical"
+    assert criterion.weight == pytest.approx(2 / 3)
+    second = db.query(models.Criterion).filter_by(name="Второй критерий").one()
+    assert second.weight == pytest.approx(1 / 3)
 
     db.close()
 
@@ -1439,7 +1471,7 @@ def test_ai_scores_do_not_send_existing_scores_to_llm(
         .one()
     )
 
-    assert score.value == 9.0
+    assert score.value == 7.0
     assert score.ai_value == 7.0
     assert (
         score.ai_explanation
@@ -2015,11 +2047,6 @@ def test_ai_result_explanation_uses_calculated_ranking(
             == 100.0
         )
 
-        assert (
-            factor["source"]
-            == "confirmed"
-        )
-
         return LLMResponse(
             content=json.dumps(
                 {
@@ -2194,7 +2221,7 @@ def test_ai_result_explanation_marks_ai_only_matrix_preliminary(
     )
 
 
-def test_ai_result_explanation_requires_description(
+def test_ai_result_explanation_requires_results(
     client,
     test_environment,
 ):
@@ -2220,7 +2247,7 @@ def test_ai_result_explanation_requires_description(
 
     assert (
         data["status"]
-        == "insufficient_context"
+        == "no_results"
     )
 
 
@@ -2338,7 +2365,7 @@ def test_risk_analysis_detects_narrow_lead():
     assert "narrow_lead" in codes
 
 
-def test_risk_analysis_detects_ai_and_empty_scores():
+def test_risk_analysis_treats_ai_scores_as_current_and_detects_empty_scores():
     analysis = (
         risk_service.analyze_decision_risks(
             criteria=[],
@@ -2355,10 +2382,7 @@ def test_risk_analysis_detects_ai_and_empty_scores():
         for risk in analysis["risks"]
     }
 
-    assert (
-        "unconfirmed_ai_scores"
-        in codes
-    )
+    assert "unconfirmed_ai_scores" not in codes
 
     assert (
         "incomplete_matrix"
@@ -2449,7 +2473,7 @@ def test_authenticated_home_opens_simplified_start_form(
     assert response.status_code == 200
 
     assert 'name="decision_question"' in response.text
-    assert "Что вы хотите выбрать?" in response.text
+    assert "Что хотите выбрать?" in response.text
 
     assert (
         'name="decision_details"'
@@ -2970,7 +2994,7 @@ def test_ai_decision_risks_mark_preliminary_result(
     )
 
 
-def test_ai_decision_risks_require_description(
+def test_ai_decision_risks_require_results(
     client,
     test_environment,
 ):
@@ -2996,7 +3020,7 @@ def test_ai_decision_risks_require_description(
 
     assert (
         data["status"]
-        == "insufficient_context"
+        == "no_results"
     )
 
 
@@ -3116,7 +3140,7 @@ def test_project_report_contains_project_data(
     )
 
 
-def test_project_report_marks_ai_score_as_preliminary(
+def test_project_report_does_not_show_approval_layer(
     client,
     test_environment,
 ):
@@ -3172,15 +3196,10 @@ def test_project_report_marks_ai_score_as_preliminary(
 
     assert response.status_code == 200
 
-    assert (
-        "Результат предварительный"
-        in response.text
-    )
+    assert "Результат предварительный" not in response.text
+    assert "неподтвержд" not in response.text.casefold()
 
-    assert (
-        "Предварительно лучший"
-        in response.text
-    )
+    assert "Лучший результат" in response.text
 
 
 def test_project_report_shows_structural_risks(

@@ -611,6 +611,13 @@ class Criterion(Base):
         nullable=False,
     )
 
+    importance: Mapped[str] = mapped_column(
+        String(20),
+        default="important",
+        server_default=text("'important'"),
+        nullable=False,
+    )
+
     ai_suggested_name: Mapped[str | None] = mapped_column(
         String,
         nullable=True,

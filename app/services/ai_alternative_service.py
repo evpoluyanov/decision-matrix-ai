@@ -25,13 +25,6 @@ def generate_alternative_suggestions(
         else ""
     )
 
-    if not description:
-        return {
-            "status": "insufficient_context",
-            "message": INSUFFICIENT_CONTEXT_MESSAGE,
-            "items": [],
-        }
-
     existing_names = [
         alternative.name
         for alternative in existing_alternatives
@@ -60,7 +53,7 @@ def generate_alternative_suggestions(
     user_data = {
         "project": {
             "name": project.name,
-            "description": description,
+            "description": description or project.name,
         },
         "existing_alternatives": (
             existing_names

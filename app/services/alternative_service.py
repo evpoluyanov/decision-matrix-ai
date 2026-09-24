@@ -139,6 +139,26 @@ def delete_alternative(
     db.commit()
 
 
+def delete_alternatives(
+    db: Session,
+    project_id: int,
+    alternative_ids: list[int],
+) -> int:
+    selected = set(alternative_ids)
+    if not selected:
+        return 0
+    alternatives = list(db.scalars(select(models.Alternative).where(
+        models.Alternative.project_id == project_id,
+        models.Alternative.id.in_(selected),
+    )))
+    for alternative in alternatives:
+        db.delete(alternative)
+    if alternatives:
+        invalidate_analysis(db=db, project_id=project_id)
+        db.commit()
+    return len(alternatives)
+
+
 def update_alternative(
     db: Session,
     alternative_id: int,

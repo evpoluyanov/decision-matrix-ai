@@ -16,6 +16,14 @@
                     Вход
                 </h1>
 
+                {% if draft_question %}
+                <div class="alert alert-light border">
+                    <div class="small text-secondary mb-1">Ваш выбор сохранён</div>
+                    <div class="fw-semibold">{{ draft_question }}</div>
+                    <div class="small mt-2">Войдите — и мы сразу откроем это решение.</div>
+                </div>
+                {% endif %}
+
                 {% if error %}
                     <div
                         class="alert alert-danger"
@@ -73,6 +81,11 @@
                         Войти
                     </button>
                 </form>
+
+                <div class="text-center mt-3 small">
+                    Нет аккаунта?
+                    <a href="/register{% if draft_question %}?from=start{% endif %}">Зарегистрироваться</a>
+                </div>
 
             </div>
         </div>

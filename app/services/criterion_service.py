@@ -40,28 +40,65 @@ def _validate_total_weight(
         )
 
 
-IMPORTANCE_POINTS = {
-    "very": 3,
-    "important": 2,
-    "desirable": 1,
+IMPORTANCE_SHARES = {
+    "critical": 0.60,
+    "important": 0.30,
+    "desirable": 0.10,
 }
 
 
 def importance_level(weight: float, maximum_weight: float) -> str:
-    """Преобразует точный вес в понятный пользователю уровень."""
+    """Fallback for rows created before the importance migration."""
     if maximum_weight <= 0 or weight <= 0:
         return "important"
     if weight >= 0.35:
-        return "very"
+        return "critical"
     if weight >= 0.15:
         return "important"
     return "desirable"
 
 
-def _renormalize_importance(db: Session, criteria, levels: dict[int, str]):
-    total_points = sum(IMPORTANCE_POINTS[levels[item.id]] for item in criteria)
-    for item in criteria:
-        item.weight = IMPORTANCE_POINTS[levels[item.id]] / total_points
+def _validate_importance(importance: str) -> str:
+    # Compatibility with the previous UI, which called the top level "very".
+    if importance == "very":
+        importance = "critical"
+    if importance not in IMPORTANCE_SHARES:
+        raise ValueError("Неизвестный уровень важности")
+    return importance
+
+
+def _renormalize_importance(criteria: list[models.Criterion]) -> None:
+    """Distribute 60/30/10 between present groups and always total 100%."""
+    if not criteria:
+        return
+    grouped = {
+        key: [item for item in criteria if item.importance == key]
+        for key in IMPORTANCE_SHARES
+    }
+    active_share = sum(
+        IMPORTANCE_SHARES[key]
+        for key, items in grouped.items()
+        if items
+    )
+    if active_share <= 0:
+        for item in criteria:
+            item.importance = "important"
+        grouped["important"] = list(criteria)
+        active_share = IMPORTANCE_SHARES["important"]
+    for key, items in grouped.items():
+        if not items:
+            continue
+        group_weight = IMPORTANCE_SHARES[key] / active_share
+        item_weight = group_weight / len(items)
+        for item in items:
+            item.weight = item_weight
+    # Keep the stored sum exactly one despite floating-point accumulation.
+    criteria[-1].weight += 1.0 - sum(item.weight for item in criteria)
+
+
+def normalize_project_importance(db: Session, project_id: int) -> None:
+    criteria = get_criteria(db, project_id)
+    _renormalize_importance(criteria)
 
 
 def create_simple_criterion(
@@ -70,24 +107,18 @@ def create_simple_criterion(
     name: str,
     importance: str,
 ):
-    if importance not in IMPORTANCE_POINTS:
-        raise ValueError("Неизвестный уровень важности")
+    importance = _validate_importance(importance)
     criteria = get_criteria(db, project_id)
-    maximum = max((item.weight for item in criteria), default=0)
-    levels = {
-        item.id: importance_level(item.weight, maximum)
-        for item in criteria
-    }
     criterion = models.Criterion(
         name=name.strip(),
-        weight=1.0,
+        weight=0.0,
+        importance=importance,
         project_id=project_id,
     )
     db.add(criterion)
     db.flush()
     criteria.append(criterion)
-    levels[criterion.id] = importance
-    _renormalize_importance(db, criteria, levels)
+    _renormalize_importance(criteria)
     invalidate_analysis(db=db, project_id=project_id)
     db.commit()
     db.refresh(criterion)
@@ -99,16 +130,10 @@ def set_simple_importance(
     criterion: models.Criterion,
     importance: str,
 ):
-    if importance not in IMPORTANCE_POINTS:
-        raise ValueError("Неизвестный уровень важности")
+    importance = _validate_importance(importance)
     criteria = get_criteria(db, criterion.project_id)
-    maximum = max((item.weight for item in criteria), default=0)
-    levels = {
-        item.id: importance_level(item.weight, maximum)
-        for item in criteria
-    }
-    levels[criterion.id] = importance
-    _renormalize_importance(db, criteria, levels)
+    criterion.importance = importance
+    _renormalize_importance(criteria)
     invalidate_analysis(db=db, project_id=criterion.project_id)
     db.commit()
 
@@ -119,42 +144,12 @@ def create_criterion(
     name: str,
     weight_percent: float,
 ):
-    criteria = get_criteria(
-        db,
-        project_id,
+    importance = (
+        "critical" if weight_percent >= 35
+        else "important" if weight_percent >= 15
+        else "desirable"
     )
-
-    current_total_weight = sum(
-        criterion.weight
-        for criterion in criteria
-    )
-
-    new_weight = (
-        weight_percent / 100
-    )
-
-    _validate_total_weight(
-        existing_weight=current_total_weight,
-        new_weight=new_weight,
-    )
-
-    criterion = models.Criterion(
-        name=name.strip(),
-        weight=new_weight,
-        project_id=project_id,
-    )
-
-    db.add(criterion)
-
-    invalidate_analysis(
-        db=db,
-        project_id=project_id,
-    )
-
-    db.commit()
-    db.refresh(criterion)
-
-    return criterion
+    return create_simple_criterion(db, project_id, name, importance)
 
 
 def create_ai_criteria(
@@ -171,11 +166,6 @@ def create_ai_criteria(
         criterion.name.strip().casefold()
         for criterion in existing_criteria
     }
-
-    current_total_weight = sum(
-        criterion.weight
-        for criterion in existing_criteria
-    )
 
     prepared = []
 
@@ -195,37 +185,21 @@ def create_ai_criteria(
         ):
             continue
 
-        weight_percent = float(
-            suggestion["weight_percent"]
-        )
-
-        ai_weight_percent = float(
-            suggestion[
-                "ai_suggested_weight_percent"
-            ]
-        )
-
-        if (
-            weight_percent < 0
-            or weight_percent > 100
-            or ai_weight_percent < 0
-            or ai_weight_percent > 100
-        ):
-            raise ValueError(
-                "Вес должен быть "
-                "от 0 до 100 процентов"
+        importance = suggestion.get("importance")
+        if importance is None:
+            legacy_weight = float(suggestion.get("weight_percent", 20))
+            importance = (
+                "critical" if legacy_weight >= 35
+                else "important" if legacy_weight >= 15
+                else "desirable"
             )
+        importance = _validate_importance(str(importance))
 
         prepared.append(
             {
                 **suggestion,
                 "name": name,
-                "weight": (
-                    weight_percent / 100
-                ),
-                "ai_weight": (
-                    ai_weight_percent / 100
-                ),
+                "importance": importance,
             }
         )
 
@@ -233,27 +207,20 @@ def create_ai_criteria(
             normalized_name
         )
 
-    new_total_weight = sum(
-        item["weight"]
-        for item in prepared
-    )
-
-    _validate_total_weight(
-        existing_weight=current_total_weight,
-        new_weight=new_total_weight,
-    )
-
     created = []
 
     for item in prepared:
         criterion = models.Criterion(
             name=item["name"],
-            weight=item["weight"],
+            weight=0.0,
+            importance=item["importance"],
             ai_suggested_name=(
                 item["name"]
             ),
             ai_suggested_weight=(
-                item["ai_weight"]
+                float(item["ai_suggested_weight_percent"]) / 100
+                if item.get("ai_suggested_weight_percent") is not None
+                else None
             ),
             ai_criterion_explanation=(
                 item[
@@ -261,9 +228,7 @@ def create_ai_criteria(
                 ].strip()
             ),
             ai_weight_explanation=(
-                item[
-                    "weight_explanation"
-                ].strip()
+                str(item.get("weight_explanation", "")).strip()
             ),
             project_id=project_id,
         )
@@ -272,6 +237,8 @@ def create_ai_criteria(
         created.append(criterion)
 
     if created:
+        db.flush()
+        _renormalize_importance(existing_criteria + created)
         invalidate_analysis(
             db=db,
             project_id=project_id,
@@ -300,6 +267,8 @@ def delete_criterion(
     project_id = criterion.project_id
 
     db.delete(criterion)
+    db.flush()
+    _renormalize_importance(get_criteria(db, project_id))
 
     invalidate_analysis(
         db=db,
@@ -307,6 +276,28 @@ def delete_criterion(
     )
 
     db.commit()
+
+
+def delete_criteria(
+    db: Session,
+    project_id: int,
+    criterion_ids: list[int],
+) -> int:
+    selected = set(criterion_ids)
+    if not selected:
+        return 0
+    criteria = list(db.scalars(select(models.Criterion).where(
+        models.Criterion.project_id == project_id,
+        models.Criterion.id.in_(selected),
+    )))
+    for criterion in criteria:
+        db.delete(criterion)
+    if criteria:
+        db.flush()
+        _renormalize_importance(get_criteria(db, project_id))
+        invalidate_analysis(db=db, project_id=project_id)
+        db.commit()
+    return len(criteria)
 
 
 def update_criterion(
@@ -323,43 +314,25 @@ def update_criterion(
     if criterion is None:
         return None
 
-    other_criteria = (
-        select(models.Criterion)
-        .where(
-            models.Criterion.project_id
-            == criterion.project_id,
-            models.Criterion.id
-            != criterion.id,
-        )
-    )
-
-    other_total_weight = sum(
-        item.weight
-        for item in db.scalars(
-            other_criteria
-        )
-    )
-
-    new_weight = (
-        weight_percent / 100
-    )
-
-    _validate_total_weight(
-        existing_weight=other_total_weight,
-        new_weight=new_weight,
-    )
-
     normalized_name = name.strip()
 
+    importance = (
+        "critical" if weight_percent >= 35
+        else "important" if weight_percent >= 15
+        else "desirable"
+    )
     changed = (
         criterion.name != normalized_name
-        or criterion.weight != new_weight
+        or criterion.importance != importance
     )
 
     criterion.name = normalized_name
-    criterion.weight = new_weight
+    criterion.importance = importance
 
     if changed:
+        _renormalize_importance(
+            get_criteria(db, criterion.project_id)
+        )
         invalidate_analysis(
             db=db,
             project_id=criterion.project_id,

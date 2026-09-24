@@ -248,7 +248,6 @@
             get("ai-result-competitor-block").classList.toggle("d-none",!data.competitor);
             get("ai-result-caveat").textContent=data.caveat||"";
             get("ai-result-caveat").classList.toggle("d-none",!data.caveat);
-            get("ai-result-preliminary").classList.toggle("d-none",!data.preliminary);
             get("ai-result-explanation").classList.remove("d-none");
         } else {
             const list=get("ai-decision-risks-list"); if(!list)return;
@@ -262,7 +261,6 @@
                 card.append(title,type,risk,check);list.append(card);
             });
             get("ai-decision-risks-intro").classList.add("d-none");
-            get("ai-decision-risks-preliminary").classList.toggle("d-none",!data.preliminary);
             get("ai-decision-risks-result").classList.remove("d-none");
         }
     }
@@ -330,8 +328,12 @@
                     else notice.focus({preventScroll:true});
                     return;
                 }
-                unknown=null;notice.textContent="Матрица сохранена полностью.";
-                window.dmatrixReload();
+                unknown=null;notice.textContent="Матрица сохранена полностью. Обновляем результат и отчёт…";
+                if(typeof window.dmatrixAfterMatrixSave === "function") {
+                    await window.dmatrixAfterMatrixSave();
+                } else {
+                    window.dmatrixReload();
+                }
             } catch (_) {
                 unknown=form.elements.request_key.value||unknown;
                 notice.textContent="Связь прервалась. Ввод остался на экране. Кнопка проверит состояние перед повторным сохранением.";

@@ -57,7 +57,7 @@ START_DETAILS_MAX_LENGTH = 1800
 
 
 def _project_redirect(project_id: int, second_project: bool = False) -> str:
-    query = "created=1"
+    query = "created=1&autofill=1"
     if second_project:
         query += "&second_project_event=1"
     return f"/projects/{project_id}?{query}"
@@ -162,7 +162,7 @@ def submit_start_decision(
 
     if user is None:
         request.session["decision_draft"] = draft
-        return RedirectResponse(url="/register?from=start", status_code=303)
+        return RedirectResponse(url="/login?from=start", status_code=303)
 
     if legal_document_service.pending_versions(db, user.id):
         request.session["decision_draft"] = draft

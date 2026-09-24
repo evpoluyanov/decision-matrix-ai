@@ -183,6 +183,7 @@ def copy_project(
         new_criterion = models.Criterion(
             name=source_criterion.name,
             weight=source_criterion.weight,
+            importance=source_criterion.importance,
             ai_suggested_name=(
                 source_criterion.ai_suggested_name
             ),

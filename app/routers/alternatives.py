@@ -50,6 +50,7 @@ def project_detail(
     weight_error: int | None = None,
     created: int | None = None,
     welcome: int | None = None,
+    autofill: int | None = None,
     second_project_event: int | None = None,
 ):
     alternatives = alternative_service.get_alternatives(
@@ -61,8 +62,6 @@ def project_detail(
         db,
         project.id,
     )
-    maximum_weight = max((item.weight for item in criteria), default=0)
-
     scores = score_service.get_scores(
         db,
         project.id,
@@ -85,6 +84,11 @@ def project_detail(
         project_id=project.id,
     )
     user = db.get(models.User, project.owner_id)
+    show_second_project_offer = (
+        growth_service.should_offer_for_second_project(
+            db, user_id=user.id, project_id=project.id,
+        )
+    )
     growth_service.record_project_value(
         db, user=user, project_id=project.id, results=results,
     )
@@ -111,18 +115,20 @@ def project_detail(
             "weight_error": weight_error,
             "created": created == 1,
             "welcome": welcome == 1,
+            "autofill": (
+                autofill == 1
+                and not alternatives
+                and not criteria
+                and not show_second_project_offer
+            ),
             "second_project_event": second_project_event == 1,
             "criterion_importance": {
-                item.id: criterion_service.importance_level(
-                    item.weight, maximum_weight,
-                )
+                item.id: item.importance
                 for item in criteria
             },
             "saved_ai_analysis": project_ai_analysis_service.to_report_data(
                 project_ai_analysis_service.get_analysis(db, project.id)),
-            "show_second_project_offer": growth_service.should_offer_for_second_project(
-                db, user_id=user.id, project_id=project.id,
-            ),
+            "show_second_project_offer": show_second_project_offer,
             **public_site_service.product_analytics_context(request),
         },
     )
@@ -377,6 +383,24 @@ def delete_alternative(
 
     return RedirectResponse(
         url=f"/projects/{project_id}",
+        status_code=303,
+    )
+
+
+@router.post("/projects/{project_id}/alternatives/delete")
+def delete_selected_alternatives(
+    project_id: int,
+    alternative_ids: list[int] = Form(default=[]),
+    db: Session = Depends(get_db),
+    project: models.Project = Depends(require_project_owner),
+):
+    alternative_service.delete_alternatives(
+        db=db,
+        project_id=project.id,
+        alternative_ids=alternative_ids,
+    )
+    return RedirectResponse(
+        url=f"/projects/{project.id}#alternatives",
         status_code=303,
     )
 

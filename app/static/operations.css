@@ -17,3 +17,16 @@
 .cookie-consent a:focus-visible,.cookie-consent button:focus-visible{outline:3px solid #0d6efd;outline-offset:3px}
 @media(max-width:575.98px){.cookie-consent{left:.5rem;right:.5rem;bottom:.5rem}.cookie-consent__body{padding:.85rem}}
 @media print{.operation-notice,.analysis-dialog,#report-link,.cookie-consent{display:none}}
+.example-link{border:0;background:transparent;color:#5d6b7a;padding:.15rem .1rem;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:.18rem;font-size:inherit}
+.example-link:hover,.example-link:focus-visible,.example-link.active{color:#0d6efd;text-decoration-style:solid}
+.decision-prompt::placeholder{color:#a2abb5;opacity:1;font-size:1rem}
+.nav-icon-link{display:inline-flex;align-items:center;justify-content:center;min-width:2.4rem}
+.nav-icon{width:1.25rem;height:1.25rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.selection-row{display:flex;gap:.75rem;align-items:center;padding:.65rem .75rem;border:1px solid #dee2e6;border-radius:.5rem}
+.selection-row__name{min-width:0;overflow-wrap:anywhere}
+.selection-row .form-check-input{flex:0 0 auto}
+.importance-select{max-width:10rem}
+.inline-add-form{display:flex;align-items:center;gap:.5rem}
+.inline-add-form .form-select{max-width:10rem}
+.inline-add-form[hidden]{display:none!important}
+@media(max-width:575.98px){.inline-add-form{align-items:stretch;flex-direction:column}.inline-add-form .form-select{max-width:none}.inline-add-form .btn{align-self:flex-end}.importance-select{max-width:none;width:100%}}

@@ -12,7 +12,13 @@ from app import models
 from app.llm import service as llm_service
 from app.llm.safety import MAX_PROJECT_DESCRIPTION_LENGTH
 from app.llm.schemas import LLMResponse, LLMUsage
-from app.services import ai_usage_service
+from app.services import (
+    ai_criterion_service,
+    ai_decision_risk_service,
+    ai_result_service,
+    ai_score_service,
+    ai_usage_service,
+)
 from conftest import TEST_PASSWORD
 
 
@@ -78,7 +84,7 @@ def llm_response(feature, context):
         },
         "criteria": {
             "s": "ok",
-            "i": [{"n": "Надёжность", "w": 25, "cr": "Важна для семьи.",
+            "i": [{"n": "Надёжность", "c": "important", "cr": "Важна для семьи.",
                    "wr": "Снижает риск ремонта."}],
         },
         "scores": {
@@ -142,7 +148,7 @@ def test_request_is_reserved_before_llm_and_completed(
             score = db.query(models.Score).one()
             assert data["updated"] == 1
             assert score.ai_value == 8.5
-            assert score.value == 7.0
+            assert score.value == 8.5
         elif feature == "result_explanation":
             analysis = db.query(models.ProjectAIAnalysis).one()
             assert analysis.result_summary == data["summary"]
@@ -267,12 +273,28 @@ def test_oversized_input_does_not_reserve(client, ai_context, feature):
 
 @pytest.mark.parametrize("feature", FEATURES)
 def test_result_without_usage_does_not_leave_started_log(
-    client, ai_context, feature,
+    client, ai_context, monkeypatch, feature,
 ):
     with ai_context["TestingSessionLocal"]() as db:
         project = db.get(models.Project, ai_context["project_1_id"])
         project.description = ""
         db.commit()
+
+    service, method = {
+        "criteria": (ai_criterion_service, "generate_criterion_suggestions"),
+        "scores": (ai_score_service, "generate_score_suggestions"),
+        "result_explanation": (ai_result_service, "generate_result_explanation"),
+        "decision_risks": (ai_decision_risk_service, "generate_decision_risks"),
+    }[feature]
+    monkeypatch.setattr(
+        service,
+        method,
+        lambda *args, **kwargs: {
+            "status": "insufficient_context",
+            "message": "Недостаточно контекста.",
+            "items": [],
+        },
+    )
 
     response = client.post(endpoint(ai_context["project_1_id"], feature))
     assert response.status_code == 200

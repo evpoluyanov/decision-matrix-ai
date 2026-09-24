@@ -22,15 +22,6 @@ def generate_score_suggestions(
         else ""
     )
 
-    if not description:
-        return {
-            "status":
-                "insufficient_context",
-            "message":
-                INSUFFICIENT_CONTEXT_MESSAGE,
-            "items": [],
-        }
-
     if not alternatives or not criteria:
         return {
             "status": "empty_matrix",
@@ -83,7 +74,7 @@ def generate_score_suggestions(
     user_data = {
         "project": {
             "name": project.name,
-            "description": description,
+            "description": description or project.name,
         },
         "alternatives": alternatives_data,
         "criteria": criteria_data,

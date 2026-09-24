@@ -93,26 +93,6 @@ def analyze_decision_risks(
             )
 
     if score_summary[
-        "ai_only"
-    ] > 0:
-        risks.append(
-            {
-                "code": "unconfirmed_ai_scores",
-                "level": "warning",
-                "title": (
-                    "Есть неподтверждённые "
-                    "оценки ИИ"
-                ),
-                "message": (
-                    "В расчёте участвуют "
-                    f"{score_summary['ai_only']} "
-                    "оценок ИИ, которые ещё "
-                    "не подтверждены пользователем."
-                ),
-            }
-        )
-
-    if score_summary[
         "empty"
     ] > 0:
         risks.append(

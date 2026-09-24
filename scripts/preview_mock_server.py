@@ -58,8 +58,7 @@ def main():
             result={"s":"ok","i":[{"n":f"Демо-вариант {offset+i+1}","r":"Искусственное предложение для проверки интерфейса."} for i in range(5)]}
         elif "existing_criteria" in data:
             offset=len(data["existing_criteria"])
-            weight=min(10,data["remaining_weight_percent"]/5)
-            result={"s":"ok","i":[{"n":f"Демо-критерий {offset+i+1}","w":weight,"cr":"Тест критерия.","wr":"Тест распределения веса."} for i in range(5)]}
+            result={"s":"ok","i":[{"n":f"Демо-критерий {offset+i+1}","c":"important","cr":"Тест критерия.","wr":"Тест категории важности."} for i in range(5)]}
         elif "summary" in system:
             result={"summary":"Демонстрационное объяснение: рейтинг рассчитан по заданным весам.",
                 "factors":["Демо-фактор"],"strengths":["Демо-преимущество"],"weaknesses":[],"competitor":"Демо-сравнение","caveat":"Это имитация модели, не рекомендация."}
