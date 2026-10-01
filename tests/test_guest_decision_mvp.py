@@ -153,7 +153,7 @@ def test_all_pairs_batched_without_count_cap(client, decision_mock):
     result=client.get(url+'/status').json()['result']
     assert len(result['rows'])==25
     assert all(len(row['cells'])==23 for row in result['rows'])
-    assert len(decision_mock)==1+7*4
+    assert len(decision_mock)==1+9*6
 
 
 def test_disabled_ai_preserves_input(client, monkeypatch, test_environment):
@@ -205,3 +205,26 @@ def test_invalid_provider_result_preserves_previous_result(client, decision_mock
     after = client.get(url+'/status').json()
     assert after['state'] == 'error' and after['error_code'] == 'invalid_response'
     assert after['result'] == before['result']
+
+
+def test_guest_real_provider_boundary_reserves_and_reports_cost(client, monkeypatch, test_environment):
+    import httpx
+    original_client = httpx.Client
+    sent = []
+    def response(request):
+        payload = json.loads(request.content)
+        sent.append(payload)
+        data = {"options":["А", "Б"], "conditions":[{"name":"Без поездок", "required":True}]}
+        return httpx.Response(200, request=request, json={"model":"gpt-oss-120b",
+            "choices":[{"message":{"content":json.dumps(data)}, "finish_reason":"stop"}],
+            "usage":{"prompt_tokens":120,"completion_tokens":40,"total_tokens":160}})
+    monkeypatch.setattr(httpx, 'Client', lambda **kw: original_client(transport=httpx.MockTransport(response), **kw))
+    url = start(client)
+    assert client.get(url+'/status').json()['state'] == 'understanding'
+    assert len(sent) == 1
+    with test_environment['TestingSessionLocal']() as db:
+        log = db.query(models.AIRequestLog).filter_by(feature='decision_preparing').one()
+        call = db.query(models.AIProviderCall).filter_by(request_log_id=log.id).one()
+        assert log.status == 'completed' and log.user_id is None
+        assert call.status == 'reported' and call.input_tokens == 120 and call.output_tokens == 40
+        assert call.estimated_microrub > 0 and call.charged_microrub > 0
