@@ -190,7 +190,7 @@ def begin(db, request, brief, phase, changes=None):
     return log.id, key
 
 
-def call(system, data, output=6000):
+def call(system, data, output=ai_budget_service.MAX_OUTPUT_TOKENS):
     return llm.generate(system_prompt=system, user_prompt=json.dumps(data, ensure_ascii=False),
                         max_output_tokens=output, temperature=0.2, json_mode=True)
 
@@ -267,9 +267,9 @@ def worker(bind, bid, log_id, key, phase):
                     data = json.loads(brief.understanding_json)
                     cells, observations = [], []
                     # Batch by BOTH dimensions. No hard product count and no dropped tail.
-                    for oi in range(0, len(data["options"]), 4):
-                        for ci in range(0, len(data["conditions"]), 6):
-                            opts, conds = data["options"][oi:oi+4], data["conditions"][ci:ci+6]
+                    for oi in range(0, len(data["options"]), 3):
+                        for ci in range(0, len(data["conditions"]), 4):
+                            opts, conds = data["options"][oi:oi+3], data["conditions"][ci:ci+4]
                             parsed = parse(call(COMPARE_PROMPT, {"question": brief.question, "details": brief.details,
                                 "answers": data.get("answers", []), "options": opts, "conditions": conds}), Comparison)
                             mapped = {(c.option, c.condition): c.model_dump() for c in parsed.cells}
