@@ -9,6 +9,8 @@
     <link rel="icon" href="/favicon.ico" type="image/vnd.microsoft.icon" sizes="16x16 32x32 48x48">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="stylesheet" href="/static/operations.css">
+    <link rel="stylesheet" href="/static/decision-mvp.css">
+    <script src="/static/decision-menu.js" defer></script>
     <script src="/static/operations.js" defer></script>
 
     <link href="/static/vendor/bootstrap-5.3.7.min.css" rel="stylesheet">
@@ -20,86 +22,17 @@
 
 <body class="d-flex flex-column min-vh-100 bg-light">
 
-    <header>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container">
-
-                <a class="navbar-brand" href="/">
-                    Decision Matrix AI
-                </a>
-
-                <button
-                    class="navbar-toggler"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#mainNavbar"
-                    aria-controls="mainNavbar"
-                    aria-expanded="false"
-                    aria-label="Переключить навигацию"
-                >
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <div
-                    class="collapse navbar-collapse"
-                    id="mainNavbar"
-                >
-                    <div class="navbar-nav ms-auto">
-                        <a class="nav-link nav-icon-link" href="/" title="Главная" aria-label="Главная">
-                            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg>
-                        </a>
-
-                        {% if request.session.get("user_id") %}
-
-                            <a class="nav-link nav-icon-link" href="/projects" title="Мои решения" aria-label="Мои решения">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h7l2 2h9v10H3z"/><path d="M3 7.5V5h7l2 2.5"/></svg>
-                            </a>
-
-                            <a class="nav-link nav-icon-link" href="/account" title="Настройки" aria-label="Настройки">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
-                            </a>
-                            <a class="nav-link nav-icon-link" href="/pricing" title="Тарифы" aria-label="Тарифы">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4z"/><path d="M4 10h16"/><path d="M7 14h4"/></svg>
-                            </a>
-                            <a class="nav-link nav-icon-link" href="/feedback" title="Обратная связь" aria-label="Обратная связь">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H9l-5 3z"/><path d="M8 9h8M8 13h5"/></svg>
-                            </a>
-
-                            <form
-                                method="post"
-                                action="/logout"
-                                class="d-flex"
-                            >
-                                <button
-                                    type="submit"
-                                    class="btn btn-link nav-link nav-icon-link"
-                                    title="Выйти"
-                                    aria-label="Выйти"
-                                >
-                                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H4v16h6"/><path d="M14 8l4 4-4 4M8 12h10"/></svg>
-                                </button>
-                            </form>
-
-                        {% else %}
-
-                            <a class="nav-link nav-icon-link" href="/pricing" title="Тарифы" aria-label="Тарифы">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4z"/><path d="M4 10h16"/><path d="M7 14h4"/></svg>
-                            </a>
-                            <a class="nav-link nav-icon-link" href="/login" title="Войти" aria-label="Войти">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v16h-6"/><path d="M10 8l-4 4 4 4M6 12h10"/></svg>
-                            </a>
-
-                            <a class="nav-link nav-icon-link" href="/register" title="Регистрация" aria-label="Регистрация">
-                                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.5-4 2.5-6 5.5-6s5 2 5.5 6M18 8v6M15 11h6"/></svg>
-                            </a>
-
-                        {% endif %}
-                    </div>
-                </div>
-
-            </div>
-        </nav>
-    </header>
+    <header class="decision-nav"><div class="container">
+        <a class="decision-brand" href="/"><img src="/favicon.svg" alt="">Decision Matrix AI</a>
+        <div class="menu-wrap"><button type="button" class="menu-toggle" aria-label="Меню" aria-expanded="false" aria-controls="decision-menu">☰</button>
+        <nav id="decision-menu" class="decision-menu" aria-label="Основное меню" hidden>
+        <a href="/">⌂ &nbsp; Новый разбор</a>
+        {% if request.session.get("user_id") %}<a href="/decisions/mine">▤ &nbsp; Мои разборы</a>{% endif %}<hr>
+        <a href="/feedback">✉ &nbsp; Обратная связь</a>
+        {% if request.session.get("user_id") %}<a href="/account">⚙ &nbsp; Настройки</a>{% endif %}
+        {% if is_admin | default(false) %}<a href="/admin">▥ &nbsp; Админка</a>{% endif %}<hr>
+        {% if request.session.get("user_id") %}<form method="post" action="/logout"><button>↪ &nbsp; Выйти</button></form>{% else %}<a href="/login">↪ &nbsp; Войти</a>{% endif %}
+        </nav></div></div></header>
 
     <main class="flex-grow-1">
         <div class="container py-4">
@@ -111,7 +44,7 @@
     <footer class="border-top bg-white mt-auto">
         <div class="container py-3">
             <p class="text-secondary small mb-1">
-                Decision Matrix AI — сервис поддержки принятия решений.
+                Сервис сейчас работает бесплатно. Об изменениях условий сообщим зарегистрированным пользователям.
             </p>
             <p class="small mb-0">
                 <a href="/privacy">Политика в отношении обработки персональных данных</a>

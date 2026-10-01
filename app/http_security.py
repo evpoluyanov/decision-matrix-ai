@@ -75,6 +75,7 @@ class BrowserSecurityMiddleware(BaseHTTPMiddleware):
             "/favicon.svg", "/favicon-120.png", "/favicon.ico", "/apple-touch-icon.png",
             "/static/operations.css", "/static/operations.js",
             "/static/start-decision.js", "/static/verify-email.js",
+            "/static/decision-mvp.css", "/static/decision-mvp.js", "/static/decision-menu.js",
             "/robots.txt", "/sitemap.xml", "/static/og-decision-matrix.png",
         }
         is_nonproduction = (

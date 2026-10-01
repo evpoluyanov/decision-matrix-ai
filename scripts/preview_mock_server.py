@@ -53,7 +53,16 @@ def main():
         system = payload["messages"][0]["content"]
         data = json.loads(payload["messages"][1]["content"])
         finish = "stop"
-        if "existing_alternatives" in data:
+        if "allow_suggestions" in data:
+            result={"options":[], "conditions":[{"name":"Без поездок","required":True}],
+                "additional_options":["Онлайн-курс","Индивидуальные онлайн-занятия"] if data["allow_suggestions"] else [],
+                "additional_conditions":[{"name":"Обратная связь","required":False}] if data["allow_suggestions"] else [],
+                "questions":["Сколько времени готовы уделять занятиям?"]}
+        elif "options" in data and "conditions" in data:
+            result={"cells":[{"option":o,"condition":c["name"],"status":"unknown","basis":"unknown",
+                "detail":"Демонстрационные данные: необходимо уточнить условия."} for o in data["options"] for c in data["conditions"]],
+                "observations":["Демо: сравните расписание и возможность задать вопросы преподавателю."]}
+        elif "existing_alternatives" in data:
             offset=len(data["existing_alternatives"])
             result={"s":"ok","i":[{"n":f"Демо-вариант {offset+i+1}","r":"Искусственное предложение для проверки интерфейса."} for i in range(5)]}
         elif "existing_criteria" in data:

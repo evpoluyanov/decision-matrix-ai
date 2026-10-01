@@ -145,15 +145,7 @@ def record_second_project(db, *, user, project_id):
 
 
 def should_offer_for_second_project(db, *, user_id, project_id):
-    trial_id = first_trial_project_id(db, user_id)
-    return bool(
-        trial_id and trial_id != project_id
-        and has_event(db, "result_calculated", user_id=user_id, project_id=trial_id)
-        and preference_for(db, user_id) is None
-        and not has_event(
-            db, "paid_offer_viewed", user_id=user_id, project_id=project_id,
-        )
-    )
+    return False  # Monetisation experiment paused by the owner.
 
 
 def preference_for(db, user_id):

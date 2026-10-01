@@ -541,9 +541,6 @@
     </div>
 </div>
 
-{% if show_monetization_offer %}
-    {% include "_monetization_offer.html" %}
-{% endif %}
 
 {% if report_question_answered and request.query_params.get('feedback_submitted') %}
 <p id="report-feedback-thanks" class="alert alert-success" role="status">Спасибо! Ваша оценка сохранена. Этот вопрос больше не будет показываться вам в отчётах.</p>

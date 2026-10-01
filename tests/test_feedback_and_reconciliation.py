@@ -24,7 +24,7 @@ def test_feedback_requires_login_and_escapes_html_in_admin(client, test_environm
     }, follow_redirects=False)
     assert response.status_code == 303
     monkeypatch.setenv("ADMIN_USER_IDS", str(test_environment["user_1_id"]))
-    admin = client.get("/admin")
+    admin = client.get("/admin/technical")
     assert admin.status_code == 200
     assert "&lt;script&gt;" in admin.text
     assert '<script>alert("xss")</script>' not in admin.text

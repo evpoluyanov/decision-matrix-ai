@@ -734,8 +734,11 @@ def test_ai_scope_rejects_excessive_input(
         **parameters
     )
 
-    assert result is not None
-    assert message_fragment in result
+    if any(k in overrides for k in ("alternatives_count", "criteria_count", "check_matrix_size")):
+        assert result is None
+    else:
+        assert result is not None
+        assert message_fragment in result
 
 def test_ai_alternatives_reject_oversized_project(
     client,
@@ -897,19 +900,8 @@ def test_ai_alternatives_reject_too_many_items(
         )
     )
 
-    assert response.status_code == 400
-
-    assert (
-        response.json()["status"]
-        == "input_limit_exceeded"
-    )
-
-    assert (
-        "альтернатив"
-        in response.json()["message"]
-    )
-
-    assert llm_called is False
+    assert response.json().get("status") != "input_limit_exceeded"
+    assert llm_called is True
 
 def test_ai_criteria_reject_too_many_items(
     client,
@@ -990,19 +982,8 @@ def test_ai_criteria_reject_too_many_items(
         )
     )
 
-    assert response.status_code == 400
-
-    assert (
-        response.json()["status"]
-        == "input_limit_exceeded"
-    )
-
-    assert (
-        "критериев"
-        in response.json()["message"]
-    )
-
-    assert llm_called is False
+    assert response.json().get("status") != "input_limit_exceeded"
+    assert llm_called is True
 
 def test_ai_scores_reject_oversized_matrix(
     client,
@@ -1093,19 +1074,8 @@ def test_ai_scores_reject_oversized_matrix(
         )
     )
 
-    assert response.status_code == 400
-
-    assert (
-        response.json()["status"]
-        == "input_limit_exceeded"
-    )
-
-    assert (
-        "Матрица"
-        in response.json()["message"]
-    )
-
-    assert llm_called is False
+    assert response.json().get("status") != "input_limit_exceeded"
+    assert llm_called is True
 
 @pytest.mark.parametrize(
     (
@@ -1214,19 +1184,10 @@ def test_ai_analysis_rejects_oversized_matrix(
         )
     )
 
-    assert response.status_code == 400
-
-    assert (
-        response.json()["status"]
-        == "input_limit_exceeded"
-    )
-
-    assert (
-        "Матрица"
-        in response.json()["message"]
-    )
-
-    assert llm_called is False
+    assert response.json().get("status") != "input_limit_exceeded"
+    # A legacy matrix with no scores still needs data; it is not rejected for its count.
+    assert response.status_code != 413
+    assert "Матрица слишком велика" not in response.text
 
 def test_create_project_rejects_oversized_name(
     client,

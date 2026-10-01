@@ -7,6 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.http_security import BrowserSecurityMiddleware, FirstTouchAttributionMiddleware
 
 from app.routers import (
+    decisions,
     admin,
     ai,
     alternatives,
@@ -39,7 +40,37 @@ session_https_only = (
 )
 
 
-app = FastAPI(title="Decision Matrix AI")
+from contextlib import asynccontextmanager
+import asyncio
+
+
+@asynccontextmanager
+async def lifespan(application):
+    async def expire_guests():
+        while True:
+            await asyncio.sleep(3600)
+            def sweep():
+                from app.database import SessionLocal
+                from app.services.decision_service import cleanup
+                with SessionLocal() as db:
+                    cleanup(db)
+            try:
+                await asyncio.to_thread(sweep)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning("Guest expiry sweep failed; will retry on next sweep.")
+    task = asyncio.create_task(expire_guests())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(title="Decision Matrix AI", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.add_middleware(BrowserSecurityMiddleware)
@@ -55,6 +86,7 @@ app.add_middleware(
     https_only=session_https_only,
 )
 
+app.include_router(decisions.router)
 app.include_router(projects.router)
 app.include_router(ai.router)
 app.include_router(alternatives.router)

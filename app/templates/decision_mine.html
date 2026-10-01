@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}Мои разборы — Decision Matrix AI{% endblock %}
+{% block content %}<h1>Мои разборы</h1><p><a href="/" class="btn btn-primary">Новый разбор</a></p>{% for brief in briefs %}<article class="card mb-3"><div class="card-body"><h2 class="h5"><a href="/decisions/{{ brief.id }}">{{ brief.question }}</a></h2><p class="small text-muted mb-0">{{ brief.created_at.strftime('%d.%m.%Y') }}</p></div></article>{% else %}<p>Здесь появятся сохранённые результаты.</p>{% endfor %}<p class="mt-4"><a href="/projects">Проекты с прежней методикой расчёта</a></p>{% endblock %}

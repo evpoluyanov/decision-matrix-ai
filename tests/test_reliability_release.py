@@ -109,11 +109,15 @@ def test_successful_save_has_state_endpoint_and_timing(client,matrix100):
 
 
 def test_current_preference_counts_one_user_not_events(client,prepared):
+    from app.services import growth_service
+    with prepared["TestingSessionLocal"]() as db:
+        user=db.get(models.User,prepared["user_1_id"])
+        growth_service.record_event(db,"paid_offer_viewed",user=user,metadata={"source":"pricing"})
     client.get("/pricing")
     for plan in ("project_99","pro_299","free_beta","free_beta"):
         response=client.post("/monetization/preference",data={"selected_plan":plan,"source":"pricing","return_to":"/pricing"})
         assert response.status_code == 200
-    assert "Вы продолжаете бесплатное бета-тестирование" in response.text
+    assert "Вы продолжаете бесплатное бета-тестирование" not in response.text
     assert "Спасибо! Мы проинформируем" not in response.text
     with prepared["TestingSessionLocal"]() as db:
         stats=admin_service.statistics(db,"all")["funnel"]
@@ -207,15 +211,10 @@ def test_risks_10_by_10_and_failed_reanalysis_preserves_saved(client,prepared,ma
 
 
 def test_pricing_current_choice_is_inline_and_non_interactive(client, prepared):
-    client.get("/pricing")
-    client.post("/monetization/preference", data={
-        "selected_plan": "pro_299", "source": "pricing", "return_to": "/pricing",
-    })
-    page = client.get("/pricing").text
-    assert 'class="pricing-actions"' in page
-    assert 'class="current-choice" role="status">Текущий выбор</span>' in page
-    assert 'rounded px-2 py-1' not in page
-    assert 'href="/static/pricing.css"' in page
+    response=client.get("/pricing",follow_redirects=False)
+    assert response.status_code==303 and response.headers["location"]=="/"
+    page=client.get("/").text
+    assert "Текущий выбор" not in page and "Сообщить мне о запуске" not in page
 
 
 def test_timeout_keeps_uncertain_reserve_and_status(client,prepared,monkeypatch):

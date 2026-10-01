@@ -171,11 +171,11 @@ def test_admin_requires_verified_allowlisted_user(client, test_environment, monk
     assert client.get("/admin", follow_redirects=False).status_code == 303
     login(client)
     monkeypatch.setenv("ADMIN_USER_IDS", str(test_environment["user_1_id"]))
-    assert client.get("/admin").status_code == 403
+    assert client.get("/admin/technical").status_code == 403
     with test_environment["TestingSessionLocal"]() as db:
         db.get(models.User, test_environment["user_1_id"]).email_verified = True
         db.commit()
-    response = client.get("/admin")
+    response = client.get("/admin/technical")
     assert response.status_code == 200
     assert "private, no-store" == response.headers["Cache-Control"]
     assert "noindex" in response.headers["X-Robots-Tag"]
@@ -183,14 +183,14 @@ def test_admin_requires_verified_allowlisted_user(client, test_environment, monk
     assert "Статистика сервиса" in client.get("/account").text
     assert client.get("/admin?days=365").status_code == 422
     monkeypatch.setenv("ADMIN_USER_IDS", "")
-    assert client.get("/admin").status_code == 403
+    assert client.get("/admin/technical").status_code == 403
 
 
 def test_admin_can_see_configuration_errors_without_enabling_ai(client, test_environment, verified_users, monkeypatch):
     login(client)
     monkeypatch.setenv("ADMIN_USER_IDS", str(test_environment["user_1_id"]))
     monkeypatch.setenv("AI_DAILY_BUDGET_RUB", "not-a-budget")
-    response = client.get("/admin")
+    response = client.get("/admin/technical")
     assert response.status_code == 200
     assert "Некорректная настройка AI_DAILY_BUDGET_RUB" in response.text
     assert "не рассчитано" in response.text

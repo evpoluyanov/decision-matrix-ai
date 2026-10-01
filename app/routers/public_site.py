@@ -167,6 +167,9 @@ def set_cookie_consent(
     if analytics not in {"yes", "no"}:
         raise HTTPException(400, "Выберите, разрешать ли аналитические cookie.")
     if analytics == "no":
+        journey_id = request.session.pop("decision_journey", None)
+        if isinstance(journey_id, str):
+            db.query(models.DecisionJourney).filter_by(id=journey_id).update({"analytics_enabled": False})
         request.session.pop(attribution_service.SESSION_KEY, None)
         visitor_id = request.session.pop("product_visitor_id", None)
         if isinstance(visitor_id, str):

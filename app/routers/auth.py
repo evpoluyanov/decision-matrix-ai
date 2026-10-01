@@ -16,6 +16,7 @@ from app.services import (
     attribution_service,
     legal_document_service,
     project_service,
+    decision_service,
 )
 
 logger = logging.getLogger(
@@ -240,6 +241,7 @@ def register_user(
         user=user,
     )
 
+    decision_service.attach_pending(db, request, user)
     draft = request.session.get("decision_draft")
     registration_project_id = None
     if isinstance(draft, dict) and str(draft.get("question", "")).strip():
@@ -561,11 +563,8 @@ def confirm_email_address(
     )
 
     if status_changed:
-        destination = post_auth_destination(
-            db,
-            user,
-            preferred_project_id,
-            welcome=True,
+        destination = decision_service.claim(db, request, user, newly_verified=True) or post_auth_destination(
+            db, user, preferred_project_id, welcome=True,
         )
         request.session.clear()
         request.session["user_id"] = user.id
@@ -720,6 +719,8 @@ def login_user(
             status_code=401,
         )
 
+    decision_service.attach_pending(db, request, user)
+    saved_destination = decision_service.claim(db, request, user)
     draft = request.session.get("decision_draft")
     preferred_project_id = None
     if isinstance(draft, dict) and str(draft.get("question", "")).strip():
@@ -735,7 +736,7 @@ def login_user(
 
     request.session["user_id"] = user.id
 
-    destination = post_auth_destination(db, user, preferred_project_id)
+    destination = saved_destination or post_auth_destination(db, user, preferred_project_id)
     if legal_document_service.pending_versions(db, user.id):
         from urllib.parse import quote
         return RedirectResponse(
