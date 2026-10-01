@@ -19,19 +19,11 @@ def choose_analytics(client, choice="yes", next_path="/"):
 
 
 def test_public_landing_explains_complete_decision_flow(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    assert 'id="how-it-works"' in response.text
-    assert response.text.count('data-step="') == 3
-    for text in (
-        "Опишите выбор",
-        "Проверьте варианты и приоритеты",
-        "Получите рекомендацию",
-        "ИИ помогает на каждом этапе",
-    ):
-        assert text in response.text
-    assert "подробном расчёте" in response.text
-    assert 'href="/start"' in response.text
+    page=client.get("/").text
+    for text in ("Опишите задачу", "Проверьте понимание", "Сравните и решите", "Без регистрации"):
+        assert text in page
+    assert 'id="decision-start"' in page
+    assert 'action="/start"' in page
 
 
 def test_indexing_is_opt_in(client):
@@ -44,9 +36,9 @@ def test_only_public_pages_are_in_sitemap(client, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     result = client.get("/sitemap.xml")
     assert result.status_code == 200
-    assert result.text.count("<loc>") == 5
+    assert result.text.count("<loc>") == 4
     for path in (
-        "/", "/pricing", "/vybor-postavshchika",
+        "/", "/vybor-postavshchika",
         "/vybor-podryadchika", "/vzveshennaya-matritsa-resheniy",
     ):
         assert f"https://dmatrix.tech{path}</loc>" in result.text
@@ -181,31 +173,17 @@ def test_analytics_is_opt_in_and_absent_on_private_pages(client, monkeypatch):
     assert "mc.yandex.ru" not in client.get("/").text  # alternate host
 
 
-def test_anonymous_pricing_identifier_is_created_only_after_opt_in(
-    client, test_environment, monkeypatch,
-):
+def test_anonymous_pricing_identifier_is_created_only_after_opt_in(client, test_environment, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_URL", "https://dmatrix.tech")
     monkeypatch.setenv("YANDEX_METRIKA_ID", "12345")
-    client.get("/pricing", headers={"Host": "dmatrix.tech"})
-    assert "decision_matrix_session" not in client.cookies
+    client.get("/pricing",headers={"Host":"dmatrix.tech"})
     with test_environment["TestingSessionLocal"]() as db:
-        assert db.query(models.ProductEvent).filter_by(
-            event_name="pricing_viewed"
-        ).count() == 0
-
-    assert choose_analytics(client).status_code == 303
-    client.get("/pricing", headers={"Host": "dmatrix.tech"})
-    assert "decision_matrix_session" in client.cookies
+        assert db.query(models.DecisionJourney).count()==0
+    assert choose_analytics(client).status_code==303
+    client.get("/",headers={"Host":"dmatrix.tech"})
     with test_environment["TestingSessionLocal"]() as db:
-        assert db.query(models.ProductEvent).filter_by(
-            event_name="pricing_viewed"
-        ).count() == 1
-
-    assert choose_analytics(client, "no").status_code == 303
-    with test_environment["TestingSessionLocal"]() as db:
-        assert db.query(models.ProductEvent).filter_by(
-            event_name="pricing_viewed"
-        ).count() == 0
+        assert db.query(models.DecisionJourney).count()==1
+        assert db.query(models.ProductEvent).filter_by(event_name="pricing_viewed").count()==0
 
 
 def test_analytics_can_be_refused_and_withdrawn(client, monkeypatch):

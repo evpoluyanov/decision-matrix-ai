@@ -205,9 +205,7 @@ def project_report(
         and growth_service.first_trial_project_id(db, user.id) == project.id
     )
     report_question_answered = feedback_service.has_report_answer(db, user.id)
-    show_monetization_offer = (
-        is_trial_report and growth_service.preference_for(db, user.id) is None
-    )
+    show_monetization_offer = False
     offer_was_recorded = growth_service.has_event(
         db, "paid_offer_viewed", user_id=user.id, project_id=project.id,
     )

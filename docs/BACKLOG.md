@@ -57,3 +57,15 @@
 - [Сценарий приёмки Preview](preview-reliability-20260902.md).
 - [Аудит предыдущего пакета и незакрытые вопросы](reliability-audit-20260902.md): реальная диагностика MWS, сверка расходов, PostgreSQL/сетевые замеры, оставшиеся ручные проверки и утверждение юридических документов. Они не закрываются добавлением этого бэклога.
 - [Общее направление развития продукта](ROADMAP.md).
+
+## MVP-2026-10-01 — guest decision journey (owner-approved implementation and Production)
+
+- Owner approved full implementation and Production release on 2026-10-01.
+- New landing; full guest comparison; optional account save with email confirmation.
+- User options first; suggestions switch; mandatory constraints instead of 60/30/10.
+- No pricing offers; count-free option/condition lists; retain 100 RUB guard and abuse limits.
+- Consent-only cohort funnel in simplified admin; technical statistics remain separate.
+- Acceptance: guest data survives authentication without regeneration; private access,
+  source-labelled comparisons, no invented numeric winner, migration/regression tests.
+- Implemented locally; automated and browser verification/release recorded in
+  `docs/GUEST_MVP_RELEASE.md` when completed. Owner has not yet checked the new UI.

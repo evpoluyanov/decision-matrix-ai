@@ -8,95 +8,19 @@ from app.services import criterion_service, email_verification_service, user_ser
 PASSWORD = "test-password-123"
 
 
-def test_start_before_registration_is_restored_after_verification(
-    client,
-    test_environment,
-    monkeypatch,
-):
-    sent = {}
-
-    def fake_send(*, recipient_email, user_id):
-        sent.update(recipient_email=recipient_email, user_id=user_id)
-
-    monkeypatch.setattr(
-        email_verification_service,
-        "send_email_verification_message",
-        fake_send,
-    )
-
-    start = client.get("/start")
-    assert start.status_code == 200
-    assert "Какого подрядчика выбрать" in start.text
-    assert "Что хотите выбрать?" in start.text
-
-    draft = client.post(
-        "/start",
-        data={
-            "template_key": "software",
-            "decision_question": "Какую CRM выбрать для отдела продаж?",
-            "decision_details": "До 20 пользователей, нужен российский сервер.",
-        },
-        follow_redirects=False,
-    )
-    assert draft.status_code == 303
-    assert draft.headers["location"] == "/login?from=start"
-
-    registration = client.get(draft.headers["location"])
-    assert "Ваш выбор сохранён" in registration.text
-    assert "Какую CRM выбрать" in registration.text
-    assert "Зарегистрироваться" in registration.text
-
-    registration = client.get("/register?from=start")
-    assert "Ваш выбор сохранён" in registration.text
-
-    registered = client.post(
-        "/register",
-        data={
-            "email": "journey@test.com",
-            "password": PASSWORD,
-            "password_confirmation": PASSWORD,
-            "terms_accepted": "yes",
-            "personal_data_consent": "yes",
-        },
-        follow_redirects=False,
-    )
-    assert registered.status_code == 303
-    assert registered.headers["location"] == "/register/success"
-
-    success = client.get("/register/success")
-    assert "journey@test.com" in success.text
-    assert "сразу откроем ваше решение" in success.text
-
-    token = email_verification_service.create_email_verification_token(sent["user_id"])
-    verify_page = client.get("/verify-email", params={"token": token})
-    assert "/static/verify-email.js" in verify_page.text
-
-    confirmed = client.post(
-        "/verify-email",
-        data={"token": token},
-        follow_redirects=False,
-    )
-    assert confirmed.status_code == 303
-    assert confirmed.headers["location"].startswith("/projects/")
-    assert "welcome=1" in confirmed.headers["location"]
-
-    project_page = client.get(confirmed.headers["location"])
-    assert project_page.status_code == 200
-    assert "Email подтверждён" in project_page.text
-    assert "Какую CRM выбрать" in project_page.text
-    assert "1. Варианты" in project_page.text
-    assert "2. На что смотрим?" in project_page.text
-    assert "3. Рекомендация" in project_page.text
-    assert "Открыть матрицу и точные веса" in project_page.text
-
-    with test_environment["TestingSessionLocal"]() as db:
-        user = user_service.get_user_by_email(db, "journey@test.com")
-        assert user is not None and user.email_verified is True
-        projects = list(db.scalars(select(models.Project).where(
-            models.Project.owner_id == user.id
-        )))
-        assert len(projects) == 1
-        assert projects[0].name == "Какую CRM выбрать для отдела продаж?"
+def test_start_before_registration_is_restored_after_verification(client, test_environment, monkeypatch):
+    from app.services import decision_service
+    from app.llm.schemas import LLMResponse, LLMUsage
+    monkeypatch.setattr(decision_service.llm,"generate",lambda **kw: LLMResponse(
+        content='{"options":["А"],"conditions":[{"name":"Стоимость","required":false}]}',
+        provider="mock",model="mock",usage=LLMUsage(1,1,0,2)))
+    page=client.get("/start")
+    assert "Что хотите" in page.text and "Без регистрации" in page.text
+    response=client.post("/start",data={"decision_question":"Какую CRM выбрать?"})
+    assert response.status_code==200
+    url=response.json()["url"]
+    assert client.get(url).status_code==200
+    assert client.get(url+"/status").json()["understanding"]["options"]==["А"]
 
 
 def test_project_creation_redirects_directly_to_workspace(client, test_environment):
@@ -153,53 +77,22 @@ def test_simple_importance_renormalizes_weights(client, test_environment):
 
 
 def test_start_layout_examples_and_navigation_are_streamlined(client, test_environment):
-    client.post(
-        "/login",
-        data={"email": "user1@test.com", "password": PASSWORD},
-        follow_redirects=False,
-    )
-    page = client.get("/start")
-    assert page.status_code == 200
-    html = page.text
-    assert html.index("Что выбираем?") < html.index("Примеры:")
-    assert html.index("Примеры:") < html.index("На что обратить внимание при выборе?")
-    assert html.count('class="form-control') >= 2
-    assert html.count("Например:") >= 2
+    html=client.get("/start").text
+    assert html.index("Что выбираем?") < html.index("Примеры:") < html.index("На что обратить внимание при выборе?")
+    assert html.count("Например:")>=2
     assert "Добавить важные условия" not in html
-    assert "Перейти к выбору" in html
-    assert 'class="example-link"' in html
-    assert "Материалы" not in html
-    assert "Выбор поставщика" not in html
-    assert "Выбор подрядчика" not in html
-    assert "Взвешенная матрица решений" not in html
-    assert html.index('title="Настройки"') < html.index('title="Тарифы"')
-    assert html.index('title="Тарифы"') < html.index('title="Обратная связь"')
-    script = client.get("/static/start-decision.js").text
-    assert "question.value = card.dataset.templateExample" in script
+    assert "Разобраться с выбором" in html
+    assert "Тарифы" not in html and "Материалы" not in html
+    assert 'id="decision-menu"' in html
+    script=client.get("/static/decision-mvp.js").text
+    assert 'decision_question.value=q' in script
 
 
 def test_existing_user_draft_opens_new_choice_without_welcome_message(client, test_environment):
-    draft = client.post(
-        "/start",
-        data={
-            "template_key": "software",
-            "decision_question": "Какую систему учёта выбрать?",
-            "decision_details": "Нужна интеграция с CRM.",
-        },
-        follow_redirects=False,
-    )
-    assert draft.headers["location"] == "/login?from=start"
-    logged_in = client.post(
-        "/login",
-        data={"email": "user1@test.com", "password": PASSWORD},
-        follow_redirects=False,
-    )
-    assert logged_in.status_code == 303
-    assert "autofill=1" in logged_in.headers["location"]
-    assert "welcome=1" not in logged_in.headers["location"]
-    page = client.get(logged_in.headers["location"])
-    assert "Какую систему учёта выбрать?" in page.text
-    assert "Нужна интеграция с CRM." in page.text
+    client.post("/login",data={"email":"user1@test.com","password":PASSWORD})
+    page=client.get("/")
+    assert page.status_code==200
+    assert "Мои разборы" in page.text
     assert "Email подтверждён" not in page.text
 
 

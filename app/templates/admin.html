@@ -7,7 +7,7 @@
     Только просмотр; баланс провайдера здесь не загружается.</p>
 <div class="btn-group mb-4" aria-label="Период статистики">
     {% for value, label in [('1', 'Сегодня'), ('7', '7 дней'), ('30', '30 дней'), ('all', 'Всё время')] %}
-    <a href="/admin?days={{ value }}" class="btn btn-outline-primary {% if stats.days == value %}active{% endif %}">{{ label }}</a>
+    <a href="/admin/technical?days={{ value }}" class="btn btn-outline-primary {% if stats.days == value %}active{% endif %}">{{ label }}</a>
     {% endfor %}
 </div>
 <div class="row g-3 mb-4">

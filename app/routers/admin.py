@@ -53,7 +53,17 @@ def legal_editor_response(request, db, document_key, *, error=None, status_code=
     )
 
 
+
 @router.get("/admin")
+def funnel_dashboard(request: Request, days: str = "1", source: str | None = None,
+                     db: Session = Depends(get_db), user=Depends(admin_service.require_admin)):
+    if days not in {"1", "7", "30", "all"}:
+        raise HTTPException(422, "Некорректный период.")
+    from app.services import decision_service
+    return templates.TemplateResponse(request=request, name="admin_funnel.html",
+        context={"funnel": decision_service.funnel(db, days, source), "is_admin": True})
+
+@router.get("/admin/technical")
 def dashboard(request: Request, days: str = "1", category: str | None = None,
               status: str | None = None,
               db: Session = Depends(get_db), user=Depends(admin_service.require_admin)):

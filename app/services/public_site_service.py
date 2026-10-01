@@ -6,7 +6,6 @@ from app.services import cookie_consent_service
 
 INDEXABLE_PUBLIC_PAGES = (
     ("/", "Матрица принятия решений с ИИ — Decision Matrix AI"),
-    ("/pricing", "Тарифы — Decision Matrix AI"),
     (
         "/vybor-postavshchika",
         "Как выбрать поставщика: критерии и матрица оценки — Decision Matrix AI",

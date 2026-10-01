@@ -170,13 +170,15 @@ class AIRequestLog(Base):
         primary_key=True
     )
 
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[int | None] = mapped_column(
         ForeignKey(
             "users.id",
             ondelete="CASCADE",
         ),
-        nullable=False,
+        nullable=True,
     )
+
+    guest_identity: Mapped[str | None] = mapped_column(String(64), index=True)
 
     project_id: Mapped[int] = mapped_column(
         nullable=False,
@@ -699,3 +701,33 @@ class Score(Base):
     criterion: Mapped[Criterion] = relationship(
         back_populates="scores",
     )
+
+
+class DecisionJourney(Base):
+    __tablename__ = "decision_journeys"
+    analytics_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    source: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DecisionBrief(Base):
+    __tablename__ = "decision_briefs"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    access_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    pending_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    journey_id: Mapped[str | None] = mapped_column(ForeignKey("decision_journeys.id", ondelete="SET NULL"))
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    details: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    allow_suggestions: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    understanding_json: Mapped[str | None] = mapped_column(Text)
+    result_json: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)
+    revision: Mapped[int] = mapped_column(default=0, nullable=False)
+    operation_key: Mapped[str | None] = mapped_column(String(64))
+    error_code: Mapped[str | None] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)

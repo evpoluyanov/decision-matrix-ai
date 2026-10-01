@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Ваш разбор — Decision Matrix AI{% endblock %}
+{% block content %}
+<div id="decision-workspace" data-brief="{{ brief.id }}" class="decision-workspace">
+<a class="small" href="/">← Новый разбор</a><h1 class="mt-3" id="workspace-title">Разбираемся в задаче…</h1>
+<p id="decision-message" role="status" aria-live="polite"></p><div id="decision-loading" class="decision-loading"><span class="dmatrix-spinner" aria-hidden="true"></span><span id="loading-label">Разбираемся в задаче…</span></div>
+<section id="understanding" hidden>
+<form id="comparison-form"><label for="edit-question">Что выбираем?</label><input id="edit-question" class="form-control mb-3" required maxlength="200" placeholder="Например: какую программу выбрать для работы?" value="{{ brief.question }}"><label for="edit-details">На что обратить внимание при выборе?</label><textarea id="edit-details" class="form-control mb-3" rows="3" maxlength="5000" placeholder="Например: бюджет до 3 000 ₽ в месяц, важно быстро освоить программу.">{{ brief.details }}</textarea>
+<label class="suggestions-choice"><input type="checkbox" id="edit-suggestions" {% if brief.allow_suggestions %}checked{% endif %}> ИИ может предложить дополнительные варианты и условия</label>
+<p class="field-help">Изменение этой настройки действует при следующем разборе исходной задачи. <button type="button" class="link-button" id="reprepare">Разобрать исходный текст заново</button></p>
+<h2 class="h4 mt-4">Варианты</h2><div id="options-list"></div><button type="button" class="btn btn-outline-secondary btn-sm" id="add-option">+ Добавить вариант</button><div id="additional-options" class="mt-2"></div>
+<h2 class="h4 mt-4">Условия и предпочтения</h2><p class="field-help">«Обязательно» — условие, которое нельзя компенсировать другими преимуществами.</p><div id="conditions-list"></div><button type="button" class="btn btn-outline-secondary btn-sm" id="add-condition">+ Добавить условие</button><div id="additional-conditions" class="mt-2"></div><div id="questions-list" class="mt-4"></div>
+<button type="submit" class="btn btn-primary btn-lg mt-4">Показать сравнение</button></form></section>
+<section id="decision-result" hidden><div class="result-summary"><p class="eyebrow">С учётом ваших условий</p><h2 id="result-summary"></h2></div><div id="result-observations"></div><h2 class="h4">Сравнение вариантов</h2><div id="result-rows"></div><div id="result-missing" class="mt-4"></div>
+<div class="result-actions"><button type="button" class="btn btn-outline-primary" id="edit-result">Уточнить условия и варианты</button><form action="/decisions/{{ brief.id }}/save" method="post"><button class="btn btn-primary" id="save-result">Сохранить результат</button></form></div>
+<details id="comparison-details" class="mt-4"><summary>Подробное сравнение</summary><div id="result-table" class="table-responsive mt-3"></div><button type="button" class="btn btn-outline-secondary" onclick="window.print()">Печать</button></details><p class="field-help mt-3">Разбор основан на ваших сведениях и общих знаниях ИИ. Поиск в интернете не выполнялся. Предположения обозначены отдельно.</p></section>
+<div id="retry-area" hidden><button type="button" class="btn btn-outline-primary" id="retry-prepare">Повторить разбор</button></div>
+{% if not brief.owner_id %}<p class="field-help mt-4">Без аккаунта разбор хранится временно — семь дней с последней активности. Сохраните его, чтобы вернуться позже.</p>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script>window.decisionAnalytics={{ 'true' if journey_analytics else 'false' }};</script><script src="/static/decision-mvp.js" defer></script>{% endblock %}

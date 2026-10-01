@@ -2439,24 +2439,13 @@ def test_risk_analysis_can_return_no_risks():
     assert analysis["has_risks"] is False
 
 
-def test_guest_home_does_not_show_project_form(
-    client,
-):
-    response = client.get("/")
-
-    assert response.status_code == 200
-
-    assert "Decision Matrix AI" in response.text
-    assert "Создать бесплатный проект" in response.text
-    assert 'href="/register"' in response.text
-    assert 'href="/login"' in response.text
-
-    assert 'name="project_name"' not in response.text
-
-    assert (
-        'name="decision_details"'
-        not in response.text
-    )
+def test_guest_home_does_not_show_project_form(client):
+    page=client.get("/").text
+    assert 'name="project_name"' not in page
+    assert 'name="decision_question"' in page
+    assert 'name="decision_details"' in page
+    assert "Без регистрации" in page
+    assert 'href="/login"' in page
 
 
 def test_authenticated_home_opens_simplified_start_form(

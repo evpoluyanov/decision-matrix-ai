@@ -112,7 +112,7 @@ def test_report_shows_offer_only_after_trial_has_result(client, test_environment
     complete_trial(test_environment)
     after = client.get(f'/projects/{test_environment["project_1_id"]}/report')
     assert after.status_code == 200
-    assert "Бесплатный ИИ-проект завершён" in after.text
+    assert "Бесплатный ИИ-проект завершён" not in after.text
     with test_environment["TestingSessionLocal"]() as db:
         assert growth_service.has_event(
             db, "result_calculated", user_id=test_environment["user_1_id"],
@@ -129,7 +129,7 @@ def test_pricing_preference_can_change_and_does_not_block_beta(client, test_envi
     login(client)
     page = client.get("/pricing")
     assert page.status_code == 200
-    assert "Сообщить мне о запуске" in page.text
+    assert "Сообщить мне о запуске" not in page.text
     for plan in ("project_99", "pro_299", "free_beta"):
         response = client.post(
             "/monetization/preference",
@@ -166,9 +166,8 @@ def test_second_project_offer_appears_on_first_ai_click_without_paywall(client, 
             owner_id=test_environment["user_1_id"], name="Второе решение",
         ).one()
         page = client.get(f"/projects/{project.id}")
-    assert 'id="second-project-offer"' in page.text
-    assert "Оплаты и блокировки сейчас нет" in page.text
-    assert "modal.hide();" in page.text
+    assert 'id="second-project-offer"' not in page.text
+    assert "Сообщить мне о запуске" not in page.text
 
 
 def test_first_touch_utm_is_linked_once_at_registration(
@@ -239,8 +238,8 @@ def test_public_metadata_and_consent_safe_goals(client, monkeypatch):
     monkeypatch.setenv("YANDEX_METRIKA_ID", "112070895")
     home = client.get("/", headers={"Host": "dmatrix.tech"}).text
     assert "og:image" in home and "summary_large_image" in home
-    assert "Один полный проект с ИИ — бесплатно" in home
-    assert home.count("Для каких решений подходит") == 1
+    assert "Сервис сейчас работает бесплатно" in home
+    assert home.count("От вопроса к ясности") == 1
     pricing = client.get("/pricing", headers={"Host": "dmatrix.tech"}).text
     assert "cookie-consent" in pricing
     assert "mc.yandex.ru" not in pricing

@@ -113,37 +113,6 @@ def get_ai_scope_error(
             f"{MAX_PROJECT_DESCRIPTION_LENGTH} символов."
         )
 
-    if alternatives_count > MAX_AI_ALTERNATIVES:
-        return (
-            "Для одного ИИ-запроса допускается "
-            "не более "
-            f"{MAX_AI_ALTERNATIVES} альтернатив."
-        )
-
-    if criteria_count > MAX_AI_CRITERIA:
-        return (
-            "Для одного ИИ-запроса допускается "
-            "не более "
-            f"{MAX_AI_CRITERIA} критериев."
-        )
-
-    matrix_cells = (
-        alternatives_count
-        * criteria_count
-    )
-
-    if (
-        check_matrix_size
-        and matrix_cells
-        > MAX_AI_MATRIX_CELLS
-    ):
-        return (
-            "Матрица слишком велика "
-            "для одного ИИ-запроса. "
-            f"Максимум — "
-            f"{MAX_AI_MATRIX_CELLS} ячеек."
-        )
-
     return None
 
 def unsafe_response(

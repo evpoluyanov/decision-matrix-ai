@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Разобраться с выбором — Decision Matrix AI{% endblock %}
+{% block metadata %}
+<meta name="description" content="Сравните варианты с учётом ваших условий. Понятное объяснение, компромиссы и вопросы для уточнения. Без регистрации.">
+{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}/"><meta property="og:url" content="{{ canonical_url }}/"><meta property="og:image" content="{{ canonical_url }}/static/og-decision-matrix.png">{% endif %}
+<meta property="og:title" content="Decision Matrix AI — что подходит именно вам"><meta property="og:description" content="Опишите ситуацию и получите понятное сравнение вариантов. Без регистрации."><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+{% block content %}
+<section class="decision-hero">
+<div class="hero-copy"><p class="eyebrow">Меньше сомнений. Больше ясности.</p><h1>Что хотите выбрать?</h1><p class="hero-lead">Опишите ситуацию. Поможем сравнить варианты, учесть важные условия и разобраться в компромиссах.</p><div class="hero-points"><span>✦ Ваши варианты — в первую очередь</span><span>✦ Понятные основания выбора</span><span>✦ Без обязательных таблиц и весов</span></div></div>
+<form id="decision-start" class="decision-form" action="/start" method="post">
+<label for="decision-question">Что выбираем?</label><input id="decision-question" name="decision_question" class="form-control" required maxlength="200" placeholder="Например: хочу выбрать программу для учёта клиентов">
+<div class="example-links" aria-label="Примеры заполнения"><span>Примеры:</span><button type="button" data-example="software">программа или сервис</button><button type="button" data-example="equipment">оборудование</button><button type="button" data-example="career">работа или обучение</button><button type="button" data-example="contractor">подрядчик</button></div>
+<label for="decision-details">На что обратить внимание при выборе?</label><textarea id="decision-details" class="form-control" name="decision_details" rows="4" maxlength="5000" placeholder="Например: бюджет до 3 000 ₽ в месяц, простая настройка. Уже рассматриваю варианты А и Б"></textarea>
+<p class="field-help">Если у вас уже есть варианты, перечислите их здесь.</p>
+<label class="suggestions-choice"><input type="checkbox" name="allow_suggestions" value="yes" checked> ИИ может предложить дополнительные варианты и условия</label>
+<p class="field-help">Снимите галочку, чтобы использовать только ваши варианты и условия.</p>
+<button class="btn btn-primary btn-lg w-100" type="submit">Разобраться с выбором</button><p class="form-note">Без регистрации. Аккаунт понадобится, только если захотите сохранить результат.</p><p id="decision-message" role="status" aria-live="polite"></p>
+</form></section>
+<section class="landing-how"><h2>От вопроса к ясности</h2><div class="how-grid"><article><span>01</span><h3>Опишите задачу</h3><p>Добавьте свои варианты и условия — или начните с вопроса.</p></article><article><span>02</span><h3>Проверьте понимание</h3><p>Исправьте только то, что мы поняли неверно.</p></article><article><span>03</span><h3>Сравните и решите</h3><p>Посмотрите различия, компромиссы и то, что ещё стоит уточнить.</p></article></div></section>
+<section class="landing-demo"><div><p class="eyebrow">Пример результата · условные данные</p><h2>Не только «что выбрать»,<br>но и почему</h2><p>Выбираем формат обучения. Обязательно — без поездок. Предпочтение — общение с преподавателем.</p></div><div class="demo-result"><strong>Рассмотрите онлайн-занятия в группе</strong><p>Есть обратная связь преподавателя, а поездки не нужны. Компромисс — придётся подстраиваться под расписание.</p><hr><p class="mb-0">Что уточнить: доступны ли записи пропущенных занятий?</p></div></section>
+{% endblock %}
+{% block scripts %}<script>window.decisionAnalytics={{ 'true' if journey_analytics else 'false' }};</script><script src="/static/decision-mvp.js" defer></script>{% endblock %}
