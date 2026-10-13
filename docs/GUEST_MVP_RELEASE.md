@@ -27,12 +27,12 @@ Rollback must preserve guest billing logs; downgrade refuses to delete evidence.
 
 ## Validation
 
-Complete automated suite: **423 passed**, 73.46 seconds. JavaScript syntax
+Complete automated suite: **424 passed**, 74.63 seconds. JavaScript syntax
 checks and `git diff --check` also pass.
 Providers are mocked: tests are not a real MWS run. Tests include guest ownership
 and expiration, auth save, invalid response preserving previous results, consent
 revocation, duplicate events, stale revisions, recovering a lost start response,
-and all 575 pairs in a 25×23 comparison without truncation.
+the actual provider HTTP/budget boundary (mock HTTP), and all 575 pairs in a 25×23 comparison without truncation.
 
 Fresh synthetic SQLite Preview runs all migrations; PostgreSQL offline SQL
 compilation succeeds. PostgreSQL online migration
@@ -62,3 +62,12 @@ A background request interrupted by a process restart is marked uncertain;
 no automatic paid replay is performed. Hourly expiry cleanup is supplemented
 by request-time cleanup. Email delivery and actual MWS behaviour require live
 verification; automated mocks do not prove them.
+
+## Live check correction
+
+The first live prepare failed before model HTTP: its requested 6,000-token
+output exceeded the existing 4,000-token guard. Calls now use the guard's
+MAX_OUTPUT_TOKENS; batches shrink to 3×4 pairs to fit that existing bound.
+A regression test exercises MWSProvider through mock HTTP and verifies reported
+usage and charged/estimated amounts for an anonymous request. No budget or
+financial limit was raised.

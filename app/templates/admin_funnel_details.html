@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Сессии воронки — Decision Matrix AI{% endblock %}
+{% block content %}
+<a href="{{ details.back_url }}">← К воронке с теми же фильтрами</a>
+<h1 class="h3 mt-3">{% if details.bucket == 'dropped' %}Не дошли до этапа: {% endif %}{{ details.title }}</h1>
+<p>Всего сессий: <strong>{{ details.total }}</strong>. Период начала сессий: {{ {'1':'1 день','7':'7 дней','30':'30 дней','all':'всё время'}[details.days] }}.{% if details.source %} Источник: {{ details.source }}.{% endif %}</p>
+<p class="small text-muted">Это те же сессии, которые составляют выбранное число в воронке. Один аккаунт может встречаться несколько раз — по одному разу на сессию. Администраторы и тестовые аккаунты исключены. Время по Москве.</p>
+{% if details.rows %}
+<div class="table-responsive"><table class="table align-top">
+  <thead><tr><th>Аккаунт / сессия</th><th>Начало и этап</th><th>Откуда пришёл</th></tr></thead>
+  <tbody>{% for row in details.rows %}<tr>
+    <td style="min-width:200px;overflow-wrap:anywhere">
+      {% if row.email %}<strong>{{ row.email }}</strong><div class="small text-muted">Аккаунт №{{ row.user_id }}</div>
+      {% elif row.user_id %}<strong>Аккаунт №{{ row.user_id }} недоступен</strong>
+      {% else %}<strong>Гость — аккаунт не определён</strong>{% endif %}
+      <div class="small text-muted">Сессия <code>{{ row.session_id }}</code></div>
+    </td>
+    <td style="min-width:165px">{{ row.started_at }}<div class="small text-muted">{% if details.bucket == 'dropped' %}Выбранный этап не пройден{% else %}Этап: {{ row.stage_at }}{% endif %}</div></td>
+    <td style="min-width:240px;overflow-wrap:anywhere"><strong>{{ row.source }}</strong>
+      <dl class="small mb-1">
+        <dt>Канал (utm_medium)</dt><dd>{{ row.utm_medium or '—' }}</dd>
+        <dt>Кампания (utm_campaign)</dt><dd>{{ row.utm_campaign or '—' }}</dd>
+        <dt>Объявление (utm_content)</dt><dd>{{ row.utm_content or '—' }}</dd>
+        <dt>Страница перехода (referrer)</dt><dd>{{ row.referrer or 'Не передана' }}</dd>
+      </dl><span class="small text-muted">{{ row.source_note }}</span>
+    </td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<p class="alert alert-light">Сессий для этого этапа и выбранных фильтров нет.</p>{% endif %}
+<p class="small text-muted">Отсутствие источника не доказывает прямой заход: браузер или приложение могли не передать referrer. Для старых сессий недостающие сведения восстановить нельзя. Содержимое пользовательских разборов здесь не показывается.</p>
+<nav aria-label="Страницы списка" class="d-flex gap-3 align-items-center">
+  {% if details.previous_url %}<a href="{{ details.previous_url }}">← Назад</a>{% endif %}
+  <span>Страница {{ details.page }} из {{ details.pages }}</span>
+  {% if details.next_url %}<a href="{{ details.next_url }}">Далее →</a>{% endif %}
+</nav>
+{% endblock %}
