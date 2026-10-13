@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -61,7 +61,22 @@ def funnel_dashboard(request: Request, days: str = "1", source: str | None = Non
         raise HTTPException(422, "Некорректный период.")
     from app.services import decision_service
     return templates.TemplateResponse(request=request, name="admin_funnel.html",
-        context={"funnel": decision_service.funnel(db, days, source), "is_admin": True})
+        context={"funnel": decision_service.funnel(db, days, source), "is_admin": True},
+        headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+
+@router.get("/admin/funnel/details", response_class=HTMLResponse)
+def funnel_details(request: Request, stage: str, days: str = "1",
+                   source: str | None = Query(None, max_length=200), bucket: str = "reached",
+                   page: int = Query(1, ge=1), db: Session = Depends(get_db),
+                   user=Depends(admin_service.require_admin)):
+    if days not in {"1", "7", "30", "all"}:
+        raise HTTPException(422, "Некорректный период.")
+    from app.services import decision_service
+    return templates.TemplateResponse(request=request, name="admin_funnel_details.html",
+        context={"details": decision_service.funnel_details(db, days, source, stage, bucket, page),
+                 "is_admin": True},
+        headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"})
 
 @router.get("/admin/technical")
 def dashboard(request: Request, days: str = "1", category: str | None = None,

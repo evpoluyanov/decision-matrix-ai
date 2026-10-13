@@ -6,6 +6,7 @@ import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -48,18 +49,39 @@ def guest_token(request):
     return token
 
 
+def associate_journey(db, request, user_id):
+    """Link the consented guest visit on login, even without saving a result.
+
+    Existing administrator visits may be marked for exclusion after opt-out;
+    this never creates a new analytics record or event without consent.
+    """
+    if not user_id or (not cookie_consent_service.analytics_allowed(request)
+                       and user_id not in growth_service.excluded_user_ids(db)):
+        return
+    jid = request.session.get("decision_journey")
+    item = db.get(models.DecisionJourney, jid) if isinstance(jid, str) else None
+    if item is not None and item.user_id is None:
+        item.user_id = user_id
+        db.commit()
+
+
 def journey(db, request, fresh=False):
     if not cookie_consent_service.analytics_allowed(request):
         return None
     jid = request.session.get("decision_journey")
     existing = db.get(models.DecisionJourney, jid) if isinstance(jid, str) else None
+    uid = request.session.get("user_id")
+    if existing is not None and existing.user_id not in (None, uid):
+        fresh = True
+    associate_journey(db, request, uid)
     if existing is not None and existing.analytics_enabled and not fresh:
         return existing
     attribution_service.capture_first_touch(request)
     source = request.session.get(attribution_service.SESSION_KEY, {})
     item = models.DecisionJourney(id=secrets.token_hex(16), created_at=now(),
         user_id=request.session.get("user_id"),
-        source=(source.get("utm_source") if isinstance(source, dict) else None))
+        source=(source.get("utm_source") if isinstance(source, dict) else None),
+        attribution_json=json.dumps(source if isinstance(source, dict) else {}, ensure_ascii=False))
     db.add(item)
     db.commit()
     request.session["decision_journey"] = item.id
@@ -89,6 +111,7 @@ def event(db, jid, name, *, user_id=None):
 
 def track(db, request, brief, name, user_id=None):
     if cookie_consent_service.analytics_allowed(request):
+        associate_journey(db, request, user_id or request.session.get("user_id"))
         if not brief.journey_id:
             item = journey(db, request)
             brief.journey_id = item.id if item else None
@@ -190,7 +213,7 @@ def begin(db, request, brief, phase, changes=None):
     return log.id, key
 
 
-def call(system, data, output=6000):
+def call(system, data, output=ai_budget_service.MAX_OUTPUT_TOKENS):
     return llm.generate(system_prompt=system, user_prompt=json.dumps(data, ensure_ascii=False),
                         max_output_tokens=output, temperature=0.2, json_mode=True)
 
@@ -267,9 +290,9 @@ def worker(bind, bid, log_id, key, phase):
                     data = json.loads(brief.understanding_json)
                     cells, observations = [], []
                     # Batch by BOTH dimensions. No hard product count and no dropped tail.
-                    for oi in range(0, len(data["options"]), 4):
-                        for ci in range(0, len(data["conditions"]), 6):
-                            opts, conds = data["options"][oi:oi+4], data["conditions"][ci:ci+6]
+                    for oi in range(0, len(data["options"]), 3):
+                        for ci in range(0, len(data["conditions"]), 4):
+                            opts, conds = data["options"][oi:oi+3], data["conditions"][ci:ci+4]
                             parsed = parse(call(COMPARE_PROMPT, {"question": brief.question, "details": brief.details,
                                 "answers": data.get("answers", []), "options": opts, "conditions": conds}), Comparison)
                             mapped = {(c.option, c.condition): c.model_dump() for c in parsed.cells}
@@ -328,6 +351,7 @@ def worker(bind, bid, log_id, key, phase):
 
 
 def attach_pending(db, request, user):
+    associate_journey(db, request, user.id)
     bid = request.session.get("save_decision_id")
     if not isinstance(bid, str):
         return None
@@ -365,7 +389,8 @@ def claim(db, request, user, *, newly_verified=False):
     return "/decisions/" + rows[0].id
 
 
-def funnel(db, days, source=None):
+def _funnel_data(db, days, source=None):
+    """One cohort/stage selection for both totals and drill-down rows."""
     from app.services.ai_budget_service import BUDGET_TIMEZONE
     current = now()
     today = current.astimezone(BUDGET_TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -374,27 +399,113 @@ def funnel(db, days, source=None):
     users = db.scalars(select(models.User).where(~models.User.id.in_(excluded))).all()
     cohorts = db.scalars(select(models.DecisionJourney).where(models.DecisionJourney.created_at >= start,
         models.DecisionJourney.created_at <= current)).all()
-    cohorts = [j for j in cohorts if j.user_id not in excluded and (not source or j.source == source)]
+    cohorts = [j for j in cohorts if not source or j.source == source]
     ids = {j.id for j in cohorts}
     events = db.scalars(select(models.ProductEvent).where(models.ProductEvent.event_name.in_(
         [n for n, _ in EVENTS] + ["email_verified"]))).all()
     reached = {n: set() for n, _ in EVENTS}
     reached["email_verified"] = set()
+    identities = {j.id: {j.user_id} if j.user_id else set() for j in cohorts}
+    timestamps = {}
     for ev in events:
-        jid = json.loads(ev.metadata_json).get("journey")
+        try:
+            metadata = json.loads(ev.metadata_json or "{}")
+            jid = metadata.get("journey") if isinstance(metadata, dict) else None
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(jid, str):
+            continue
         if jid in ids:
             reached[ev.event_name].add(jid)
+            if ev.user_id:
+                identities[jid].add(ev.user_id)
+            key = (jid, ev.event_name)
+            timestamps[key] = min(timestamps.get(key, utc(ev.created_at)), utc(ev.created_at))
+    # Historical records can have a missing journey.user_id but a known owner.
+    # Read identifiers only: never load decision text into the admin report.
+    for jid, owner, pending in db.execute(select(models.DecisionBrief.journey_id,
+            models.DecisionBrief.owner_id, models.DecisionBrief.pending_user_id).where(
+                models.DecisionBrief.journey_id.is_not(None))):
+        if jid in identities:
+            identities[jid].update(uid for uid in (owner, pending) if uid)
+    blocked = {jid for jid, linked in identities.items() if linked & excluded}
+    cohorts = [j for j in cohorts if j.id not in blocked]
+    ids = {j.id for j in cohorts}
+    reached = {name: values & ids for name, values in reached.items()}
     # Count ordered stage reach: later events cannot inflate earlier denominators.
-    rows, previous, initial = [], set(ids), len(reached["landing_viewed"])
+    rows, previous, initial, selections = [], set(ids), len(reached["landing_viewed"]), {}
     for name, title in EVENTS:
         present = previous & reached[name]
+        selections[(name, "reached")] = present
+        selections[(name, "dropped")] = previous - present if name != "landing_viewed" else set()
         denominator = len(previous)
+        params = {"days": days, "source": source or "", "stage": name}
         rows.append({"name": name, "title": title, "count": len(present),
             "conversion": len(present)*100/denominator if denominator else None,
             "overall": len(present)*100/initial if initial else None,
-            "drop": max(0, denominator-len(present))})
+            "drop": max(0, denominator-len(present)),
+            "details_url": "/admin/funnel/details?" + urlencode(params),
+            "drop_url": "/admin/funnel/details?" + urlencode({**params, "bucket": "dropped"})})
         previous = present
-    return {"accounts": len(users), "verified": sum(u.email_verified for u in users),
+    summary = {"accounts": len(users), "verified": sum(u.email_verified for u in users),
         "new_accounts": sum(utc(u.created_at) >= start for u in users), "rows": rows,
         "days": days, "sources": sorted({j.source for j in cohorts if j.source}), "source": source or "",
         "verified_saves": len(reached["email_verified"] & reached["result_saved"])}
+    return summary, cohorts, selections, identities, timestamps
+
+
+def funnel(db, days, source=None):
+    return _funnel_data(db, days, source)[0]
+
+
+def funnel_details(db, days, source, stage, bucket="reached", page=1):
+    titles = dict(EVENTS)
+    if stage not in titles or bucket not in {"reached", "dropped"}:
+        raise HTTPException(422, "Некорректный этап воронки.")
+    _, cohorts, selections, identities, timestamps = _funnel_data(db, days, source)
+    selected = selections[(stage, bucket)]
+    entries = sorted((j for j in cohorts if j.id in selected),
+                     key=lambda j: (utc(j.created_at), j.id), reverse=True)
+    total = len(entries)
+    page_size = 50
+    pages = max(1, (total + page_size - 1) // page_size)
+    page = min(page, pages)
+    entries = entries[(page-1)*page_size:page*page_size]
+    uids = set().union(*(identities[j.id] for j in entries)) if entries else set()
+    users = {u.id: u for u in db.scalars(select(models.User).where(models.User.id.in_(uids))).all()}
+    account_sources = {a.user_id: a for a in db.scalars(select(models.UserAttribution).where(
+        models.UserAttribution.user_id.in_(uids))).all()}
+    from app.services.ai_budget_service import BUDGET_TIMEZONE
+    def display_time(value):
+        return utc(value).astimezone(BUDGET_TIMEZONE).strftime("%d.%m.%Y %H:%M") if value else "—"
+    details = []
+    for item in entries:
+        known = identities[item.id]
+        uid = item.user_id or (next(iter(known)) if len(known) == 1 else None)
+        user = users.get(uid)
+        try:
+            attribution = json.loads(item.attribution_json) if item.attribution_json is not None else None
+        except (ValueError, TypeError):
+            attribution = None
+        note = "Первый источник сессии"
+        if not isinstance(attribution, dict):
+            old = account_sources.get(uid)
+            if old and item.source and item.source != old.utm_source:
+                old = None  # Do not combine a session's source with another campaign.
+            attribution = {key: getattr(old, key) for key in (*attribution_service.UTM_NAMES, "referrer")} if old else {}
+            note = "Источник регистрации аккаунта; источник этой сессии полностью не сохранялся" if old else "Историческая сессия: подробный источник не сохранялся"
+        source_name = item.source or attribution.get("utm_source")
+        referrer = attribution.get("referrer")
+        details.append({"session_id": item.id, "user_id": uid,
+            "email": user.email if user else None,
+            "started_at": display_time(item.created_at),
+            "stage_at": display_time(timestamps.get((item.id, stage))),
+            "source": source_name or ("Внешний переход" if referrer else "Источник не определён"),
+            "utm_medium": attribution.get("utm_medium"), "utm_campaign": attribution.get("utm_campaign"),
+            "utm_content": attribution.get("utm_content"), "referrer": referrer, "source_note": note})
+    params = {"days": days, "source": source or "", "stage": stage, "bucket": bucket}
+    return {"rows": details, "total": total, "page": page, "pages": pages,
+        "title": titles[stage], "bucket": bucket, "days": days, "source": source or "",
+        "back_url": "/admin?" + urlencode({"days": days, "source": source or ""}),
+        "previous_url": "/admin/funnel/details?" + urlencode({**params, "page": page-1}) if page > 1 else None,
+        "next_url": "/admin/funnel/details?" + urlencode({**params, "page": page+1}) if page < pages else None}
