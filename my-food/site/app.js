@@ -752,7 +752,7 @@ $('parseBtn').addEventListener('click',async()=>{
    $('textAIStatus').textContent='Распознавание — фирменное меню…';
    found=await applyRestaurantNutrition(text,[],controller.signal);
   }else{
-   const response=await requestCloudFood({text,signal:controller.signal});if(run!==activeTextRun)return;devRecord('Текст: нейросеть',{input:text,food:response.food,usage:response.usage,portion_retry:response.portion_retry,json_recovery:response.json_recovery});
+   const response=await requestCloudFood({text,signal:controller.signal});if(run!==activeTextRun)return;devRecord('Текст: нейросеть',{input:text,food:response.food,coverage:response.coverage,usage:response.usage,portion_retry:response.portion_retry,json_recovery:response.json_recovery});
    $('textAIStatus').textContent='Распознавание — поиск готовых блюд и КБЖУ…';
    found=await resolveCloudDishes(response,'text');if(!found.length)throw Error('Нейросеть не выделила блюда');
   }
@@ -770,7 +770,7 @@ $('parseBtn').addEventListener('click',async()=>{
    // No guessed dishes when AI is unavailable: the offline text splitter
    // cannot infer portion weights and may corrupt product names ("г печени").
    // Preserve the original input for an immediate retry instead.
-   $('textAIStatus').textContent='Нейросеть не смогла обработать запрос. Текст сохранён — нажмите «Рассчитать» ещё раз.';
+   $('textAIStatus').textContent='Не удалось полностью распознать продукты. Текст сохранён — повторите расчёт.';
    dishes=[];pendingSource=null;renderDishes();
   }
  }finally{clearTimeout(timeout);if(run===activeTextRun){btn.disabled=false;$('parseBtnLabel').hidden=false;$('parseSpinner').hidden=true;$('textProgressWrap').hidden=true}}

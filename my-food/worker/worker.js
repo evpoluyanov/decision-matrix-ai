@@ -1,8 +1,8 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.15.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.16.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
-const PROMPT = "Ты — модель структурного распознавания еды. Верни ТОЛЬКО валидный JSON без Markdown и объяснений. Никакого текста вне JSON. Формат: {\"dishes\":[{\"name\":\"Яйца\",\"kind\":\"prepared\",\"main\":\"Яйца\",\"main_portion\":\"2 штуки\",\"main_weight_g\":110,\"main_volume_ml\":null,\"main_weight_basis\":\"оценка веса двух яиц\",\"items\":[{\"name\":\"Яйца\",\"portion\":\"2 штуки\",\"weight_g\":110,\"volume_ml\":null,\"weight_estimated\":true,\"weight_basis\":\"два яйца без скорлупы\",\"confidence\":\"medium\"}],\"additions\":[]}],\"uncertain\":[]}. ОБЯЗАТЕЛЬНО в КАЖДОМ элементе dishes.items и dishes.additions пиши weight_g ЧИСЛОМ в граммах, НЕ текстом; для main укажи то же число в main_weight_g. Пример для текста «2 яйца, 20 г печени трески, 10 г соуса тартар»: 3 самостоятельных блюда; у «Печень трески» main_weight_g=20 и items[0].weight_g=20, weight_estimated=false; у «Соус тартар» main_weight_g=10, items[0].weight_g=10, weight_estimated=false; вес двух яиц оцени самостоятельно. Если пользователь явно указал массу в г/кг, В ТОЧНОСТИ воспроизведи её (кг переведи в граммы), не оценивай и не заменяй её, weight_estimated=false. Если масса явно не дана, оцени по контексту продукта и количества, weight_estimated=true; например «бокал пива» оцени по виду пива/посуды сам, укажи и volume_ml; НИКАКИХ жёстких таблиц посуды. Никогда не подставляй 100 грамм только потому, что справочник содержит значения на 100 г. Если нельзя оценить даже приблизительно, weight_g=null. Если блюдо со сметаной/соусом, main и items обязательно содержат ОСНОВНОЕ блюдо; отдельно добавленные добавки помещай в additions и items без двойного подсчёта. Разделяй отдельные съеденные продукты на отдельные dishes. kind=prepared для готового блюда, platter для набора, recipe для сочетания. Не придумывай невидимый состав. Для фото без масштаба вес приблизительный. Название name содержит только название еды, БЕЗ чисел, веса, количества и слов «г», «кг», «штук»; количество записывай в portion и weight_g. Сохраняй уточнения продукта. Никаких калорий/БЖУ — они рассчитываются отдельно. Отвечай по-русски.";
+const PROMPT = `Ты распознаёшь пищу для дневника питания. Верни ТОЛЬКО один JSON-объект, без Markdown и пояснений. СХЕМА: {"dishes":[{"name":"Название продукта","kind":"prepared","main":"Название продукта","main_portion":"количество пользователя","main_weight_g":50,"main_volume_ml":null,"main_weight_basis":"как определён вес","items":[{"name":"Название продукта","portion":"количество пользователя","weight_g":50,"volume_ml":null,"weight_estimated":false,"weight_basis":"пользователь указал вес","confidence":"high"}],"additions":[]}],"uncertain":[]}. Каждый самостоятельный съеденный продукт — отдельный элемент dishes; не пропускай продукты в начале, середине или конце перечисления. На отдельные dishes НЕ разбивай ингредиенты ОДНОГО блюда (например, пельмени со сметаной). Если блюдо составное, включи основной компонент в items, дополнительные в additions, избегай двойного подсчёта. Для каждого продукта и дополнения укажи числовой вес в граммах в weight_g; у основного — также main_weight_g. ЯВНО указанные пользователем граммы или килограммы перенеси без изменения и установи weight_estimated=false; если указан счёт или бытовая мера, САМОСТОЯТЕЛЬНО оцени общую массу и поставь weight_estimated=true; у напитков дополнительно volume_ml. Не подставляй 100 г по умолчанию, не используй таблицы объёма посуды. Если массу невозможно оценить — null. Название продукта должно быть без чисел, граммов и количества; эти данные — только в portion и weight_g. Сохраняй вид продукта и способ приготовления. Не придумывай невидимые ингредиенты. Не вычисляй калории и БЖУ. Максимум 8 dishes, у каждого — полный items. Отвечай по-русски.`;
 
 const page = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Моя еда — тест ИИ</title><style>body{font:16px -apple-system,system-ui,sans-serif;max-width:680px;margin:30px auto;padding:0 18px;color:#193e20;background:#f4fbef}h1{font-size:24px}.panel{background:white;border-radius:22px;padding:22px;box-shadow:0 3px 20px #17371116}label{display:block;margin:20px 0 8px;font-weight:600}input,textarea{font:inherit;max-width:100%;box-sizing:border-box}input[type=file]{width:100%}textarea{width:100%;min-height:90px;padding:12px;border:1px solid #bdd9bc;border-radius:10px}button{background:#2f9716;color:white;border:0;border-radius:12px;padding:15px 20px;font-size:17px;font-weight:700;margin-top:18px}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f8ee;border-radius:12px;padding:16px}.note{color:#65766b;font-size:14px}</style></head><body><div class="panel"><h1>Моя еда — облачный тест</h1><p>Обработка фото выполняется в Cloudflare, не на iPhone.</p><form id="f"><label>Фотография (необязательно для текстового теста)</label><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"><label>Описание / уточнение</label><textarea name="text" placeholder="Например, торт Наполеон или обед с гарниром"></textarea><button id="go">Распознать</button></form><p class="note">Тестовая версия: фото автоматически уменьшается до 1024 пикселей. Файлы не сохраняются в нашем Worker, но отправляются в сервис Cloudflare Workers AI. Не публикуйте адрес широко.</p><pre id="out" hidden></pre></div><script>document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();const b=document.getElementById('go'),o=document.getElementById('out');b.disabled=true;o.hidden=false;o.textContent='Подготовка изображения…';try{const data=new FormData(e.target);const file=data.get('photo');if(file&&file.size){const bmp=await createImageBitmap(file);const scale=Math.min(1,1024/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);bmp.close?.();const blob=await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.78));if(!blob)throw Error('Не удалось уменьшить фото');data.set('photo',new File([blob],'meal.jpg',{type:'image/jpeg'}))}o.textContent='Распознавание…';const r=await fetch('/analyze',{method:'POST',body:data});const j=await r.json();o.textContent=JSON.stringify(j,null,2)}catch(err){o.textContent='Ошибка: '+err.message}finally{b.disabled=false}})</script></body></html>`;
 
@@ -104,6 +104,86 @@ function normalizeFood(obj){
  if(!dishes.length)throw Error('Нейросеть не выделила ни одного блюда');
  return {dishes,items:dishes.flatMap(x=>x.items),uncertain:Array.isArray(obj.uncertain)?obj.uncertain.slice(0,10).map(x=>String(x).slice(0,160)):[]};
 }
+// Explicit enumeration coverage is a STRUCTURAL check, not a portion estimator.
+// Splitting clauses never extracts grams or assigns weights: only the AI does that.
+const COVERAGE_STOP=new Set('и или с со на по в во из для без к под при г гр кг мл л шт штука штуки штук порция порции порцию примерно около приблизительно два две один одна одно несколько'.split(' '));
+function sourceClauses(text){
+  if(!text || !text.trim())return [];
+  const commaParts=String(text).replace(/\r/g,'').split(/,(?!\d)|;|\n+/).map(x=>x.trim()).filter(Boolean);
+  const clauses=[];
+  for(const part of commaParts){
+    const parts=part.split(/\s+и\s+/i).map(x=>x.trim()).filter(Boolean);
+    // Split a conjunction for verification only when both sides visibly carry
+    // quantified items. No weights are read, parsed, or computed here.
+    if(parts.length>1 && parts.length<=4 && parts.every(s=>/\d/.test(s) && /[а-яёa-z]/i.test(s))) clauses.push(...parts);
+    else clauses.push(part);
+  }
+  return clauses.length>1&&clauses.length<=8?clauses:[];
+}
+function coverageTokens(phrase){
+  return [...new Set(String(phrase||'').toLowerCase().replaceAll('ё','е')
+    .replace(/\d+(?:[.,]\d+)?/g,' ')
+    .match(/[а-яa-z]+/g)?.filter(t=>t.length>=3 && !COVERAGE_STOP.has(t))
+    .map(t=>t.length>=5?t.slice(0,5):t)||[])];
+}
+function uncoveredClauses(data,clauses){
+  if(!clauses.length)return [];
+  // Distinct, explicitly listed servings must be represented by distinct dishes.
+  // Ingredients inside one composed dish are not silently counted as several
+  // independent entries. Match each source clause to at most one dish.
+  const used=new Set();
+  return clauses.filter(clause=>{
+    const needed=coverageTokens(clause);
+    if(!needed.length)return false;
+    const matchedDish=data.dishes.findIndex((dish,index)=>{
+      if(used.has(index))return false;
+      const tokens=coverageTokens([dish.name,dish.main].join(' '));
+      const matched=needed.filter(t=>tokens.some(k=>k===t || k.startsWith(t) || t.startsWith(k))).length;
+      return matched>=Math.max(1,Math.ceil(needed.length*.7));
+    });
+    if(matchedDish<0)return true;
+    used.add(matchedDish);
+    return false;
+  });
+}
+function sameFoodDish(a,b){
+  const x=coverageTokens(a.main||a.name).join('|');
+  const y=coverageTokens(b.main||b.name).join('|');
+  return !!x&&x===y;
+}
+async function recoverMissingDishes(data,source,env){
+  const clauses=sourceClauses(source);
+  const initiallyMissing=uncoveredClauses(data,clauses);
+  const report={checked:clauses.length>1,fragments:clauses,initial_missing:initiallyMissing,restored:[],final_missing:[],attempts:0};
+  if(!initiallyMissing.length)return report;
+  const added=[];
+  // A short, independent model call for each omitted source clause avoids the
+  // common failure where Gemma's structured answer contains only its last item.
+  // We never derive grams from regexes: the model returns all weights.
+  const repairs=await Promise.all(initiallyMissing.map(async fragment=>{
+    try{
+      const instruction=PROMPT+' РАСПОЗНАЙ ТОЛЬКО СЛЕДУЮЩИЙ ФРАГМЕНТ исходного перечня продуктов: '+JSON.stringify(fragment)+'; верни все упомянутые в нём продукты и их числовые веса. Не добавляй другие части исходного перечня.';
+      const result=await env.AI.run(MODEL,{messages:[{role:'user',content:instruction}],chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},temperature:0,max_completion_tokens:1100});
+      const fixed=parseFoodResponse(result).data;
+      if(uncoveredClauses(fixed,[fragment]).length)throw Error('ИИ повторно пропустил продукт');
+      return {fragment,dishes:fixed.dishes};
+    }catch(e){return {fragment,error:String(e?.message||e)}}
+  }));
+  report.attempts=repairs.length;
+  for(const repair of repairs){
+    if(repair.error)continue;
+    for(const d of repair.dishes){
+      if(!data.dishes.some(existing=>sameFoodDish(existing,d)) && !added.some(existing=>sameFoodDish(existing,d))){
+        data.dishes.push(d);added.push(d);
+      }
+    }
+    report.restored.push(repair.fragment);
+  }
+  data.items=data.dishes.flatMap(x=>x.items);
+  report.final_missing=uncoveredClauses(data,clauses);
+  return report;
+}
+
 // Retry missing *model* masses as one compact prompt. Never parse numeric grams
 // out of the user sentence or use default portion tables in JS.
 async function retryMissingMasses(data,originalText,env){
@@ -154,7 +234,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.15"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.16"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
@@ -177,7 +257,9 @@ const originalHandler = {
         ]});
       } else {
         if(!text) return asJson({error:'Добавьте фото или текст'},400);
-        messages.push({role:'user',content:PROMPT+' Пользователь написал: '+text});
+        const fragments=sourceClauses(text);
+        const directive=fragments.length?' ОБЯЗАТЕЛЬНО отрази ВСЕ '+fragments.length+' явно перечисленных части исходной фразы: '+JSON.stringify(fragments)+'; используй составной dish для ингредиентов одного блюда.':'';
+        messages.push({role:'user',content:PROMPT+directive+' Пользователь написал: '+text});
       }
       // Cloudflare Gemma 4 defaults to reasoning ON. Disable it to get a short final answer
       // within the token budget instead of an empty content + truncated reasoning_content.
@@ -207,8 +289,13 @@ const originalHandler = {
         ({data}=parseFoodResponse(result));
         recovered=true;
       }
+      // Do not accept a syntactically valid but incomplete model answer.
+      const coverage=photo && photo.size?{checked:false,fragments:[],initial_missing:[],restored:[],final_missing:[],attempts:0}:await recoverMissingDishes(data,text,env);
+      if(coverage.final_missing.length){
+        return asJson({ok:false,stage:'coverage',message:'ИИ распознал не все перечисленные продукты. Данные не сохранены; повторите расчёт.',coverage},422);
+      }
       const portion_retry=await retryMissingMasses(data,text,env);
-      return asJson({ok:true,model:MODEL,food:data,portion_retry,
+      return asJson({ok:true,model:MODEL,food:data,coverage,portion_retry,
         json_recovery:{retried:recovered,first_error:recovered?firstError:null},usage:{
         neurons:result?.usage?.neurons ?? null,
         input_tokens:result?.usage?.prompt_tokens ?? null,
