@@ -666,7 +666,7 @@ async function resolveCloudDishes(response,source='text'){
  // First ask ONLY for complete ready dishes (and platter components); do not
  // make 5 separate requests for the cake ingredients unless the complete
  // cake lookup genuinely failed. This also saves DEMO_KEY requests.
- const firstQueries=plans.flatMap(p=>p.kind==='platter'?p.items.map(x=>x.name):[p.name]);
+ const firstQueries=plans.flatMap(p=>(p.kind==='platter'||p.kind==='recipe'&&p.items.length>=2)?p.items.map(x=>x.name):[p.name]);
  const matches=await batchNutritionQueries(firstQueries);
  const extraQueries=[];
  for(const p of plans){
@@ -674,7 +674,7 @@ async function resolveCloudDishes(response,source='text'){
    extraQueries.push(p.main,...p.additions.map(a=>a.name));
    continue;
   }
-  const whole=nutritionFor(p.name,matches,true);
+  const whole=p.kind==='recipe'&&p.items.length>=2?null:nutritionFor(p.name,matches,true);
   if(!whole)extraQueries.push(p.main,...p.additions.map(a=>a.name),...p.items.map(x=>x.name));
   else if(!whole.includesToppings)extraQueries.push(...p.additions.filter(a=>!exactEnough(p.name,p.main+' '+a.name)).map(a=>a.name));
  }
@@ -687,7 +687,7 @@ async function resolveCloudDishes(response,source='text'){
    devRecord('Решение по блюду',{dish:plan.name,decision:'platter_components',components:items.map(x=>x.name)});continue;
   }
   // First: exact whole prepared dish. Never accept just "pelmeni" as "pelmeni with sour cream".
-  const complete=nutritionFor(plan.name,matches,true);
+  const complete=plan.kind==='recipe'&&plan.items.length>=2?null:nutritionFor(plan.name,matches,true);
   if(complete){
    output.push(dishFromWhole(plan.name,plan.mainPortion,complete,source,plan.mainMeta));
    const extrasOutside=complete.includesToppings?[]:plan.additions.filter(x=>!exactEnough(plan.name,plan.main+' '+x.name));
@@ -780,6 +780,7 @@ $('parseBtn').addEventListener('click',async()=>{
  }catch(e){if(run!==activeTextRun)return;
   $('textDebug').hidden=false;$('textDebugLog').textContent=String(e.message||e);
   devRecord('Ошибка разбора текста',{input:text,error:String(e.message||e)});
+  const networkFailed=/^(?:Load failed|Failed to fetch|NetworkError|The network connection was lost)$/i.test(String(e?.message||''));
   if(isChainText(text)){
    $('textAIStatus').textContent='Не удалось получить меню. Повторите запрос.';
    dishes=[];renderDishes();
@@ -787,7 +788,7 @@ $('parseBtn').addEventListener('click',async()=>{
    // No guessed dishes when AI is unavailable: the offline text splitter
    // cannot infer portion weights and may corrupt product names ("г печени").
    // Preserve the original input for an immediate retry instead.
-   $('textAIStatus').textContent='Не удалось полностью распознать продукты. Текст сохранён — повторите расчёт.';
+   $('textAIStatus').textContent=networkFailed?'Не удалось соединиться с ИИ. Текст сохранён — проверьте сеть и повторите расчёт.':'Не удалось полностью распознать продукты. Текст сохранён — повторите расчёт.';
    dishes=[];pendingSource=null;renderDishes();
   }
  }finally{clearTimeout(timeout);if(run===activeTextRun){btn.disabled=false;$('parseBtnLabel').hidden=false;$('parseSpinner').hidden=true;$('textProgressWrap').hidden=true}}
