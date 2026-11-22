@@ -1,4 +1,4 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.17.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.18.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
@@ -245,7 +245,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.17"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.18"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
@@ -485,6 +485,27 @@ async function searchNutrition(query,env,{fast=false}={}){
  },'USDA ('+en+')');
  const [a,b,sw,cofid,norway,canada]=await Promise.all([off,usda,searchSwedish(en),tryExtra(searchCofid,'CoFID',en),tryExtra(searchNorway,'Matvaretabellen',en),tryExtra(searchCanada,'CNF',en)]);
  const raw=[...(a.ok?a.json?.products||[]:[]).map(offProduct),...(b.ok?b.json?.foods||[]:[]).map(usdaProduct),...sw.items,...cofid.items,...norway.items,...canada.items].filter(Boolean);
+ // Public APIs can be rate-limited (USDA DEMO_KEY -> 429) or temporarily
+ // unavailable (OFF -> 503). Supplement missing genuine liver data with a
+ // published food label. A bottle of cod-liver OIL is never cod LIVER.
+ // This is an approximate canned-food analogue, NOT an inferred serving size.
+ const codLiverRequest=/(?:печен[ьи]\s+треск|тресков(?:ая|ой|ую|ой)\s+печен|\bcod liver\b)/i.test(q+' '+en);
+ const isOilQuery=/(?:\b(?:cod liver oil|fish oil)\b|масло\s+печен|жир\s+печен|рыбий\s+жир)/i.test(q+' '+en);
+ if(codLiverRequest&&!isOilQuery){
+  const actual=raw.some(x=>/(?:\bcod liver\b|печен[ьи]\s+треск)/i.test(x.name+' '+String(x.name_ru||''))&&
+       !/\b(?:oil|pate|capsules?|supplement|extract|powder)\b|масло\s+печен/i.test(x.name+' '+String(x.name_ru||'')));
+  if(!actual){
+   const rawRequested=/(?:сырая|сырой|\braw\b)/i.test(q+' '+en);
+   raw.push(rawRequested?
+    {name:'Cod liver, raw',name_ru:'Печень трески сырая',k:553,p:5.5,f:59,c:0,
+     source:'Matvaretabellen (Норвегия) · сохранённая справочная запись',
+     reference_url:'https://matvaretabellen.mattilsynet.io/en/cod-liver-raw/',reference_fallback:true,approximate:true}:
+    {name:'Cod liver, canned in natural fat',name_ru:'Печень трески',k:525,p:6,f:55.46,c:0,
+     source:'Этикетка JUOR · приблизительный аналог консервированной печени трески',
+     reference_url:'https://en.juor.pl/the-offering/cod-liver-in-natural-fat-2/',reference_fallback:true,approximate:true});
+  }
+ }
+
  // Prefer exact products, generic foods and FNDDS over products containing query as a sub-ingredient.
    const queryWords=en.toLowerCase().match(/[a-z]{3,}/g)||[];
    const score=(item)=>{const n=item.name.toLowerCase();let sc=0;
@@ -499,13 +520,14 @@ async function searchNutrition(query,env,{fast=false}={}){
      if(!item.brand && n.startsWith(en.toLowerCase()+','))sc+=27;
      if(/pretzel|raisin|almond|peanut|coated|flavored|dessert/.test(n) && !/pretzel|raisin|almond|peanut|dessert/.test(en.toLowerCase()))sc-=28;
      return sc;};
-   raw.forEach(x=>x.match_score=score(x));raw.sort((x,y)=>y.match_score-x.match_score);
+   raw.forEach(x=>x.match_score=x.reference_fallback?125:score(x));raw.sort((x,y)=>y.match_score-x.match_score);
    const seen=new Set(),sourceCounts=new Map(),items=[];for(const item of raw){if(item.match_score< -10)continue;const id=item.source+':'+(item.code||item.fdcId||item.source_id||item.name);if(seen.has(id)||(sourceCounts.get(item.source)||0)>=3)continue;seen.add(id);sourceCounts.set(item.source,(sourceCounts.get(item.source)||0)+1);items.push(item);if(items.length>=18)break}
  await addRussianNames(items,env,!fast);
- const result={ok:a.ok||b.ok||sw.ok||cofid.ok||norway.ok||canada.ok,english_query:en,items,diagnostics:[a.diagnostic,b.diagnostic,sw.diagnostic,cofid.diagnostic,norway.diagnostic,canada.diagnostic],query:q,sources:{off:a.ok,usda:b.ok,sweden:sw.ok,cofid:cofid.ok,norway:norway.ok,canada:canada.ok}};
+ const result={ok:a.ok||b.ok||sw.ok||cofid.ok||norway.ok||canada.ok||items.some(x=>x.reference_fallback),english_query:en,items,diagnostics:[a.diagnostic,b.diagnostic,sw.diagnostic,cofid.diagnostic,norway.diagnostic,canada.diagnostic],query:q,sources:{off:a.ok,usda:b.ok,sweden:sw.ok,cofid:cofid.ok,norway:norway.ok,canada:canada.ok}};
+ if(items.some(x=>x.reference_fallback))result.diagnostics.push('Резерв: опубликованная пищевая ценность продукта; КБЖУ ориентировочные, вес берётся только от ИИ.');
  if(!result.ok)result.error='Источники недоступны — см. diagnostics';
  // Empty/failed searches must be retried soon when providers recover; valid hits can be cached longer.
- NUT_CACHE.set(key,{until:Date.now()+(items.length?60*60*1000:45*1000),value:result});if(NUT_CACHE.size>100)NUT_CACHE.delete(NUT_CACHE.keys().next().value);
+ NUT_CACHE.set(key,{until:Date.now()+(items.some(x=>x.reference_fallback)?5*60*1000:items.length?60*60*1000:45*1000),value:result});if(NUT_CACHE.size>100)NUT_CACHE.delete(NUT_CACHE.keys().next().value);
  return result;
 }
 

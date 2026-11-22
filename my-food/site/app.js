@@ -1,5 +1,18 @@
 'use strict';
 // Demonstration per-100-g food estimates. Real labelled products can be added from Open Food Facts.
+// Published food-composition references for use ONLY when the live lookup is
+// unavailable or yields a different product. No portion weights live here;
+// the neural network determines grams. All values below are per 100 g.
+// The generic cod-liver entry is an approximate canned-product analogue
+// (JUOR, 525 kcal, P6, F55.46, carbs <0.5). The exact brand is unknown.
+const VERIFIED_LOCAL_NUTRIENTS=[
+ {name:'печень трески сырая',k:553,p:5.5,f:59,c:0,portion:null,
+  aliases:['печень трески сырая','сырая печень трески','печени трески сырой'],
+  source:'Matvaretabellen (Норвегия) · печень трески сырая',reference_url:'https://matvaretabellen.mattilsynet.io/en/cod-liver-raw/',approximate:true},
+ {name:'печень трески',k:525,p:6,f:55.46,c:0,portion:null,
+  aliases:['печень трески','печени трески','тресковая печень','тресковой печени','печень трески консервированная'],
+  source:'Опубликованная этикетка JUOR · аналог консервированной печени трески',reference_url:'https://en.juor.pl/the-offering/cod-liver-in-natural-fat-2/',approximate:true}
+];
 const FOOD=[
 ['соус сырный',280,4,25,9,15,['соус сырный','сырный соус']],
 ['гречка вареная',110,3.6,1.1,20,180,['гречк','гречнев']],
@@ -64,6 +77,7 @@ const FOOD=[
 ['паста карбонара',260,12,13,24,180,['карбонар']],
 ['чай без сахара',1,0,0,0,200,['чай']]
 ].map(([name,k,p,f,c,portion,aliases])=>({name,k,p,f,c,portion,aliases}));
+FOOD.unshift(...VERIFIED_LOCAL_NUTRIENTS); // These are nutritional data, never serving-size defaults.
 
 const $=id=>document.getElementById(id);
 const clean=s=>String(s||'').toLowerCase().replaceAll('ё','е').replace(/[.!?]/g,'').trim();
@@ -456,7 +470,7 @@ function resolveNutrition(query,candidates,full=false,englishQuery=''){
  const weights=selected.map(x=>Math.max(1,x.score));const total=weights.reduce((a,b)=>a+b,0);
  const per=Object.fromEntries(MACRO_KEYS.map(k=>[k,selected.reduce((v,x,i)=>v+Number(x.row[k])*weights[i],0)/total]));
  devRecord('Выбор КБЖУ',{query,full,considered:ranked.slice(0,7).map(x=>({name:x.row.name,ru:x.row.name_ru,source:x.row.source,score:x.score,k:x.row.k,p:x.row.p,f:x.row.f,c:x.row.c})),selected:selected.map(x=>({source:x.row.source,name:x.row.name,score:x.score})),final_per100:per});
- return {...per,source:selected.map(x=>x.row.source).join(' + ')||'База КБЖУ',name:strongest.row.name_ru||strongest.row.name,allBranded:selected.every(x=>!!x.row.brand),approximate:false};
+ return {...per,source:selected.map(x=>x.row.source).join(' + ')||'База КБЖУ',name:strongest.row.name_ru||strongest.row.name,allBranded:selected.every(x=>!!x.row.brand),approximate:selected.some(x=>!!(x.row.reference_fallback||x.row.approximate))};
 }
 // Broad-match fallback ONLY if no comparable whole dish was found. A generic
 // "cake" food record is useful as an editable estimate for a cream/sponge cake;
@@ -559,17 +573,19 @@ function nutritionFor(query,found,full=false){
  // Prefer a curated generic value when the branded entry is implausibly different.
  if(local && remote?.allBranded && (remote.k<local.k*.55||remote.k>local.k*1.65)){
    devRecord('Отказ от нерепрезентативного бренда',{query,remote:remote.name,k:remote.k,local:local.name,local_k:local.k});
-   return {...local,approximate:true,source:'Приблизительный встроенный справочник'};
+   return {...local,approximate:true,source:local.source||'Приблизительный встроенный справочник'};
  }
  if(remote)return remote;
  if(full){const approximate=approximateCategoryNutrition(query,candidates);if(approximate)return approximate;}
- if(local){devRecord('Резервный справочник',{query,nutrition:local,whole:full});return {...local,approximate:true,source:'Приблизительный встроенный справочник',includesToppings:/торт с кремом/.test(local.name)};}
+ if(local){devRecord('Резервный справочник',{query,nutrition:local,whole:full});return {...local,approximate:true,source:local.source||'Приблизительный встроенный справочник',includesToppings:/торт с кремом/.test(local.name)};}
  // Last resort per user request: when strict multilingual matching rejected all
  // nutritional records, use the most plausible available original candidate
  // instead of leaving K/B/F/C blank. Clearly mark this as approximate.
  const plausible=candidates.filter(x=>['k','p','f','c'].every(k=>x[k]!==null&&x[k]!==undefined&&Number.isFinite(Number(x[k]))&&Number(x[k])>=0)&&Number(x.k)<=900);
- const acceptable=plausible.filter(x=>!BAD_CANDIDATE_RE.test(String(x.name||'')));
- const pool=acceptable.length?acceptable:plausible;
+ const acceptable=plausible.filter(x=>!BAD_CANDIDATE_RE.test(String(x.name||'')) &&
+  !(/печен[ьи]\s+треск|тресков[а-я]*\s+печен/i.test(query) && /\boil\b|рыбий жир|масло печени/i.test(String(x.name||'')+' '+String(x.name_ru||''))));
+ const pool=acceptable.length?acceptable:plausible.filter(x=>
+   !(/печен[ьи]\s+треск|тресков[а-я]*\s+печен/i.test(query) && /\boil\b|рыбий жир|масло печени/i.test(String(x.name||'')+' '+String(x.name_ru||''))));
  if(pool.length){
   const ranked=pool.map(x=>{
    const label=String(x.name||'')+' '+String(x.name_ru||'');
@@ -615,6 +631,7 @@ function dishFromWhole(name,portion,food,source,meta={}){
  const dish=newDish(capital(name),[],[],{grams,...Object.fromEntries(MACRO_KEYS.map(k=>[k,food[k]*grams/100]))});
  dish.per100=Object.fromEntries(MACRO_KEYS.map(k=>[k,Number(food[k])]));dish.nutritionSource=food.source;dish.nutritionApproximate=!!food.approximate;
  if(food.matched_by==='relaxed_fallback')dish.uncertain=['КБЖУ приблизительные: использован наиболее близкий результат справочника. Проверьте значения.'];
+ if(food.approximate && !food.matched_by && /JUOR|печен[ьи]\s+треск/i.test(String(food.source||'')))dish.uncertain=['КБЖУ приблизительные: использован справочный аналог консервированной печени трески.'];
  if(!grams)dish.uncertain=[...(dish.uncertain||[]),'Нейросеть не определила вес порции. Укажите вес перед сохранением.'];
  return dish;
 }
