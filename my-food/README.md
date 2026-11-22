@@ -1,20 +1,31 @@
-# Моя еда — публикация на Cloudflare
+# «Моя еда»: автоматическая публикация в Cloudflare
 
-Этот каталог независим от проекта Decision Matrix AI. Публикация на production пока **не выполнена**.
+**Состояние:** на 22.11.2026 GitHub Actions успешно опубликовал обе версии — PWA **v0.9.11**, API Worker **v1.14**. Успешный запуск: https://github.com/evpoluyanov/decision-matrix-ai/actions/runs/45019959952.
 
-## Состав
+## Развёртывание (оба — Cloudflare Workers, не Cloudflare Pages)
 
-- `worker/worker.js` — Worker v1.14, Cloudflare Workers AI; `worker/wrangler.toml` — конфигурация существующего `food-ai-inference`.
-- `site/` — PWA v0.9.11, статические файлы для существующего проекта Cloudflare Pages `drop-443886b1-4e5`.
-- `.github/workflows/deploy-my-food.yml` — CI/CD: после изменения файлов в `my-food/` сначала Worker, затем Pages. Если изменился только один компонент, публикуется только он. Можно запустить вручную (workflow_dispatch).
+- `my-food/worker/worker.js`: backend Worker `food-ai-inference`, binding Workers AI `AI`, доступен по `https://food-ai-inference.evpoluyanov.workers.dev`. Конфигурация `my-food/worker/wrangler.toml`.
+- `my-food/site/`: PWA; раздаётся из **Worker со статическими ассетами** `drop-443886b1-4e5`, `https://drop-443886b1-4e5.evpoluyanov.workers.dev`. Конфигурация `my-food/site-worker/wrangler.toml`.
+- `.github/workflows/deploy-my-food.yml`: автоматически публикует только изменившиеся части. Если изменились оба — сначала backend, потом пользовательское приложение. Проверяет синтаксис перед публикацией.
 
-## Однократная настройка (выполняется владельцем аккаунта)
+## Ветка, из которой выполняются публикации
 
-1. В Cloudflare: создать **ограниченный по аккаунту** API token с правами **Workers Scripts: Edit** и **Cloudflare Pages: Edit**, нужными для этих двух проектов (не давать Global API Key). Убедиться, что у существующего Worker есть Workers AI binding `AI`.
-2. В GitHub: репозиторий → Settings → Secrets and variables → Actions → New repository secret. Добавить ровно два секрета: `CLOUDFLARE_ACCOUNT_ID` и `CLOUDFLARE_API_TOKEN`. Значения никому не отправлять и в файлы не включать.
-3. После публикации ветки `main` выполнить `Actions → Deploy My Food to Cloudflare → Run workflow`. Проверить статусы обоих этапов и адреса сайта/Worker, в том числе `/health` у Worker.
-4. В Cloudflare Pages проверить, что **production branch** называется `main`. Если другое имя — изменить `--branch=main` в workflow на фактическую production branch.
+**Только `codex/my-food-cloudflare-cicd`.** Изменения исходников «Моя еда» необходимо коммитить и пушить именно в эту ветку. Подключённая GitHub Actions публикация запускается по push при изменениях `my-food/**` (или самого workflow). После публикации необходимо проверять статус в Actions.
 
-**Предупреждение:** существующий `decision-matrix-ai` — публичный репозиторий. Код `Моя еда` после слияния будет публично виден. Ни ключи, ни личные данные пользователя в проект помещать нельзя. Код Worker сейчас показывает ознакомительный публичный API без аутентификации; ограничение доступа нужно решить отдельно.
+**Не сливать ветку в `main` репозитория `decision-matrix-ai`** без отдельной подготовки. Этот репозиторий содержит другой работающий проект с независимым Vercel Production deployment; его `main` не должен затрагиваться обновлениями «Моей еды».
 
-**Не объединять ветку без предварительной настройки секретов**, иначе задача CI/CD не сможет развернуть код. Слияние также может запустить несвязанные существующие deployment-настройки другого проекта.
+## Секреты
+
+В GitHub `Settings → Secrets and variables → Actions → Repository secrets` должны быть:
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN` с минимально необходимыми правами для публикации Workers.
+
+Значения секретов **никогда не помещать в git, документы, сообщения или исходный код**. Токен при необходимости заменяется в GitHub Secrets; текущие значения недоступны через подключённый GitHub-инструмент.
+
+## Контроль после публикации
+
+- Открыть `https://food-ai-inference.evpoluyanov.workers.dev/health`; должен возвращаться `ok:true`, `ai_binding:true` и ожидаемая версия.
+- Открыть `https://drop-443886b1-4e5.evpoluyanov.workers.dev`; должна отобразиться новая версия PWA.
+- Проверить распознавание в приложении на iPhone. Прохождение GitHub Actions подтверждает публикацию, но не заменяет проверку реального сценария.
+
+Репозиторий `decision-matrix-ai` **публичный**: код приложения и Worker в этой ветке доступен для просмотра. В перспективе рекомендуется перенести «Мою еду» в отдельный приватный репозиторий без смешивания с другим проектом.
