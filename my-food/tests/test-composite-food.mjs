@@ -16,6 +16,21 @@ assert.deepEqual(v.data.food.dishes[0].items.map(i=>i.weight_g),[110,20,35]);
 assert.equal(v.data.coverage.final_missing.length,0);
 assert.equal(v.count,1);
 console.log('PASS: full pancake recipe accepted in one AI request; no false HTTP 422');
+
+// The live Gemma model puts cheese and salmon into additions, leaving only
+// pancakes in items. A conflicting summary main_weight_g must NOT overwrite
+// the more specific 100g main ingredient.
+const additive={...composite([blini],'recipe'),main_weight_g:120,additions:[cheese,salmon]};
+v=await run([[additive]]);
+assert.equal(v.status,200,JSON.stringify(v.data));
+assert.equal(v.data.food.dishes.length,1);
+assert.equal(v.data.food.dishes[0].main_weight_g,110);
+assert.equal(v.data.food.dishes[0].items.length,1);
+assert.equal(v.data.food.dishes[0].additions.length,2);
+assert.equal(v.data.coverage.final_missing.length,0);
+assert.equal(v.count,1);
+console.log('PASS: AI additions count as filling; conflicting summary mass does not override ingredient');
+
 // If salmon was silently omitted, repair must replace, not append, the incomplete dish.
 v=await run([[composite([blini,cheese])],[composite()]]);
 assert.equal(v.status,200,JSON.stringify(v.data));

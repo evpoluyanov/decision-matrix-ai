@@ -521,7 +521,7 @@ function inferGroupPlan(group){
  }
  const mainIncluded=items.find(x=>exactEnough(x.name,main));
  if(!mainPortion)mainPortion=String(mainIncluded?.portion||'1 порция');
- const mainMeta={...mainIncluded,weight_g:group.main_weight_g??mainIncluded?.weight_g??null,volume_ml:group.main_volume_ml??mainIncluded?.volume_ml??null,weight_basis:group.main_weight_basis||mainIncluded?.weight_basis||'',weight_estimated:mainIncluded?.weight_estimated!==false};
+ const mainMeta={...mainIncluded,weight_g:kind==='recipe'?(mainIncluded?.weight_g??group.main_weight_g??null):(group.main_weight_g??mainIncluded?.weight_g??null),volume_ml:kind==='recipe'?(mainIncluded?.volume_ml??group.main_volume_ml??null):(group.main_volume_ml??mainIncluded?.volume_ml??null),weight_basis:(kind==='recipe'&&mainIncluded?.weight_g?mainIncluded?.weight_basis:'')||group.main_weight_basis||mainIncluded?.weight_basis||'',weight_estimated:mainIncluded?.weight_estimated!==false};
  // Older AI versions may return ONLY the topping of a recognized main dish.
  if(!additions.length){
   // Only infer a side when ALL model items are toppings: e.g. 'Пельмени' but only 'Сметана'.
@@ -666,7 +666,7 @@ async function resolveCloudDishes(response,source='text'){
  // First ask ONLY for complete ready dishes (and platter components); do not
  // make 5 separate requests for the cake ingredients unless the complete
  // cake lookup genuinely failed. This also saves DEMO_KEY requests.
- const firstQueries=plans.flatMap(p=>(p.kind==='platter'||p.kind==='recipe'&&p.items.length>=2)?p.items.map(x=>x.name):[p.name]);
+ const firstQueries=plans.flatMap(p=>p.kind==='platter'?p.items.map(x=>x.name):p.kind==='recipe'&&(p.items.length+p.additions.length)>=2?[p.main,...p.items.map(x=>x.name),...p.additions.map(x=>x.name)]:[p.name]);
  const matches=await batchNutritionQueries(firstQueries);
  const extraQueries=[];
  for(const p of plans){
@@ -674,7 +674,7 @@ async function resolveCloudDishes(response,source='text'){
    extraQueries.push(p.main,...p.additions.map(a=>a.name));
    continue;
   }
-  const whole=p.kind==='recipe'&&p.items.length>=2?null:nutritionFor(p.name,matches,true);
+  const whole=p.kind==='recipe'&&(p.items.length+p.additions.length)>=2?null:nutritionFor(p.name,matches,true);
   if(!whole)extraQueries.push(p.main,...p.additions.map(a=>a.name),...p.items.map(x=>x.name));
   else if(!whole.includesToppings)extraQueries.push(...p.additions.filter(a=>!exactEnough(p.name,p.main+' '+a.name)).map(a=>a.name));
  }
@@ -687,7 +687,7 @@ async function resolveCloudDishes(response,source='text'){
    devRecord('Решение по блюду',{dish:plan.name,decision:'platter_components',components:items.map(x=>x.name)});continue;
   }
   // First: exact whole prepared dish. Never accept just "pelmeni" as "pelmeni with sour cream".
-  const complete=plan.kind==='recipe'&&plan.items.length>=2?null:nutritionFor(plan.name,matches,true);
+  const complete=plan.kind==='recipe'&&(plan.items.length+plan.additions.length)>=2?null:nutritionFor(plan.name,matches,true);
   if(complete){
    output.push(dishFromWhole(plan.name,plan.mainPortion,complete,source,plan.mainMeta));
    const extrasOutside=complete.includesToppings?[]:plan.additions.filter(x=>!exactEnough(plan.name,plan.main+' '+x.name));

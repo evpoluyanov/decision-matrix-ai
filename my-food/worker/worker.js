@@ -1,4 +1,4 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.19.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.20.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
@@ -95,9 +95,12 @@ function normalizeFood(obj){
    const mainItem=items.find(z=>z.name.toLowerCase()===main.toLowerCase())|| (items.length===1?items[0]:null);
    return {name:String(x?.name||'Блюдо').slice(0,100).trim(),kind:['prepared','platter','recipe'].includes(x?.kind)?x.kind:'prepared',
     main,main_portion:String(x?.main_portion||mainItem?.portion||'1 порция').slice(0,100).trim(),
-    main_weight_g:massNumber(x?.main_weight_g)??mainItem?.weight_g??null,
+    // For a recipe the specific main-ingredient mass is more precise than a
+    // conflicting parent headline. BOTH numbers come from the model; no local
+    // quantity-to-weight conversion is performed.
+    main_weight_g:(x?.kind==='recipe' ? mainItem?.weight_g??massNumber(x?.main_weight_g) : massNumber(x?.main_weight_g)??mainItem?.weight_g)??null,
     main_volume_ml:massNumber(x?.main_volume_ml)??mainItem?.volume_ml??null,
-    main_weight_basis:String(x?.main_weight_basis||mainItem?.weight_basis||'').slice(0,180),
+    main_weight_basis:String((x?.kind==='recipe'&&mainItem?.weight_g?mainItem?.weight_basis:null)||x?.main_weight_basis||mainItem?.weight_basis||'').slice(0,180),
     additions:normItems(x?.additions),items};
  }).filter(x=>x.name||x.items.length):[];
  if(!dishes.length){const items=normItems(obj.items);if(items.length)dishes=[{name:String(obj.name||'Блюдо').slice(0,100),kind:'prepared',main:items[0].name,main_portion:items[0].portion,main_weight_g:items[0].weight_g,main_volume_ml:items[0].volume_ml,main_weight_basis:items[0].weight_basis,additions:[],items}];}
@@ -178,6 +181,21 @@ function sameFoodDish(a,b){
   const y=coverageTokens(b.main||b.name).join('|');
   return !!x&&x===y;
 }
+// Normalize a filled dish without inventing masses: the AI's own ingredient
+// weight takes precedence over an inconsistent summary field.
+function alignCompositeMainWeight(dish){
+  dish.kind='recipe';
+  const mainTokens=coverageTokens(dish.main);
+  const ingredient=(dish.items||[]).find(x=>{
+    const tokens=coverageTokens(x.name);
+    return !!mainTokens.length&&mainTokens.every(t=>tokens.some(k=>t===k||t.startsWith(k)||k.startsWith(t)));
+  });
+  if(ingredient?.weight_g){
+    dish.main_weight_g=ingredient.weight_g;
+    dish.main_volume_ml=ingredient.volume_ml;
+    dish.main_weight_basis=ingredient.weight_basis;
+  }
+}
 async function recoverMissingDishes(data,source,env){
   const clauses=sourceClauses(source);
   // When Gemma merges several explicitly listed servings into one dish,
@@ -190,7 +208,7 @@ async function recoverMissingDishes(data,source,env){
   const initiallyMissing=grouped?[...clauses]:uncoveredClauses(data,clauses);
   const report={checked:clauses.length>0,fragments:clauses,grouping_repaired:grouped,composed,initial_missing:initiallyMissing,restored:[],final_missing:[],attempts:0};
   if(!initiallyMissing.length){
-    if(composed && data.dishes.length===1)data.dishes[0].kind='recipe';
+    if(composed && data.dishes.length===1)alignCompositeMainWeight(data.dishes[0]);
     return report;
   }
   const added=[];
@@ -206,7 +224,7 @@ async function recoverMissingDishes(data,source,env){
       if(!matched.length)throw Error('ИИ повторно пропустил продукт');
       // Source clauses contain independent servings. The AI chooses the
       // main component and weight, not the JavaScript code.
-      if(composed)matched[0].kind='recipe';
+      if(composed)alignCompositeMainWeight(matched[0]);
       return {fragment,dishes:matched.slice(0,1)};
     }catch(e){return {fragment,error:String(e?.message||e)}}
   }));
@@ -277,7 +295,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.19"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.20"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
