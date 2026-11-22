@@ -1,9 +1,10 @@
-# Only deploys "My Food" sources; does not modify Decision Matrix AI.
+# Isolated My Food release branch: prevents unrelated Decision Matrix AI Vercel Production deploy.
+# Changes to my-food/ in this codex branch trigger Cloudflare Production updates.
 name: Deploy My Food to Cloudflare
 
 on:
   push:
-    branches: [main]
+    branches: [codex/my-food-cloudflare-cicd]
     paths:
       - 'my-food/**'
       - '.github/workflows/deploy-my-food.yml'
