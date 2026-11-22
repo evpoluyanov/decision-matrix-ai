@@ -1,6 +1,6 @@
 // Old installed versions are upgraded automatically; the database is not touched.
-const CACHE='my-food-shell-v0911';
-const SHELL=['./','./index.html','./styles.css?v=0911','./app.js?v=0911','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
+const CACHE='my-food-shell-v0912';
+const SHELL=['./','./index.html','./styles.css?v=0912','./app.js?v=0912','./manifest.webmanifest','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('my-food-shell-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
