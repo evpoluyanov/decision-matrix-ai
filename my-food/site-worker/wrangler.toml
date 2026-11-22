@@ -1,0 +1,10 @@
+# Existing user-facing Worker; static assets retain its workers.dev URL.
+name = "drop-443886b1-4e5"
+main = "index.js"
+compatibility_date = "2026-11-22"
+keep_vars = true
+
+[assets]
+directory = "../site"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
