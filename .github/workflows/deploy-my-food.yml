@@ -1,0 +1,77 @@
+# Only deploys "My Food" sources; does not modify Decision Matrix AI.
+name: Deploy My Food to Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'my-food/**'
+      - '.github/workflows/deploy-my-food.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: my-food-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Determine changed components
+        id: components
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          worker=false
+          pages=false
+          if [[ "$EVENT" == "workflow_dispatch" || -z "${BEFORE:-}" || "$BEFORE" == '0000000000000000000000000000000000000000' ]]; then
+            worker=true
+            pages=true
+          else
+            git diff --name-only "$BEFORE" "$GITHUB_SHA" > /tmp/my-food-changes.txt
+            if grep -qE '^my-food/worker/|^\.github/workflows/deploy-my-food\.yml$' /tmp/my-food-changes.txt; then worker=true; fi
+            if grep -qE '^my-food/site/|^\.github/workflows/deploy-my-food\.yml$' /tmp/my-food-changes.txt; then pages=true; fi
+          fi
+          echo "worker=$worker" >> "$GITHUB_OUTPUT"
+          echo "pages=$pages" >> "$GITHUB_OUTPUT"
+          echo "Worker changed: $worker; Pages changed: $pages"
+      - name: Syntax check
+        run: |
+          node --check my-food/worker/worker.js
+          node --check my-food/site/app.js
+          node --check my-food/site/sw.js
+      - name: Require Cloudflare credentials
+        if: steps.components.outputs.worker == 'true' || steps.components.outputs.pages == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing secret CLOUDFLARE_ACCOUNT_ID'; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing secret CLOUDFLARE_API_TOKEN'; exit 1; }
+      - name: Deploy existing Worker
+        if: steps.components.outputs.worker == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy --config my-food/worker/wrangler.toml
+      - name: Deploy existing Pages project
+        if: steps.components.outputs.pages == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 pages deploy my-food/site --project-name=drop-443886b1-4e5 --branch=main

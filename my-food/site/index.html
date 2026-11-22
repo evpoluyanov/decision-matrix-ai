@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#effbe8"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Моя еда">
+<meta name="description" content="Учёт КБЖУ без подписок: текст, избранные блюда, история, поиск в открытой базе продуктов.">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="stylesheet" href="./styles.css?v=0911"><title>Моя еда · КБЖУ</title></head><body>
+<div class="app">
+<header class="masthead"><img class="mark" src="./icon-192.png" alt=""><div class="mastcopy"><strong>Моя еда</strong><small>Просто следить за питанием</small></div><span class="version">v0.9.11</span></header>
+<section class="hero"><div class="eyebrow">ВАШ ДЕНЬ</div><div class="dayline"><h1 id="todayLabel">Сегодня</h1><span id="mealsCount">Записей: 0</span></div>
+<div class="energy"><div class="calRing" id="calRing" role="progressbar" aria-valuemin="0" aria-valuemax="2100" aria-valuenow="0" aria-label="Калории"><div class="calInner"><strong id="kcal">0</strong><span>из 2100 ккал</span></div></div><div class="calLegend"><strong id="calPercent">0%</strong><span>дневной нормы</span></div></div>
+<div class="macros"><div><span>БЕЛКИ</span><b id="prot">0 г</b><small id="protLimit">из 160 г</small><div class="meter"><i id="protMeter"></i></div></div><div><span>ЖИРЫ</span><b id="fat">0 г</b><small id="fatLimit">из 70 г</small><div class="meter"><i id="fatMeter"></i></div></div><div><span>УГЛЕВОДЫ</span><b id="carb">0 г</b><small id="carbLimit">из 200 г</small><div class="meter"><i id="carbMeter"></i></div></div></div></section>
+<section class="section newmeal"><div class="sectionhead"><h2>Добавить еду</h2></div>
+<div class="tabs" role="tablist" aria-label="Способ добавления">
+<button class="tab active" role="tab" id="tabText" aria-selected="true" aria-controls="paneText">✎ Текст</button>
+<button class="tab" role="tab" id="tabPhoto" aria-selected="false" aria-controls="panePhoto">▧ Фото</button>
+<button class="tab" role="tab" id="tabFaves" aria-selected="false" aria-controls="paneFaves">★ Избранное</button></div>
+<div class="pane" id="paneText" role="tabpanel" aria-labelledby="tabText"><label for="foodText">Что и сколько съели?</label><textarea id="foodText" rows="3" placeholder=""></textarea><button class="primary" id="parseBtn"><span id="parseBtnLabel">Рассчитать</span><span class="busySpinner" id="parseSpinner" hidden aria-hidden="true"></span></button><p class="hint aiStatus" id="textAIStatus" role="status"></p><div class="textProgressWrap" id="textProgressWrap" hidden><progress id="textProgressBar" max="100" aria-label="Ход обработки текста"></progress></div><details class="devDebug" id="textDebug" hidden><summary>Диагностика текста</summary><pre id="textDebugLog"></pre></details></div>
+<div class="pane" id="panePhoto" role="tabpanel" aria-labelledby="tabPhoto" hidden>
+<!-- Native iOS browser chooser: source menu ordering belongs to the OS. -->
+<input id="photoInput" type="file" accept="image/*" hidden>
+<img id="photoPreview" class="photoPreview" alt="Выбранная фотография" hidden>
+<p class="recognitionStatus" id="photoAIStatus" role="status" aria-live="polite"></p>
+<div class="photoProgressWrap" id="photoProgressWrap" hidden>
+<progress id="photoProgressBar" max="100" aria-label="Ход распознавания фотографии"></progress>
+<div id="photoProgressText" class="photoProgressText" aria-live="off"></div></div>
+<details class="devDebug" id="photoDebug" hidden><summary>Диагностика фото</summary><pre id="photoDebugLog"></pre></details><div id="photoCandidates" class="listCards"></div></div>
+<div class="pane" id="paneFaves" role="tabpanel" aria-labelledby="tabFaves" hidden><div id="favoritesList" class="listCards"><p class="empty">Избранных блюд пока нет. Сначала составьте блюдо и нажмите «★ В избранное».</p></div></div>
+<div id="preview" hidden>
+<div class="subhead"><h3>Проверьте блюда</h3><button id="clearPreview" class="plain">Очистить</button></div>
+<div id="dishesList"></div>
+</div>
+<button type="button" id="addDishBtn" class="addDishButton">＋ Добавить блюдо вручную</button>
+<div id="operationStatus" class="hint" role="status"></div>
+</section>
+<details class="devDebug technicalPanel" id="technicalDebug"><summary>Техническая диагностика</summary><button type="button" id="copyDiagnostic" class="secondary diagnosticCopy">Скопировать диагностику</button><span id="technicalCopyStatus" class="hint"></span><pre id="technicalDebugLog">Нет диагностических записей.</pre></details>
+<section class="section history"><div class="sectionhead"><h2>История</h2><span class="pill" id="historyDayText">Сегодня</span></div>
+<div class="dateStrip" id="dateStrip" aria-label="Выбрать день истории"></div><div id="calendarWrap" class="calendarWrap" hidden><div class="calendarHeader"><button type="button" id="calendarPrev" aria-label="Предыдущий месяц">‹</button><strong id="calendarMonth"></strong><button type="button" id="calendarNext" aria-label="Следующий месяц">›</button></div><div class="calendarGrid" id="calendarGrid"></div></div>
+<div id="historySummary" class="historySummary" aria-live="polite"></div><div id="historyItems" class="listCards"><p class="empty">Записей пока нет.</p></div></section>
+
+</div><script defer src="./app.js?v=0911"></script></body></html>

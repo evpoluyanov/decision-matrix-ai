@@ -1,0 +1,213 @@
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#19331b;background:#f2fbeE;font-synthesis:none}*{box-sizing:border-box}body{margin:0}button,textarea,input{font:inherit}button{cursor:pointer}.app{max-width:600px;margin:auto;padding:20px 17px calc(44px + env(safe-area-inset-bottom));padding-top:calc(20px + env(safe-area-inset-top))}.masthead{display:flex;gap:11px;align-items:center;margin:2px 0 22px}.mark{width:47px;height:47px;object-fit:cover;border-radius:14px;box-shadow:0 5px 12px #45962422}.mastcopy{display:flex;flex-direction:column;gap:3px}.mastcopy strong{font-size:18px;letter-spacing:-.5px}.mastcopy small{font-size:12px;color:#69806b}.version{margin-left:auto;font-size:11px;color:#397e24;background:#e1f8d3;border-radius:50px;padding:7px 11px;font-weight:700}.hero{background:linear-gradient(135deg,#b9ff72 0%,#89e837 60%,#6fdb23 100%);color:#183d11;border-radius:24px;padding:23px 23px 21px;box-shadow:0 14px 28px #5db92a26;position:relative;overflow:hidden}.hero:after{content:"";position:absolute;width:200px;height:200px;border-radius:50%;border:40px solid #fff2;right:-116px;top:-108px;pointer-events:none}.eyebrow{font-size:10px;letter-spacing:2px;opacity:.76;font-weight:800}.dayline{display:flex;align-items:center;justify-content:space-between;gap:10px}.dayline h1{font-size:21px;margin:8px 0 16px;letter-spacing:-.3px}.dayline span{font-size:12px;opacity:.78}.energy{display:flex;align-items:center;gap:11px;padding:0 0 20px}.energy>span{font-size:63px;line-height:1;letter-spacing:-2px;font-weight:800;font-variant-numeric:tabular-nums}.energy>div{font-size:15px;line-height:1.2}.energy small{opacity:.76;font-size:12px}.macros{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;border-top:1px solid #245e2730;padding-top:17px}.macros>div{display:flex;flex-direction:column;gap:6px}.macros span{font-size:10px;letter-spacing:.5px;opacity:.8;font-weight:700}.macros b{font-size:19px}.section{background:white;margin-top:17px;border:1px solid #e0efdf;border-radius:21px;padding:19px;box-shadow:0 5px 20px #205b1b0a}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:17px}.sectionhead h2{font-size:18px;letter-spacing:-.45px;margin:0}.pill{border-radius:30px;font-size:10px;color:#367e22;background:#eaf9e2;padding:7px 10px;white-space:nowrap}.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;background:#eff8e9;padding:5px;border-radius:14px;margin-bottom:15px}.tab{border:0;border-radius:10px;padding:11px 2px;background:transparent;color:#477749;font-weight:700;font-size:13px;min-width:0}.tab.active{background:white;color:#247d15;box-shadow:0 2px 7px #356d1c1b}.section label{display:block;font-size:13px;font-weight:700;margin:14px 0 8px}.section textarea,.section input[type=search]{background:#f8fcf6;border:1px solid #d9e9d6;border-radius:12px;width:100%;padding:13px;outline:0;color:#19331b}.section textarea{resize:vertical;min-height:88px}.section textarea:focus,.section input[type=search]:focus{border-color:#66b548;box-shadow:0 0 0 3px #9ae26a36}.hint{font-size:12px;color:#70816f;line-height:1.55;margin:9px 0 15px}.primary{border:0;background:#2d8e19;color:#fff;border-radius:12px;font-weight:750;padding:13px 15px;min-height:47px}.primary:active,.secondary:active{transform:scale(.99)}.pane>.primary{width:100%}.secondary{border:1px solid #a7db95;background:#e5fbd9;color:#266f1a;border-radius:12px;font-weight:750;padding:12px 13px;min-height:45px}.secondary.full{width:100%;margin-top:12px}.plain{border:0;background:transparent;color:#398a2b;font-size:12px;font-weight:700;padding:7px}.searchRow{display:flex;gap:8px}.searchRow input{flex:1;min-width:0}.searchRow button{flex-shrink:0}.note{background:#eaf9e2;border-radius:12px;color:#416d39;font-size:12px;line-height:1.5;padding:12px;margin-top:13px}.photoPreview{width:100%;max-height:240px;object-fit:contain;border-radius:13px;margin-top:10px;background:#eaf5e2}.section input[type=file]{width:100%;border:1px dashed #9bd482;padding:11px;border-radius:10px;background:#f7fff2;color:#315c2a;font-size:12px}.warning{background:#fff5e6;color:#7d4c26;padding:13px;border-radius:10px;font-size:12px;line-height:1.55;margin-top:12px}#preview{margin-top:20px;border-top:1px solid #e0eede;padding-top:10px}.subhead{display:flex;align-items:center;justify-content:space-between}#preview h3{font-size:15px;margin:8px 0}.itemRow{display:flex;gap:9px;align-items:center;padding:12px 0;border-bottom:1px solid #eaf1e8}.itemName{flex:1;min-width:0}.itemName b{display:block;font-size:13px}.itemName span{display:block;font-size:11px;color:#728174;line-height:1.5;margin-top:4px}.grams{border:1px solid #d6e6d1;border-radius:9px;padding:8px 5px;width:67px;text-align:center;font-size:13px;color:#19331b;background:#fff}.remove{border:0;background:#fff0ef;color:#ba5752;border-radius:9px;width:32px;height:35px;font-size:18px}.totalsRow{display:flex;justify-content:space-between;padding:17px 0 4px;font-size:15px}.smallStats{font-size:12px;color:#70816f;padding-bottom:17px}.actionRow{display:grid;grid-template-columns:1fr 1fr;gap:9px}.listCards{display:flex;flex-direction:column;gap:11px}.entry{border:1px solid #e1eddc;background:#fbfefa;padding:13px;border-radius:13px}.entryTop{display:flex;align-items:center;gap:8px}.entryTop b{font-size:14px;line-height:1.4;overflow-wrap:anywhere}.entryTop .entryKcal{margin-left:auto;font-weight:800;font-size:14px;white-space:nowrap}.entryDetail{font-size:12px;color:#66796a;line-height:1.55;margin-top:7px;overflow-wrap:anywhere}.entryFooter{display:flex;justify-content:space-between;gap:7px;align-items:center;margin-top:9px;flex-wrap:wrap}.entryDate{font-size:11px;color:#879487;margin-right:auto}.miniActions{display:flex;gap:4px;align-items:center}.textBtn{background:transparent;border:0;color:#328324;font-size:12px;padding:7px 5px;font-weight:650}.textBtn.danger{color:#b05c50}.empty{color:#8a9a8a;font-size:13px;line-height:1.5}.sourceNote{font-size:11px;color:#7c8c7d;line-height:1.55}.sourceNote a{color:#2c8726}.badgeSource{font-size:10px;color:#428332;background:#e7f9e4;border-radius:8px;padding:3px 6px;display:inline-block;margin-top:6px}.resultCard{display:flex;gap:10px;align-items:center}.resultText{flex:1;min-width:0}.resultText b{font-size:13px;line-height:1.4;display:block}.resultText small{font-size:11px;line-height:1.5;color:#748575;display:block}.resultCard button{font-size:12px;padding:9px 10px;min-height:36px}footer{color:#929f91;font-size:11px;line-height:1.6;text-align:center;margin:24px 7px}.footversion{color:#71816d}@media(max-width:360px){.app{padding-left:12px;padding-right:12px}.section{padding:15px}.hero{padding:19px}.energy>span{font-size:54px}.tab{font-size:12px}}
+
+.manual{margin-top:18px;border-top:1px solid #e1edde;padding-top:14px;font-size:13px}.manual summary{color:#2f7e23;font-weight:700;cursor:pointer}.manualGrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:10px}.manualGrid label:first-child{grid-column:span 2}.manual input{width:100%;padding:10px;border:1px solid #d9e9d6;border-radius:10px;margin-top:6px;background:#f9fdf6;color:#19331b}.manualGrid label{font-weight:600;font-size:11px}.manual .full{width:100%;margin-top:10px}
+/* v0.3: inline actions only, never browser popups */
+.inlineAdd{border-bottom:1px solid #eaf1e8;padding:11px 0 13px}
+.addItemButton{width:100%;border:1px dashed #92ca80;color:#2b8323;background:#f4ffef;border-radius:10px;padding:12px;font-weight:750;font-size:13px}
+#addItemPanel{margin-top:12px;padding:11px;background:#f5fcf1;border-radius:12px;border:1px solid #e1efdc}
+#addItemPanel>input{width:100%;padding:11px 12px;border:1px solid #d0e5ca;border-radius:10px;font:inherit;color:#19331b;background:white}
+#addItemPanel label{margin:0 0 7px;font-size:12px}
+.quickAddRow{display:flex;align-items:end;gap:9px;margin-top:10px}
+.quickAddRow label{flex:1;margin:0!important}
+.quickAddRow input{display:block;width:100%;padding:10px;border-radius:9px;border:1px solid #d0e5ca;background:white;color:#19331b;margin-top:5px}
+.quickActions{display:flex;flex-wrap:wrap;gap:6px}
+.quickActions .plain{padding:8px 5px;font-size:12px}
+.secondary.favoriteActive,.tab.favoriteActive{background:#c7f79e;border-color:#7bd253;color:#1b6714}
+.unrecognizedItem{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px}
+.unrecognizedItem span{font-weight:700;flex:1;min-width:125px}
+.unrecognizedItem button{border:1px solid #e4c18d;color:#80531e;border-radius:8px;background:#fff9ee;font-size:11px;padding:7px}
+
+[hidden]{display:none!important}
+
+/* v0.4 daily progress and seven-day date strip */
+.hero{background:linear-gradient(135deg,#b9ff79 0%,#90ef3c 58%,#74da2b 100%)}
+.energy{gap:18px;align-items:center;padding:0 0 17px;position:relative;z-index:1}
+.calRing{--progress:0%;--ringColor:#288b20;width:151px;height:151px;border-radius:50%;background:conic-gradient(var(--ringColor) var(--progress),#ffffff80 var(--progress));padding:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 14px #579c2420}
+.calInner{width:100%;height:100%;border-radius:50%;background:#bcfc80;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;text-align:center}
+.calInner strong{font-size:37px;letter-spacing:-2px;font-variant-numeric:tabular-nums;line-height:1.15}
+.calInner span{font-size:11px;font-weight:650}
+.calLegend{display:flex;flex-direction:column;gap:5px;min-width:0}.calLegend strong{font-size:28px}.calLegend span{font-size:12px;line-height:1.3;opacity:.74}
+.meter{height:6px;border-radius:10px;background:#ffffff78;overflow:hidden;margin-top:5px}
+.meter i{display:block;width:0;height:100%;background:#328c22;border-radius:10px;transition:width .3s}
+.macros>div{gap:3px}.macros small{font-size:10px;color:#396a2d}
+.iconFavorite{font-size:26px;font-weight:800;line-height:1;min-width:55px;max-width:72px}
+.actionRow{grid-template-columns:72px 1fr}.iconAction{width:37px;height:36px;display:inline-flex;justify-content:center;align-items:center;border:none;background:#eaf8e4;color:#418635;font-size:25px;border-radius:11px;font-weight:600}
+.iconAction.on{background:#d4fab7;color:#287818}.iconAction.red{background:#fff0ed;color:#c43f3c;font-size:26px}
+.dateStrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) 36px;gap:5px;margin:0 -6px 16px;align-items:stretch}
+.dateChip{border:1px solid #e1efde;background:#f6fcf3;border-radius:11px;padding:7px 0 8px;color:#507747;display:flex;flex-direction:column;gap:3px;align-items:center;min-width:0}
+.dateChip small{font-size:10px;white-space:nowrap}.dateChip strong{font-size:15px}.dateChip.chosen{background:#a3ed6b;border-color:#72cd46;color:#205817;box-shadow:0 2px 7px #79b94f25}
+.dateMore{border:1px solid #d9e7d4;border-radius:10px;background:#f7fcf4;color:#3c7b30;font-weight:800;font-size:19px;padding:0}
+.calendarWrap{margin:0 0 14px;border:1px solid #dcebd8;border-radius:13px;padding:12px;background:#fafff7;box-shadow:0 5px 14px #0000000a}
+.calendarHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}.calendarHeader strong{font-size:13px;text-transform:capitalize}.calendarHeader button{border:0;background:#e8f9e0;color:#317d1c;border-radius:8px;width:37px;height:35px;font-size:24px}
+.calendarGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}.calendarWeek{font-size:10px;color:#70846b;padding:6px 0}.calendarDay{border:0;border-radius:7px;background:transparent;color:#345334;font-size:13px;padding:7px 0}.calendarDay.chosen{background:#95eb59;font-weight:800}.calendarDay:disabled{opacity:.28}
+.entryIngredients{font-size:11px;color:#678063;margin-top:6px}.entryIngredients summary{cursor:pointer;font-weight:600}.entryIngredient{padding:3px 0 0 12px}
+#analyzePhoto{display:block;width:100%;margin-top:12px}.photoGuess,.textGuess{border:1px solid #c7e2bb;border-radius:10px;background:#f3ffec;color:#296f20;text-align:left;padding:12px;font-size:13px;font-weight:650}.textGuess{display:block;width:100%;margin:7px 0 0}
+.aiStatus:empty{display:none}
+@media(max-width:360px){.calRing{width:135px;height:135px}.calInner strong{font-size:33px}.calLegend strong{font-size:24px}.dateStrip{gap:3px;margin-left:-8px;margin-right:-8px;grid-template-columns:repeat(7,minmax(0,1fr)) 29px}.dateChip small{font-size:9px}.dateChip strong{font-size:13px}}
+
+/* v0.5: earlier dates to the left, minimal photo screen, inline debugging */
+.dateStrip{grid-template-columns:36px repeat(7,minmax(0,1fr))}
+#photoInput[hidden]{display:none!important}
+.recognitionStatus{margin:10px 0;font-size:14px;font-weight:700;color:#297c20}
+.recognitionStatus:empty{display:none}
+.devDebug{border:1px solid #e1eadc;border-radius:10px;padding:9px 11px;margin:8px 0 13px;background:#f7fbf4;color:#59715c;font-size:11px}
+.devDebug summary{cursor:pointer;font-weight:650}
+.devDebug pre{margin:10px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;color:#4a604b;line-height:1.55}
+#pickPhoto{width:100%;margin-top:8px}
+#photoCandidates{margin-top:10px}
+@media(max-width:360px){.dateStrip{grid-template-columns:29px repeat(7,minmax(0,1fr))}}
+
+/* v0.6.2: consistent source order and truthful model download progress */
+.photoSourceRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.photoSource{min-width:0;min-height:45px;padding:10px 4px;font-size:13px;white-space:nowrap}
+.photoProgressWrap{margin:10px 0 16px}
+.photoProgressWrap[hidden]{display:none!important}
+.photoProgressWrap progress{display:block;width:100%;height:13px;border:0;border-radius:999px;overflow:hidden;accent-color:#52b729;background:#e2efd9}
+.photoProgressWrap progress::-webkit-progress-bar{background:#e2efd9;border-radius:999px}
+.photoProgressWrap progress::-webkit-progress-value{background:#54b92c;border-radius:999px;transition:width .12s linear}
+.photoProgressText{color:#648265;font-size:12px;margin-top:7px;line-height:1.4;overflow-wrap:anywhere}
+@media(max-width:360px){.photoSource{font-size:12px;padding:8px 2px}}
+
+/* v0.8 — individually editable meal totals and date-specific history */
+.itemRow{display:grid;grid-template-columns:minmax(0,1fr) 35px;gap:8px 9px;align-items:start;padding:14px 0}
+.itemRow .itemName{grid-column:1;grid-row:1;min-width:0}
+.itemRow .itemName b{font-size:13px}
+.itemRow .remove{grid-column:2;grid-row:1;align-self:start}
+.nutriEditRow,.addItemNutrition{grid-column:1/-1;display:grid;grid-template-columns:90px minmax(0,1fr);gap:10px;align-items:end}
+.editField{display:flex;flex-direction:column;gap:5px;min-width:0}
+.editField label{color:#536c51;font-size:10px;font-weight:750;letter-spacing:.1px}
+.editField input{min-width:0;width:100%;border:1px solid #d5e8cf;border-radius:9px;color:#213b23;background:#fff;outline-offset:2px;text-align:center;padding:9px 2px;font-size:14px;font-variant-numeric:tabular-nums}
+.editField input:focus{border-color:#64bd43;outline:2px solid #a8e98f}
+.weightEdit{border-right:2px solid #d9eacb;padding-right:10px}
+.weightEdit input{background:#effbe9;border-color:#b7dbaa;font-weight:700}
+.macroFields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;min-width:0}
+.itemRow .itemName span{font-size:10px}
+.addItemNutrition{margin:12px 0}
+#addItemPanel .editField label{font-size:10px;margin:0}
+#addItemPanel .editField input{font-size:13px}
+#addItemPanel .quickActions{margin-top:10px}
+#addItemPanel .secondary{padding:10px 14px}
+#parseBtn{display:flex;gap:12px;align-items:center;justify-content:center;min-height:48px}
+.busySpinner{width:21px;height:21px;border:3px solid #ffffff70;border-top-color:#fff;border-radius:50%;animation:rotateBusy .65s linear infinite}
+@keyframes rotateBusy{to{transform:rotate(360deg)}}
+#parseBtn:disabled{opacity:.82;cursor:wait}
+.historySummary{border:1px solid #dcebd5;background:#f7fff3;border-radius:14px;margin:12px 0 16px;padding:12px}
+.historySummaryTitle{font-size:13px;font-weight:800;margin-bottom:9px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.historySummaryFacts{font-size:12px;color:#477240;margin:2px 0 10px}
+.historyKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.historyKpi{min-width:0;background:white;border:1px solid #e4eedf;border-radius:9px;padding:8px 5px}
+.historyKpi small{font-size:10px;color:#607e59;display:block}.historyKpi strong{display:block;font-size:14px;color:#173a18;margin-top:2px;font-variant-numeric:tabular-nums}
+.historyKpi em{font-style:normal;font-size:10px;color:#64815b}
+.historyMeter{height:5px;background:#e6f0df;border-radius:10px;overflow:hidden;margin-top:5px}.historyMeter i{display:block;height:100%;border-radius:10px}
+@media(max-width:380px){.nutriEditRow,.addItemNutrition{grid-template-columns:75px minmax(0,1fr);gap:6px}.weightEdit{padding-right:6px}.macroFields{gap:3px}.editField input{font-size:12px;padding:9px 1px}.historyKpis{gap:4px}.historyKpi strong{font-size:12px}}
+
+.miniLookup{grid-column:1 / -1;justify-self:start;font-size:11px;color:#43843a;padding:0;margin:-4px 0 2px 0;text-align:left}
+.unknownCandidates{width:100%;flex-basis:100%;display:flex;flex-direction:column;gap:6px;margin-top:7px}.unknownCandidates small{font-size:11px;color:#86623a}
+.unknownSuggestion{background:#fffdfa;border:1px solid #e2c99f;border-radius:8px;text-align:left;color:#674a2a;font-size:11px;padding:9px}
+
+/* v0.9: grouped dishes with separately editable ingredients and serving macros */
+.dishCard{border:1px solid #dceccf;background:#fcfffa;border-radius:17px;padding:16px 13px;margin:12px 0 20px;box-shadow:0 5px 15px #416f1a0d}
+.dishHeading{display:flex;align-items:flex-start;gap:9px;border-bottom:1px solid #e3efdf;padding-bottom:12px}
+.dishLabel{display:block;flex:1;min-width:0;font-size:11px!important;color:#6b856a!important;margin:0!important;font-weight:650}
+.dishNameInput{display:block;width:100%;border:1px solid #bfdea9;border-radius:11px;background:#f2ffeb;color:#1a4b1b;font-weight:800;font-size:19px;letter-spacing:-.2px;padding:11px 12px;margin-top:6px;min-width:0}
+.ingredientRow{border-bottom:1px solid #e9f1e5;padding:14px 0 12px}
+.ingredientHeading{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.ingredientNameInput{flex:1;min-width:0;border:1px solid transparent;border-radius:8px;padding:7px 8px;background:#f7fcf3;color:#1c381b;font-size:15px;font-weight:750;line-height:1.2}
+.ingredientNameInput:focus{border:1px solid #71bb48;background:white}
+.dishIngredients .nutriEditRow{grid-column:auto;grid-template-columns:85px minmax(0,1fr);gap:8px}
+.dishIngredients .macroFields,.addIngredientPanel .macroFields{gap:5px}
+.dishIngredients .editField span,.addIngredientPanel .editField span{font-size:11px;font-weight:750;color:#52704a}
+.dishIngredients .editField input,.addIngredientPanel .editField input{font-size:14px;min-width:0;max-width:100%;padding:10px 3px}
+.dishIngredients .weightEdit,.addIngredientPanel .weightEdit{padding-right:8px}
+.dishIngredients .miniLookup{display:block;font-size:11px;margin:8px 0 0;padding:0}
+.addIngredientPanel{padding:15px 12px;border-radius:13px;background:#f2fbec;border:1px solid #d4eac7;margin:16px 0 12px}
+.addIngredientPanel h4{margin:0 0 13px;color:#244e1f;font-size:15px}
+.addIngredientPanel .inlineLabel{display:block;font-size:12px;color:#466644;font-weight:700;margin:0}
+.addIngredientPanel .addIngredientName{display:block;min-width:0;width:100%;border:1px solid #bfd9b2;border-radius:10px;background:white;font-size:14px;margin:6px 0 10px;padding:11px}
+.addIngredientPanel .addSearchButton{width:100%;padding:11px;font-size:13px}
+.addIngredientPanel .addItemNutrition{display:grid;grid-template-columns:85px minmax(0,1fr);gap:8px;margin:14px 0 16px}
+.addIngredientPanel .addIngredientSubmit{width:100%;margin:0;padding:13px}
+.addIngredientStatus{color:#587450;font-size:12px;line-height:1.5;margin:9px 0}
+.addSuggestions{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;margin:10px 0 4px}
+.addSuggestion{text-align:left;background:#fff;border:1px solid #dbe7d6;border-radius:7px;font-size:11px;color:#406039;line-height:1.35;padding:9px}
+.addSuggestion:focus{background:#e4f9db}
+.dishTotals{font-size:14px;font-weight:750;color:#204b20;margin:16px 0 6px;line-height:1.55;border-top:1px solid #dce8d5;padding-top:13px}
+.dishWarning{display:block;color:#ad682a;margin:0 0 10px;font-size:12px}
+.dishWarning:empty{display:none}
+.dishActions{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;margin-top:12px}
+.dishActions .primary{width:100%;margin:0}
+.dishActions .iconFavorite{background:#e2f9d5;border:1px solid #a3d881;border-radius:12px;color:#287528;min-width:0;min-height:49px;font-size:28px}
+.dishActions .iconFavorite.favoriteActive{background:#baf68c}
+.dishActions button:disabled{opacity:.45}
+.addDishButton{background:transparent;color:#367b2d;border:1px dashed #94ce7e;border-radius:12px;width:100%;padding:12px;margin:12px 0;font-weight:700;font-size:13px}
+.unresolvedBlock{background:#fff5e8;border:1px solid #f3d8aa;border-radius:11px;margin:12px 0;padding:12px;color:#7e511c;font-size:12px}
+.unresolvedBlock strong{display:block;margin-bottom:6px}
+.unresolvedRow{display:flex;gap:6px;align-items:center;padding:5px 0;flex-wrap:wrap}
+.unresolvedRow span{flex:1;min-width:95px}
+.unresolvedRow .smallButton{border:1px solid #deb676;border-radius:6px;padding:8px;background:#fffdf9;color:#68461b;font-size:12px}
+.unresolvedRow .iconAction{width:31px;height:31px;font-size:21px}
+.historyDishName{font-size:15px}
+@media(max-width:385px){.dishCard{padding:13px 9px}.dishIngredients .nutriEditRow,.addIngredientPanel .addItemNutrition{grid-template-columns:68px minmax(0,1fr);gap:5px}.dishIngredients .macroFields,.addIngredientPanel .macroFields{gap:3px}.dishIngredients .editField input,.addIngredientPanel .editField input{font-size:12px;padding:10px 0}.dishNameInput{font-size:18px}.ingredientNameInput{font-size:14px}}
+
+/* v0.9.1: meal total above ingredients, editable incomplete values, simple ingredient lookup */
+.dishHeading{border-bottom:0;padding-bottom:2px}
+.dishTotals{margin:8px 0 8px;padding:10px 12px;border:1px solid #dcebd2;border-radius:10px;background:#edf9e6;line-height:1.5;font-size:13px;font-weight:750;color:#255b1f}
+.dishWarning{margin:0 0 8px}
+.wholeDishEditor{padding:6px 0 12px;border-bottom:1px solid #e3edda}
+.wholeDishEditor .nutriEditRow{display:grid;grid-template-columns:85px minmax(0,1fr);gap:8px}
+.wholeDishEditor .editField span{font-size:11px;font-weight:750;color:#52704a}
+.wholeDishEditor .editField input{font-size:14px;min-width:0;padding:10px 3px}
+.wholeDishEditor .weightEdit{padding-right:8px}
+.editField input.missingData{border:2px solid #db4b42;background:#fff5f2;color:#9b3429;box-shadow:0 0 0 1px #ffd6cc inset}
+.editField input.missingData:focus{outline:2px solid #ffb2a2}
+.draftResults[hidden]{display:none!important}
+.draftResults .addItemNutrition{margin-top:12px}
+.addOptionText{display:flex;flex-direction:column;gap:3px;line-height:1.3}
+.addOptionText strong{font-size:12px}
+.resultEnglish{font-size:10px!important;color:#889a83!important;font-weight:400!important;display:block;margin-top:4px}
+.addSuggestions .addSuggestion{display:block;width:100%}
+.dishCard .ingredientRow:last-child{border-bottom:0}
+@media(max-width:385px){.wholeDishEditor .nutriEditRow{grid-template-columns:68px minmax(0,1fr);gap:5px}.wholeDishEditor .macroFields{gap:3px}.wholeDishEditor .editField input{font-size:12px;padding:10px 0}}
+
+/* v0.9.2: fixed actions for manually searched products */
+.draftActionRow{display:flex;align-items:center;gap:10px}.draftClear{flex:none;min-width:40px;min-height:40px;font-size:22px}.draftActionRow .addSearchButton{flex:1}
+
+/* 0.9.3: truthful indeterminate progress until all nutrition lookups have finished. */
+.textProgressWrap[hidden]{display:none!important}
+.textProgressWrap{margin:7px 0 14px}
+.textProgressWrap progress{width:100%;height:9px;border:0;border-radius:999px;overflow:hidden;accent-color:#55b72a;background:#e5f4d9}
+.textProgressWrap progress::-webkit-progress-bar{background:#e5f4d9;border-radius:999px}
+.textProgressWrap progress:indeterminate{animation:pulseProgress 1.7s ease-in-out infinite}
+@keyframes pulseProgress{0%,100%{opacity:.55}50%{opacity:1}}
+
+.portionEstimateWarning{display:block;padding:5px 3px 0;font-size:.78rem;line-height:1.35;color:#92601c} .ingredientRow:has(.portionEstimateWarning) .weightEdit input{border-color:#dfa04c;background:#fffaf0}
+
+.technicalPanel{margin:14px 18px 22px;max-width:100%;font-size:12px}.technicalPanel pre{max-height:420px;overflow:auto}.diagnosticCopy{margin:9px 0;font-size:12px;padding:8px 12px}
+
+/* v0.9.6 — prevent accidental iOS field-focus zoom and horizontal overflow. */
+html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none}
+.app,.hero,.section,.pane,.dishCard,.dishIngredients,.nutriEditRow,.macroFields,.addIngredientPanel{min-width:0;max-width:100%}
+.dishCard,.dishIngredients,.addIngredientPanel,.technicalPanel{overflow-wrap:anywhere}
+button,.tab,.dateChip,.iconAction{touch-action:manipulation}
+input,textarea,select,.section textarea,.dishNameInput,.ingredientNameInput,.addIngredientName,
+.editField input,.dishIngredients .editField input,.addIngredientPanel .editField input,
+.wholeDishEditor .editField input{font-size:16px!important}
+.nutriEditRow,.addItemNutrition{grid-template-columns:minmax(0,82px) minmax(0,1fr)}
+@media(max-width:385px){.nutriEditRow,.addItemNutrition,.dishIngredients .nutriEditRow,
+.addIngredientPanel .addItemNutrition,.wholeDishEditor .nutriEditRow{grid-template-columns:minmax(0,66px) minmax(0,1fr);gap:5px}
+.macroFields,.dishIngredients .macroFields,.addIngredientPanel .macroFields{gap:2px}
+.editField input{padding:9px 0!important}}
+.dishCard{scroll-margin-top:16px}.history{scroll-margin-top:16px}
+
+/* v0.9.10: compact daily targets and equal-height nutrition meters on iPhone. */
+.historyKpis{align-items:stretch}
+.historyKpi{display:flex;flex-direction:column;gap:4px;min-height:118px;min-width:0}
+.historyKpi small,.historyKpi strong,.historyKpi em{display:block;min-width:0}
+.historyKpi strong{margin-top:0;line-height:1.3;overflow-wrap:normal;white-space:nowrap;font-size:clamp(12px,3.5vw,15px)}
+.historyKpi em{white-space:nowrap;font-size:clamp(9px,2.5vw,11px);line-height:1.3;letter-spacing:-.1px}
+.historyMeter{flex:none;width:100%;margin-top:auto}
+
+/* v0.9.11: safe editing above the iOS virtual keyboard */
+html{scroll-padding-bottom:110px;}
+input,textarea{scroll-margin-block:35px 115px;}
+.section textarea,.editField input,.ingredientNameInput,.dishNameInput,.addIngredientName{font-size:16px!important;}
