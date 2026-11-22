@@ -1,4 +1,4 @@
-Моя еда v0.9.13 / Cloudflare Worker v1.16
+Моя еда v0.9.13 / Cloudflare Worker v1.17
 
 Деплой: GitHub Actions из ветки codex/my-food-cloudflare-cicd.
 Бэкенд Worker: food-ai-inference; PWA Worker: drop-443886b1-4e5 (Workers Static Assets).

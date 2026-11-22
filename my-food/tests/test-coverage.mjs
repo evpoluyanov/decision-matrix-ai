@@ -12,6 +12,7 @@ async function call(mode){let count=0;
  if(p.includes('РАСПОЗНАЙ ТОЛЬКО СЛЕДУЮЩИЙ ФРАГМЕНТ')){
    if(p.includes('2 яйца'))return wrap([egg]);
    if(p.includes('20 г печени трески'))return wrap([cod]);
+   if(p.includes('соус тартар 10г'))return wrap([tartar]);
  }
  throw Error('Unexpected AI prompt '+String(p).slice(-100));
  }};
@@ -25,9 +26,37 @@ assert.equal(a.json.food.dishes.length,3);
 assert.equal(a.json.food.dishes.find(x=>x.name==='Яйца').main_weight_g,110);
 assert.equal(a.json.food.dishes.find(x=>x.name==='Печень трески').main_weight_g,20);
 assert.equal(a.json.food.dishes.find(x=>x.name==='Соус тартар').main_weight_g,10);
-assert.equal(a.json.coverage.initial_missing.length,2);
+assert.equal(a.json.coverage.initial_missing.length,3);
 assert.equal(a.json.coverage.final_missing.length,0);
-assert.equal(a.calls,3);
+assert.equal(a.calls,4);
 console.log('Partial AI answer recovered',a.json.coverage);
 a=await call('complete');assert.equal(a.status,200);assert.equal(a.calls,1);console.log('Already complete answer accepted with no extra AI calls');
 a=await call('fail');assert.equal(a.status,422);assert.equal(a.json.coverage.final_missing.length,2);console.log('Unrecovered missing products fail safely with 422');
+
+// The live model sometimes groups all three servings into ONE composite dish.
+// Such a group must be replaced with three AI-resolved items, never doubled.
+{
+ let calls=0;
+ const composite=mk('Яйца с печенью трески и соусом тартар','1 блюдо',140);
+ const AI={run:async(_model,req)=>{
+   calls++;
+   const prompt=req.messages[0].content;
+   if(calls===1)return wrap([composite]);
+   if(prompt.includes('РАСПОЗНАЙ ТОЛЬКО СЛЕДУЮЩИЙ ФРАГМЕНТ')){
+     if(prompt.includes('2 яйца'))return wrap([egg]);
+     if(prompt.includes('20 г печени трески'))return wrap([cod]);
+     if(prompt.includes('соус тартар 10г'))return wrap([tartar]);
+   }
+   throw Error('Unexpected grouped AI request');
+ }};
+ const fd=new FormData();fd.set('text',query);
+ const response=await worker.fetch(new Request(u,{method:'POST',body:fd}),{AI});
+ const body=await response.json();
+ assert.equal(response.status,200,JSON.stringify(body).slice(0,300));
+ assert.equal(body.coverage.grouping_repaired,true);
+ assert.equal(body.food.dishes.length,3);
+ assert.deepEqual(body.food.dishes.map(x=>x.main_weight_g).sort((a,b)=>a-b),[10,20,110]);
+ assert.equal(body.food.dishes.some(x=>x.name.includes(' с печенью')),false);
+ assert.equal(calls,4);
+ console.log('Composite AI dish replaced, no double counting');
+}

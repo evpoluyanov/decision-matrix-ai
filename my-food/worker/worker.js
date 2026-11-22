@@ -1,4 +1,4 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.16.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.17.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
@@ -153,8 +153,14 @@ function sameFoodDish(a,b){
 }
 async function recoverMissingDishes(data,source,env){
   const clauses=sourceClauses(source);
-  const initiallyMissing=uncoveredClauses(data,clauses);
-  const report={checked:clauses.length>1,fragments:clauses,initial_missing:initiallyMissing,restored:[],final_missing:[],attempts:0};
+  // When Gemma merges several explicitly listed servings into one dish,
+  // simply appending the omitted entries would double-count their macros.
+  // In that case rebuild ALL independent entries from model results for
+  // their original fragments, replacing (not supplementing) the wrong group.
+  const grouped=clauses.length>1 && (data.dishes.length<clauses.length || data.dishes.some(d=>
+    clauses.filter(fragment=>uncoveredClauses({dishes:[d]},[fragment]).length===0).length>1));
+  const initiallyMissing=grouped?[...clauses]:uncoveredClauses(data,clauses);
+  const report={checked:clauses.length>1,fragments:clauses,grouping_repaired:grouped,initial_missing:initiallyMissing,restored:[],final_missing:[],attempts:0};
   if(!initiallyMissing.length)return report;
   const added=[];
   // A short, independent model call for each omitted source clause avoids the
@@ -165,20 +171,25 @@ async function recoverMissingDishes(data,source,env){
       const instruction=PROMPT+' РАСПОЗНАЙ ТОЛЬКО СЛЕДУЮЩИЙ ФРАГМЕНТ исходного перечня продуктов: '+JSON.stringify(fragment)+'; верни все упомянутые в нём продукты и их числовые веса. Не добавляй другие части исходного перечня.';
       const result=await env.AI.run(MODEL,{messages:[{role:'user',content:instruction}],chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},temperature:0,max_completion_tokens:1100});
       const fixed=parseFoodResponse(result).data;
-      if(uncoveredClauses(fixed,[fragment]).length)throw Error('ИИ повторно пропустил продукт');
-      return {fragment,dishes:fixed.dishes};
+      const matched=fixed.dishes.filter(d=>uncoveredClauses({dishes:[d]},[fragment]).length===0);
+      if(!matched.length)throw Error('ИИ повторно пропустил продукт');
+      // Source clauses contain independent servings. The AI chooses the
+      // main component and weight, not the JavaScript code.
+      return {fragment,dishes:matched.slice(0,1)};
     }catch(e){return {fragment,error:String(e?.message||e)}}
   }));
   report.attempts=repairs.length;
   for(const repair of repairs){
     if(repair.error)continue;
     for(const d of repair.dishes){
-      if(!data.dishes.some(existing=>sameFoodDish(existing,d)) && !added.some(existing=>sameFoodDish(existing,d))){
-        data.dishes.push(d);added.push(d);
+      if(!added.some(existing=>sameFoodDish(existing,d)) && (grouped || !data.dishes.some(existing=>sameFoodDish(existing,d)))){
+        added.push(d);
+        if(!grouped)data.dishes.push(d);
       }
     }
     report.restored.push(repair.fragment);
   }
+  if(grouped)data.dishes=added;
   data.items=data.dishes.flatMap(x=>x.items);
   report.final_missing=uncoveredClauses(data,clauses);
   return report;
@@ -234,7 +245,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.16"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.17"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
