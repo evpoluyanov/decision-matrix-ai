@@ -33,7 +33,7 @@ x=await invoke({input_mode:'text',dishes:foods,uncertain:[]},{text:'2 яйца, 
 assert.equal(x.status,200,JSON.stringify(x.data));assert.equal(x.data.food.dishes.length,3);
 assert.equal(x.data.food.dishes[1].weight_g,20);
 console.log('PASS: independent foods retain model weights and per100 macros');
-x=await invoke({input_mode:'photo_text',recognized_text:'Йогурт натуральный 125 г',dishes:[whole('Йогурт натуральный',125,per(65,4,3,5))],uncertain:[]},{text:'',photo:true});
+x=await invoke({input_mode:'photo_text',recognized_text:'Йогурт натуральный 125 г',consumed_description:'Йогурт натуральный 125 г',dishes:[whole('Йогурт натуральный',125,per(65,4,3,5))],uncertain:[]},{text:'',photo:true});
 assert.equal(x.status,200,JSON.stringify(x.data));
 assert.equal(x.data.food.input_mode,'photo_text');assert.match(x.data.food.recognized_text,/Йогурт/);
 assert.equal(x.data.food.dishes[0].per100.k,65);
