@@ -118,16 +118,15 @@ jobs:
           else
             echo 'Reference search temporarily unavailable; AI values remain unchanged'
           fi
-      - name: Live photographed text check (informational)
-        if: steps.components.outputs.worker == 'true'
-        continue-on-error: true
+      - name: Live photographed text exact-label test
+        if: steps.components.outputs.worker == 'true' 
         shell: bash
         run: |
           set -euo pipefail
           curl -fsS --max-time 100 \
             -F "photo=@my-food/tests/fixture-text-photo.jpg;type=image/jpeg" \
             -o /tmp/my-food-photo-ocr.json https://food-ai-inference.evpoluyanov.workers.dev/analyze
-          node -e 'const j=JSON.parse(require("fs").readFileSync("/tmp/my-food-photo-ocr.json","utf8"));const d=j.food?.dishes||[];if(!j.ok||j.food?.input_mode!=="photo_text"||!d.length){console.error("OCR/photo text incomplete",JSON.stringify(j).slice(0,1800));process.exit(1)}console.log("Photo text read by AI",j.food.recognized_text,d.map(x=>[x.name,x.weight_g,x.per100]));'
+          node -e 'const j=JSON.parse(require("fs").readFileSync("/tmp/my-food-photo-ocr.json","utf8"));const d=j.food?.dishes||[];if(!j.ok||j.food?.input_mode!=="photo_text"||!d.length||d[0].weight_g!==150||d[0].per100?.k!==120||d[0].per100?.p!==17||d[0].per100?.f!==5||d[0].per100?.c!==2){console.error("OCR/photo text incomplete",JSON.stringify(j).slice(0,1800));process.exit(1)}console.log("Photo text read by AI",j.food.recognized_text,d.map(x=>[x.name,x.weight_g,x.per100]));'
       - name: Verify deployed PWA version
         if: steps.components.outputs.pages == 'true'
         shell: bash

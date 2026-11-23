@@ -1,4 +1,4 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v2.0.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v2.1.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
@@ -352,7 +352,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"2.0"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"2.1"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
@@ -407,6 +407,24 @@ const originalHandler = {
         ({data}=parseFoodResponse(result));
         recovered=true;
       }
+      // Photo text is a two-stage AI task. The vision model first reads the
+      // writing; then a TEXT model reads that exact OCR output and uses its
+      // stated weights and per-100g label values. No JS extraction of grams,
+      // OCR or portion inference is performed here.
+      let ocr_text_retry={retried:false,used:false};
+      if(photo && photo.size && data.input_mode==='photo_text' && data.recognized_text?.trim()){
+        try{
+          const ocrText=data.recognized_text.slice(0,1000);
+          const correction='Это задача извлечения ТОЧНЫХ чисел с текстовой фотографии, а не угадывания продуктов. Отвечай только одним JSON по схеме в инструкции. Если в тексте написано «Творог, 150 г» — weight_g ОБЯЗАТЕЛЬНО 150, не 200. Если на этикетке указано «КБЖУ на 100 г: 120 ккал; Б 17 г; Ж 5 г; У 2 г» — per100 ОБЯЗАТЕЛЬНО {"k":120,"p":17,"f":5,"c":2}; не заменяй этикетку приблизительными знаниями. Для любых продуктов точно сохраняй написанные граммы и значения на 100 г. Ничего не выдумывай, не применяй стандартных порций там, где есть явное число. input_mode:"photo_text"; recognized_text: перепиши оригинал. Вот ПОЛНЫЙ ТЕКСТ, распознанный с фотографии: '+JSON.stringify(ocrText);
+          const refined=await env.AI.run(MODEL,{messages:[{role:'user',content:PROMPT+'\n'+correction}],chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},max_completion_tokens:2800,temperature:0});
+          const improved=parseFoodResponse(refined).data;
+          if(improved.dishes.length){
+            improved.input_mode='photo_text';improved.recognized_text=ocrText;
+            improved.consumed_description=improved.consumed_description||data.consumed_description;
+            data=improved;ocr_text_retry={retried:true,used:true};
+          }
+        }catch(e){ocr_text_retry={retried:true,used:false,error:String(e?.message||e)};}
+      }
       // Do not accept a syntactically valid but incomplete model answer.
       const sourceForCoverage=(photo && photo.size)?(data.input_mode==='photo_text'?data.consumed_description:''):text;
       const coverage=sourceForCoverage?await recoverMissingDishes(data,sourceForCoverage,env):{checked:false,fragments:[],initial_missing:[],restored:[],final_missing:[],attempts:0};
@@ -418,7 +436,7 @@ const originalHandler = {
       const missingNutrition=missingAINutrition(data);
       if(missingNutrition.length) return asJson({ok:false,stage:'nutrition',message:'ИИ не указал вес и КБЖУ на 100 г для всех продуктов. Сохранён исходный ввод; повторите расчёт.',missing:missingNutrition,nutrition_retry},422);
       return asJson({ok:true,model:MODEL,food:data,coverage,portion_retry,nutrition_retry,
-        json_recovery:{retried:recovered,first_error:recovered?firstError:null},usage:{
+        json_recovery:{retried:recovered,first_error:recovered?firstError:null},ocr_text_retry,usage:{
         neurons:result?.usage?.neurons ?? null,
         input_tokens:result?.usage?.prompt_tokens ?? null,
         output_tokens:result?.usage?.completion_tokens ?? null
