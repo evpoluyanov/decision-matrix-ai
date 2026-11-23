@@ -1,4 +1,4 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v2.1.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v2.2.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
@@ -352,7 +352,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"2.1"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"2.2"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
@@ -426,7 +426,10 @@ const originalHandler = {
         }catch(e){ocr_text_retry={retried:true,used:false,error:String(e?.message||e)};}
       }
       // Do not accept a syntactically valid but incomplete model answer.
-      const sourceForCoverage=(photo && photo.size)?(data.input_mode==='photo_text'?data.consumed_description:''):text;
+      // OCR text often includes commas between a food name and its weight or separate label rows.
+      // It is not a list of independently eaten dishes; never apply the ordinary
+      // comma-separated meal coverage repair to photographed printed text.
+      const sourceForCoverage=(photo && photo.size)?'':text;
       const coverage=sourceForCoverage?await recoverMissingDishes(data,sourceForCoverage,env):{checked:false,fragments:[],initial_missing:[],restored:[],final_missing:[],attempts:0};
       if(coverage.final_missing.length){
         return asJson({ok:false,stage:'coverage',message:'ИИ распознал не все перечисленные продукты. Данные не сохранены; повторите расчёт.',coverage},422);
