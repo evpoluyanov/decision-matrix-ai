@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import worker from '../worker/worker.js';
+const endpoint='https://food-ai-inference.evpoluyanov.workers.dev/analyze';
+const per=(k,p,f,c)=>({k,p,f,c});
+const whole=(name,weight,macros)=>({name,kind:'prepared',mode:'whole',weight_g:weight,main:name,main_portion:'одна порция',main_weight_g:weight,weight_estimated:true,per100:macros,items:[],additions:[]});
+const component=(name,weight,macros)=>({name,portion:'примерная порция',weight_g:weight,per100:macros,weight_estimated:true,weight_basis:'ИИ'});
+const recipe={name:'Блины с творожным сыром и семгой',kind:'recipe',mode:'ingredients',weight_g:150,main:'Блины',main_portion:'2 штуки',main_weight_g:100,items:[component('Блины',100,per(215,6,9,26))],additions:[component('Творожный сыр',20,per(240,6,22,4)),component('Слабосоленая семга',30,per(205,20,13,0))]};
+function modelResponse(food){return {choices:[{message:{content:JSON.stringify(food)}}],usage:{neurons:1,prompt_tokens:100,completion_tokens:300}}}
+async function invoke(food,{text='Суп 200 г',photo=false}={}){
+ let count=0, prompts=[];
+ const AI={run:async(_model,args)=>{count++;prompts.push(JSON.stringify(args.messages||[]));return modelResponse(food)}};
+ const f=new FormData();if(text)f.set('text',text);if(photo)f.set('photo',new File([Uint8Array.from([255,216,255,217])],'photo.jpg',{type:'image/jpeg'}));
+ const r=await worker.fetch(new Request(endpoint,{method:'POST',body:f}),{AI});
+ return {status:r.status,data:await r.json(),count,prompts};
+}
+let x=await invoke({input_mode:'text',dishes:[whole('Суп',200,per(80,4,3,11))],uncertain:[]});
+assert.equal(x.status,200,JSON.stringify(x.data));
+assert.equal(x.data.food.dishes[0].per100.k,80);
+assert.equal(x.data.food.dishes[0].weight_g,200);
+assert.equal(x.data.food.dishes[0].mode,'whole');
+assert.equal(x.count,1);
+console.log('PASS: AI supplies weight and 100g macros for complete dish');
+x=await invoke({input_mode:'text',dishes:[recipe],uncertain:[]},{text:'2 блина, каждый с начинкой из чайной ложки творожного сыра и кусочком слабосоленой семги'});
+assert.equal(x.status,200,JSON.stringify(x.data));
+assert.equal(x.data.food.dishes.length,1);
+assert.equal(x.data.food.dishes[0].mode,'ingredients');
+assert.equal(x.data.food.dishes[0].additions.length,2);
+assert.equal(x.data.food.dishes[0].additions[0].per100.f,22);
+assert.equal(x.count,1);
+console.log('PASS: composed food with separate per-100g ingredient records');
+const foods=[whole('Яйца',100,per(143,12.6,9.5,.7)),whole('Печень трески',20,per(400,9,39,2)),whole('Соус тартар',10,per(299,1.3,24.6,17.9))];
+x=await invoke({input_mode:'text',dishes:foods,uncertain:[]},{text:'2 яйца, 20 г печени трески и соус тартар 10г'});
+assert.equal(x.status,200,JSON.stringify(x.data));assert.equal(x.data.food.dishes.length,3);
+assert.equal(x.data.food.dishes[1].weight_g,20);
+console.log('PASS: independent foods retain model weights and per100 macros');
+x=await invoke({input_mode:'photo_text',recognized_text:'Йогурт натуральный 125 г',dishes:[whole('Йогурт натуральный',125,per(65,4,3,5))],uncertain:[]},{text:'',photo:true});
+assert.equal(x.status,200,JSON.stringify(x.data));
+assert.equal(x.data.food.input_mode,'photo_text');assert.match(x.data.food.recognized_text,/Йогурт/);
+assert.equal(x.data.food.dishes[0].per100.k,65);
+assert.match(x.prompts[0],/ФОТО/);
+console.log('PASS: photo containing written text uses same nutritional output contract');
+x=await invoke({input_mode:'photo_food',recognized_text:null,dishes:[whole('Яблоко',150,per(52,.3,.2,14))],uncertain:[]},{text:'',photo:true});
+assert.equal(x.status,200,JSON.stringify(x.data));assert.equal(x.data.food.input_mode,'photo_food');
+console.log('PASS: food photograph uses the same per100 contract');

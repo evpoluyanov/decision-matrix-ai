@@ -1,8 +1,14 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v1.20.
+// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v2.0.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
-const PROMPT = `Ты распознаёшь пищу для дневника питания. Верни ТОЛЬКО один JSON-объект, без Markdown и пояснений. СХЕМА: {"dishes":[{"name":"Название продукта","kind":"prepared","main":"Название продукта","main_portion":"количество пользователя","main_weight_g":50,"main_volume_ml":null,"main_weight_basis":"как определён вес","items":[{"name":"Название продукта","portion":"количество пользователя","weight_g":50,"volume_ml":null,"weight_estimated":false,"weight_basis":"пользователь указал вес","confidence":"high"}],"additions":[]}],"uncertain":[]}. Каждый самостоятельный съеденный продукт — отдельный элемент dishes; не пропускай продукты в начале, середине или конце перечисления. На отдельные dishes НЕ разбивай ингредиенты ОДНОГО блюда (например, пельмени со сметаной). Если блюдо составное, включи основной компонент в items, дополнительные в additions, избегай двойного подсчёта. Если сказано «2 блина, каждый с начинкой ...», это ОДНО блюдо из ДВУХ блинов; используй kind:"recipe", main:"Блины", items из ОТДЕЛЬНЫХ составляющих (блины, сыр, рыба), а weight_g каждого ингредиента — СУММА на все две штуки. Аналогично для любых повторяющихся фаршированных или наполненных единиц: количество каждого ингредиента оцени на ВСЕ порции, без двойного учёта. Никогда не выдавай сыр и рыбу внутри блина как два дополнительных самостоятельных блюда. Для каждого продукта и дополнения укажи числовой вес в граммах в weight_g; у основного — также main_weight_g. ЯВНО указанные пользователем граммы или килограммы перенеси без изменения и установи weight_estimated=false; если указан счёт или бытовая мера, САМОСТОЯТЕЛЬНО оцени общую массу и поставь weight_estimated=true; у напитков дополнительно volume_ml. Не подставляй 100 г по умолчанию, не используй таблицы объёма посуды. Если массу невозможно оценить — null. Название продукта должно быть без чисел, граммов и количества; эти данные — только в portion и weight_g. Сохраняй вид продукта и способ приготовления. Не придумывай невидимые ингредиенты. Не вычисляй калории и БЖУ. Максимум 8 dishes, у каждого — полный items. Отвечай по-русски.`;
+const PROMPT = `Ты — специалист по распознаванию питания. Возвращай ОДИН полный JSON без текста снаружи. Основное правило: САМОСТОЯТЕЛЬНО по своим знаниям оцени ВЕС порции в граммах и КАЛОРИИ, БЕЛКИ, ЖИРЫ, УГЛЕВОДЫ ИСКЛЮЧИТЕЛЬНО НА 100 ГРАММ. НИКОГДА не возвращай КБЖУ целой порции в поле per100. Не подменяй нулём неизвестные значения: используй null. Все числа — JSON numbers, не строки. Не используй внешний справочник как скрытый источник пересчёта массы.
+Обязательная схема: {"input_mode":"text","recognized_text":null,"dishes":[{"name":"Название блюда","kind":"prepared","mode":"whole","weight_g":150,"main":"Название","main_portion":"одна порция","main_weight_g":150,"main_weight_basis":"оценка ИИ или вес указан пользователем","weight_estimated":true,"per100":{"k":210,"p":12,"f":9,"c":20},"items":[],"additions":[]}],"uncertain":[]}.
+Если хорошо известны готовое БЛЮДО, его приблизительный вес и КБЖУ на 100 г, возврати ОДИН dish с mode:"whole"; items и additions ПУСТЫ, per100 содержит КБЖУ именно блюда со всеми включёнными соусами/начинкой, без двойного учёта.
+Если нет достаточных знаний о КБЖУ готового блюда, возврати ОДИН dish с mode:"ingredients", kind:"recipe", per100:null, items:[{ "name":"Название ингредиента","portion":"его объём/счёт","weight_g":60,"volume_ml":null,"weight_estimated":true,"weight_basis":"оценка ИИ","per100":{"k":200,"p":10,"f":8,"c":14},"confidence":"medium"}]. Для КАЖДОГО названного компонента обязательно дай собственный weight_g и собственный per100 на 100 г ингредиента. Если дополнения представлены в additions, все они тоже обязаны иметь weight_g и per100. Ингредиент никогда не должен считаться одновременно в items и additions. Масса готового блюда weight_g должна равняться сумме масс ингредиентов; если неизвестна — оставь null, приложение суммирует известные составляющие.
+Каждый отдельно съеденный продукт из перечисления — отдельный dish. Для «2 яйца, 20 г печени трески и соус тартар 10г» верни ТРИ dishes с весами: яйца оценка ИИ, печень 20, соус 10. Для «2 блина, каждый с начинкой из чайной ложки творожного сыра и кусочком слабосоленой семги» верни ОДНО блюдо, включающее все три продукта; количества начинки суммарно на оба блина. Не пропускай основную часть блюда. Не добавляй неупомянутую еду. Если вес указан явно («20 г», «0,2 кг»), перенеси его БЕЗ ИЗМЕНЕНИЯ и weight_estimated:false, в остальных случаях оцени вес самостоятельно и weight_estimated:true. Для жидкостей при возможности добавь volume_ml, но КБЖУ всегда на 100 ГРАММ, не на 100 мл.
+Для ФОТО самостоятельно определи: это изображение еды или текст с меню/этикетки/рецепта. При фото еды используй input_mode:"photo_food" и оцени вес и per100 по видимой пище. При фото с текстом используй input_mode:"photo_text", перепиши относящийся к питанию текст в recognized_text, затем разбери его ТОЧНО ТАК ЖЕ, как пользовательский текст. Если на этикетке прямо написано КБЖУ на 100 г, бери именно эти значения. Если написано на порцию или на 100 мл, самостоятельно переведи в 100 г с необходимой оценкой массы; не называй такие значения точными. Не считай все позиции сфотографированного меню съеденными без указания пользователя. Пожалуйста, не путай вес порции и вес продукта на 100 г.
+Поля k,p,f,c: ккал, белки г, жиры г, углеводы г. Реалистичные числа на 100 г: k 0..900, p,f,c 0..100; не придумывай значения, если невозможно оценить, укажи null и пометь в uncertain. Если НЕ МОЖЕШЬ назвать достоверные КБЖУ целого блюда, ОБЯЗАТЕЛЬНО разложи на ингредиенты. Макс. 8 блюд, до 15 составляющих. Ответ на русском.`;
 
 const page = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Моя еда — тест ИИ</title><style>body{font:16px -apple-system,system-ui,sans-serif;max-width:680px;margin:30px auto;padding:0 18px;color:#193e20;background:#f4fbef}h1{font-size:24px}.panel{background:white;border-radius:22px;padding:22px;box-shadow:0 3px 20px #17371116}label{display:block;margin:20px 0 8px;font-weight:600}input,textarea{font:inherit;max-width:100%;box-sizing:border-box}input[type=file]{width:100%}textarea{width:100%;min-height:90px;padding:12px;border:1px solid #bdd9bc;border-radius:10px}button{background:#2f9716;color:white;border:0;border-radius:12px;padding:15px 20px;font-size:17px;font-weight:700;margin-top:18px}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f8ee;border-radius:12px;padding:16px}.note{color:#65766b;font-size:14px}</style></head><body><div class="panel"><h1>Моя еда — облачный тест</h1><p>Обработка фото выполняется в Cloudflare, не на iPhone.</p><form id="f"><label>Фотография (необязательно для текстового теста)</label><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"><label>Описание / уточнение</label><textarea name="text" placeholder="Например, торт Наполеон или обед с гарниром"></textarea><button id="go">Распознать</button></form><p class="note">Тестовая версия: фото автоматически уменьшается до 1024 пикселей. Файлы не сохраняются в нашем Worker, но отправляются в сервис Cloudflare Workers AI. Не публикуйте адрес широко.</p><pre id="out" hidden></pre></div><script>document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();const b=document.getElementById('go'),o=document.getElementById('out');b.disabled=true;o.hidden=false;o.textContent='Подготовка изображения…';try{const data=new FormData(e.target);const file=data.get('photo');if(file&&file.size){const bmp=await createImageBitmap(file);const scale=Math.min(1,1024/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);bmp.close?.();const blob=await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.78));if(!blob)throw Error('Не удалось уменьшить фото');data.set('photo',new File([blob],'meal.jpg',{type:'image/jpeg'}))}o.textContent='Распознавание…';const r=await fetch('/analyze',{method:'POST',body:data});const j=await r.json();o.textContent=JSON.stringify(j,null,2)}catch(err){o.textContent='Ошибка: '+err.message}finally{b.disabled=false}})</script></body></html>`;
 
@@ -82,31 +88,80 @@ function massNumber(value){
  const v=Number(String(value).replace(',','.'));
  return Number.isFinite(v)&&v>0&&v<=10000?Math.round(v*10)/10:null;
 }
+function normalizePer100(raw){
+ const x=raw?.per100 ?? raw?.nutrition_per100 ?? raw?.kbju_per100 ?? null;
+ if(!x || typeof x!=='object')return null;
+ const out={};
+ for(const key of ['k','p','f','c']){
+   const value=x[key] ?? ({k:x.kcal,p:x.protein,f:x.fat,c:x.carbs})[key];
+   const parsed=value===null||value===undefined||value===''?null:Number(String(value).replace(',','.'));
+   out[key]=Number.isFinite(parsed)&&parsed>=0&&parsed<= (key==='k'?1000:100)?parsed:null;
+ }
+ return out;
+}
+function isCompletePer100(per100){return !!per100&&['k','p','f','c'].every(x=>Number.isFinite(per100[x])&&per100[x]>=0)}
 function normalizeFood(obj){
  if(!obj || (!Array.isArray(obj.dishes)&&!Array.isArray(obj.items)))throw Error('Модель не вернула dishes[] или items[]');
  const normItems=(items)=>Array.isArray(items)?items.slice(0,20).filter(x=>x&&typeof x.name==='string'&&x.name.trim()).map(x=>({
    name:x.name.slice(0,100).trim(),portion:String(x.portion||'1 порция').slice(0,100),
    weight_g:massNumber(x.weight_g??x.grams),volume_ml:massNumber(x.volume_ml),
    weight_estimated:x.weight_estimated!==false,weight_basis:String(x.weight_basis||'').slice(0,180),
+   per100:normalizePer100(x),
    confidence:['high','medium','low'].includes(x.confidence)?x.confidence:'medium'
  })) : [];
  let dishes=Array.isArray(obj.dishes)?obj.dishes.slice(0,8).map(x=>{
-   const items=normItems(x?.items),main=String(x?.main||'').slice(0,100).trim();
+   const items=normItems(x?.items),additions=normItems(x?.additions),main=String(x?.main||x?.name||'').slice(0,100).trim();
    const mainItem=items.find(z=>z.name.toLowerCase()===main.toLowerCase())|| (items.length===1?items[0]:null);
-   return {name:String(x?.name||'Блюдо').slice(0,100).trim(),kind:['prepared','platter','recipe'].includes(x?.kind)?x.kind:'prepared',
-    main,main_portion:String(x?.main_portion||mainItem?.portion||'1 порция').slice(0,100).trim(),
-    // For a recipe the specific main-ingredient mass is more precise than a
-    // conflicting parent headline. BOTH numbers come from the model; no local
-    // quantity-to-weight conversion is performed.
-    main_weight_g:(x?.kind==='recipe' ? mainItem?.weight_g??massNumber(x?.main_weight_g) : massNumber(x?.main_weight_g)??mainItem?.weight_g)??null,
-    main_volume_ml:massNumber(x?.main_volume_ml)??mainItem?.volume_ml??null,
-    main_weight_basis:String((x?.kind==='recipe'&&mainItem?.weight_g?mainItem?.weight_basis:null)||x?.main_weight_basis||mainItem?.weight_basis||'').slice(0,180),
-    additions:normItems(x?.additions),items};
+   const kind=['prepared','platter','recipe'].includes(x?.kind)?x.kind:'prepared';
+   // Never infer the choice from a directory or hard-coded food catalogue:
+   // it is AI's own decision between a complete dish and ingredients.
+   const mode=x?.mode==='ingredients'||x?.mode==='whole'?x.mode:(kind==='recipe' && items.length+additions.length>1?'ingredients':'whole');
+   const ownWeight=massNumber(x?.weight_g);
+   return {name:String(x?.name||'Блюдо').slice(0,100).trim(),kind,mode,
+     weight_g:ownWeight,
+     per100:normalizePer100(x),main,
+     main_portion:String(x?.main_portion||mainItem?.portion||'1 порция').slice(0,100).trim(),
+     main_weight_g:(mode==='ingredients' ? mainItem?.weight_g??massNumber(x?.main_weight_g) : ownWeight??massNumber(x?.main_weight_g)??mainItem?.weight_g)??null,
+     main_volume_ml:massNumber(x?.main_volume_ml)??mainItem?.volume_ml??null,
+     main_weight_basis:String((mode==='ingredients'&&mainItem?.weight_g?mainItem?.weight_basis:null)||x?.main_weight_basis||mainItem?.weight_basis||'').slice(0,180),
+     weight_estimated:x?.weight_estimated!==false,
+     additions,items};
  }).filter(x=>x.name||x.items.length):[];
- if(!dishes.length){const items=normItems(obj.items);if(items.length)dishes=[{name:String(obj.name||'Блюдо').slice(0,100),kind:'prepared',main:items[0].name,main_portion:items[0].portion,main_weight_g:items[0].weight_g,main_volume_ml:items[0].volume_ml,main_weight_basis:items[0].weight_basis,additions:[],items}];}
+ if(!dishes.length){const items=normItems(obj.items);if(items.length)dishes=[{name:String(obj.name||'Блюдо').slice(0,100),kind:'recipe',mode:'ingredients',weight_g:null,per100:null,main:items[0].name,main_portion:items[0].portion,main_weight_g:items[0].weight_g,main_volume_ml:items[0].volume_ml,main_weight_basis:items[0].weight_basis,additions:[],items}];}
  if(!dishes.length)throw Error('Нейросеть не выделила ни одного блюда');
- return {dishes,items:dishes.flatMap(x=>x.items),uncertain:Array.isArray(obj.uncertain)?obj.uncertain.slice(0,10).map(x=>String(x).slice(0,160)):[]};
+ return {dishes,items:dishes.flatMap(x=>x.items),input_mode:['text','photo_food','photo_text'].includes(obj.input_mode)?obj.input_mode:'text',recognized_text:String(obj.recognized_text||'').slice(0,1000),uncertain:Array.isArray(obj.uncertain)?obj.uncertain.slice(0,10).map(x=>String(x).slice(0,160)):[]};
 }
+function missingAINutrition(data){
+ const missing=[];
+ for(let i=0;i<(data.dishes||[]).length;i++){
+  const d=data.dishes[i];
+  if(d.mode==='whole'){
+   if(!isCompletePer100(d.per100)||!massNumber(d.weight_g??d.main_weight_g))missing.push({dish_index:i,mode:'whole',name:d.name,weight_g:d.weight_g??d.main_weight_g});
+  }else{
+   const all=[...(d.items||[]),...(d.additions||[])];
+   if(!all.length)missing.push({dish_index:i,mode:'ingredients',name:d.name,missing:'ingredients'});
+   for(const item of all){if(!isCompletePer100(item.per100)||!massNumber(item.weight_g))missing.push({dish_index:i,mode:'ingredients',name:item.name,weight_g:item.weight_g,per100:item.per100});}
+  }
+ }
+ return missing;
+}
+async function retryMissingAINutrition(data,source,env,originalMessages){
+ const missing=missingAINutrition(data);
+ if(!missing.length)return {retried:false,missing:0};
+ // Ask the SAME multimodal model to regenerate a complete answer from original
+ // input, never filling nutritional values from the external directories.
+ const suffix=' ПРЕДЫДУЩИЙ ОТВЕТ БЫЛ НЕПОЛНЫМ. Обязательно укажи для КАЖДОГО целого блюда или КАЖДОГО ингредиента weight_g и ЧЕТЫРЕ ЧИСЛА per100:{k,p,f,c} НА 100 ГРАММ. Не оставляй ни один продукт без КБЖУ. Ответ только JSON. Отсутствующие значения: '+JSON.stringify(missing).slice(0,1200);
+ const corrected=originalMessages.map(message=>typeof message.content==='string'?{...message,content:message.content+suffix}:{...message,content:message.content.map(part=>part.type==='text'?{...part,text:part.text+suffix}:part)});
+ try{
+  const result=await env.AI.run(MODEL,{messages:corrected,chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},max_completion_tokens:4000,temperature:0});
+  const rerun=parseFoodResponse(result).data;
+  // Only accept a complete replacement which keeps all original dishes.
+  const complete=missingAINutrition(rerun).length===0&&rerun.dishes.length>=data.dishes.length;
+  if(complete){data.dishes=rerun.dishes;data.items=rerun.items;data.input_mode=rerun.input_mode;data.recognized_text=rerun.recognized_text;return {retried:true,repaired:true,missing:0};}
+  return {retried:true,repaired:false,missing:missingAINutrition(rerun).length};
+ }catch(e){return {retried:true,repaired:false,missing:missing.length,error:String(e?.message||e)};}
+}
+
 // Explicit enumeration coverage is a STRUCTURAL check, not a portion estimator.
 // Splitting clauses never extracts grams or assigns weights: only the AI does that.
 const COVERAGE_STOP=new Set('и или с со на по в во из для без к под при г гр кг мл л шт штука штуки штук порция порции порцию примерно около приблизительно два две один одна одно несколько каждый каждая каждое каждого каждом каждой каждые каждым каждой начинкой начинка начинку начинке чайной чайная чайную чайный ложкой ложки ложка ложечкой кусочком кусочек кусочками кусочка куском кусочек каждого всех'.split(' '));
@@ -153,6 +208,7 @@ function uncoveredClauses(data,clauses){
     const minIngredients=/\s+и\s+/i.test(dependent)?3:2;
     const ok=(data.dishes||[]).length===1 && data.dishes.some(dish=>{
       const ingredients=[...(dish.items||[]),...(dish.additions||[])];
+      if(dish.mode==='whole' && isCompletePer100(dish.per100)&&massNumber(dish.weight_g??dish.main_weight_g))return true;
       const distinct=new Set(ingredients.map(x=>coverageTokens(x.name).join('|')).filter(Boolean));
       if(distinct.size<minIngredients)return false;
       const present=coverageTokens(ingredients.map(x=>x.name).join(' '));
@@ -184,6 +240,7 @@ function sameFoodDish(a,b){
 // Normalize a filled dish without inventing masses: the AI's own ingredient
 // weight takes precedence over an inconsistent summary field.
 function alignCompositeMainWeight(dish){
+  if(dish.mode==='whole')return;
   dish.kind='recipe';
   const mainTokens=coverageTokens(dish.main);
   const ingredient=(dish.items||[]).find(x=>{
@@ -295,7 +352,7 @@ const originalHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"1.20"});
+    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"2.0"});
     if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
     if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
     const type=request.headers.get('content-type')||'';
@@ -331,7 +388,7 @@ const originalHandler = {
         messages,
         chat_template_kwargs:{enable_thinking:false},
         response_format:{type:'json_object'},
-        max_completion_tokens:2000,
+        max_completion_tokens:3500,
         temperature:0
       });
       let data,recovered=false,firstError='';
@@ -345,18 +402,22 @@ const originalHandler = {
         });
         result=await env.AI.run(MODEL,{
           messages:corrected,chat_template_kwargs:{enable_thinking:false},
-          response_format:{type:'json_object'},max_completion_tokens:2300,temperature:0
+          response_format:{type:'json_object'},max_completion_tokens:4000,temperature:0
         });
         ({data}=parseFoodResponse(result));
         recovered=true;
       }
       // Do not accept a syntactically valid but incomplete model answer.
-      const coverage=photo && photo.size?{checked:false,fragments:[],initial_missing:[],restored:[],final_missing:[],attempts:0}:await recoverMissingDishes(data,text,env);
+      const sourceForCoverage=(photo && photo.size)?(data.input_mode==='photo_text'?data.recognized_text:''):text;
+      const coverage=sourceForCoverage?await recoverMissingDishes(data,sourceForCoverage,env):{checked:false,fragments:[],initial_missing:[],restored:[],final_missing:[],attempts:0};
       if(coverage.final_missing.length){
         return asJson({ok:false,stage:'coverage',message:'ИИ распознал не все перечисленные продукты. Данные не сохранены; повторите расчёт.',coverage},422);
       }
-      const portion_retry=await retryMissingMasses(data,text,env);
-      return asJson({ok:true,model:MODEL,food:data,coverage,portion_retry,
+      const portion_retry=await retryMissingMasses(data,sourceForCoverage||text,env);
+      const nutrition_retry=await retryMissingAINutrition(data,sourceForCoverage||text,env,messages);
+      const missingNutrition=missingAINutrition(data);
+      if(missingNutrition.length) return asJson({ok:false,stage:'nutrition',message:'ИИ не указал вес и КБЖУ на 100 г для всех продуктов. Сохранён исходный ввод; повторите расчёт.',missing:missingNutrition,nutrition_retry},422);
+      return asJson({ok:true,model:MODEL,food:data,coverage,portion_retry,nutrition_retry,
         json_recovery:{retried:recovered,first_error:recovered?firstError:null},usage:{
         neurons:result?.usage?.neurons ?? null,
         input_tokens:result?.usage?.prompt_tokens ?? null,

@@ -58,10 +58,8 @@ jobs:
           node --check my-food/site-worker/index.js
       - name: Regression tests (no Cloudflare calls)
         run: |
-          node my-food/tests/test-coverage.mjs
-          node my-food/tests/test-composite-food.mjs
-          node my-food/tests/test-composite-app.mjs
-          node my-food/tests/test-nutrition-fallback.mjs
+          node my-food/tests/test-ai-first.mjs
+          node my-food/tests/test-ai-first-app.mjs
           node my-food/tests/test-worker-nutrition.mjs
       - name: Require Cloudflare credentials
         if: steps.components.outputs.worker == 'true' || steps.components.outputs.pages == 'true'
@@ -83,38 +81,30 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx --yes wrangler@4 deploy --config my-food/site-worker/wrangler.toml
-      - name: Live Cloudflare AI completeness test
+      - name: Live AI-first per100 text tests
         if: steps.components.outputs.worker == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in 1 2; do
-            if curl -fsS --max-time 90 --form-string 'text=2 яйца, 20 г печени трески и соус тартар 10г' \
-                -o /tmp/my-food-smoke.json \
-                https://food-ai-inference.evpoluyanov.workers.dev/analyze && \
-               node -e 'const j=JSON.parse(require("fs").readFileSync("/tmp/my-food-smoke.json","utf8"));const d=j.food?.dishes||[];const n=s=>String(s||"").toLowerCase().replaceAll("ё","е");const f=q=>d.find(x=>q.test(n(x.name)));const a=f(/яйц/),b=f(/печен.*треск/),c=f(/тартар/);if(!j.ok||!a||!b||!c||!(a.main_weight_g>0)||b.main_weight_g!==20||c.main_weight_g!==10){console.error("Incomplete model reply",JSON.stringify({names:d.map(x=>x.name),coverage:j.coverage,stage:j.stage,message:j.message}));process.exit(1)};console.log("Real Cloudflare AI recognized all three products; masses",d.map(x=>[x.name,x.main_weight_g]));'; then
-              exit 0
+          for mode in multi composite; do
+            if [ "$mode" = multi ]; then
+              source='2 яйца, 20 г печени трески и соус тартар 10г'
+            else
+              source='2 блина, каждый с начинкой из чайной ложки творожного сыра и кусочком слабосоленой семги'
             fi
-            echo "Cloudflare AI completeness check attempt $attempt did not pass"
-            sleep 2
+            passed=false
+            for attempt in 1 2; do
+              if curl -fsS --max-time 100 --form-string "text=$source" \
+                -o /tmp/my-food-ai-live.json https://food-ai-inference.evpoluyanov.workers.dev/analyze && \
+                node my-food/tests/check-live.mjs /tmp/my-food-ai-live.json "$mode"; then
+                passed=true
+                break
+              fi
+              echo "AI-first live test for $mode, attempt $attempt failed"
+              sleep 2
+            done
+            if [ "$passed" != true ]; then exit 1; fi
           done
-          echo 'Cloudflare real-AI check failed after 2 attempts' >&2
-          exit 1
-      - name: Live composite pancake test
-        if: steps.components.outputs.worker == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in 1 2; do
-            if curl -fsS --max-time 70 --form-string 'text=2 блина, каждый с начинкой из чайной ложки творожного сыра и кусочком слабосоленой семги' \
-              -o /tmp/my-food-pancakes.json https://food-ai-inference.evpoluyanov.workers.dev/analyze && \
-               node -e 'const j=JSON.parse(require("fs").readFileSync("/tmp/my-food-pancakes.json","utf8")); const d=j.food?.dishes||[];const components=[...(d[0]?.items||[]),...(d[0]?.additions||[])];const names=components.map(x=>String(x.name).toLowerCase().replaceAll("ё","е"));const match=q=>names.some(x=>q.test(x));if(!j.ok||d.length!==1||!match(/блин/)||!match(/творож|сыр/)||!match(/семг/)||components.length<3||!components.every(x=>x.weight_g>0)){console.error("Pancake composition incomplete",JSON.stringify({d,coverage:j.coverage,stage:j.stage,message:j.message}).slice(0,1800));process.exit(1)};console.log("Real composite pancake dish with each ingredient and AI weights",components.map(x=>[x.name,x.weight_g]));'; then
-              exit 0
-            fi
-            echo "Pancake real-AI check attempt $attempt failed"
-            sleep 2
-          done
-          exit 1
       - name: Live nutrient availability test
         if: steps.components.outputs.worker == 'true'
         shell: bash
@@ -130,5 +120,5 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS --max-time 25 -o /tmp/my-food-index.html https://drop-443886b1-4e5.evpoluyanov.workers.dev/
-          grep -q 'v0.9.16' /tmp/my-food-index.html
-          echo 'PWA v0.9.16 deployed and accessible'
+          grep -q 'v0.10.0' /tmp/my-food-index.html
+          echo 'PWA v0.10.0 deployed and accessible'
