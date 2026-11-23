@@ -1,14 +1,8 @@
-// Моя еда — Workers AI: распознавание и отказоустойчивый поиск КБЖУ v2.2.
+// Моя еда — Workers AI с поисковыми инструментами и неблокирующими частичными ответами v2.3.
 // Только для личной проверки. Публичный URL нельзя использовать как открытый API без защиты.
 // Требуется binding типа Workers AI с именем AI (env.AI).
 const MODEL = '@cf/google/gemma-4-26b-a4b-it';
-const PROMPT = `Ты — специалист по распознаванию питания. Возвращай ОДИН полный JSON без текста снаружи. Основное правило: САМОСТОЯТЕЛЬНО по своим знаниям оцени ВЕС порции в граммах и КАЛОРИИ, БЕЛКИ, ЖИРЫ, УГЛЕВОДЫ ИСКЛЮЧИТЕЛЬНО НА 100 ГРАММ. НИКОГДА не возвращай КБЖУ целой порции в поле per100. Не подменяй нулём неизвестные значения: используй null. Все числа — JSON numbers, не строки. Не используй внешний справочник как скрытый источник пересчёта массы.
-Обязательная схема: {"input_mode":"text","recognized_text":null,"consumed_description":"","dishes":[{"name":"Название блюда","kind":"prepared","mode":"whole","weight_g":150,"main":"Название","main_portion":"одна порция","main_weight_g":150,"main_weight_basis":"оценка ИИ или вес указан пользователем","weight_estimated":true,"per100":{"k":210,"p":12,"f":9,"c":20},"items":[],"additions":[]}],"uncertain":[]}.
-Если хорошо известны готовое БЛЮДО, его приблизительный вес и КБЖУ на 100 г, возврати ОДИН dish с mode:"whole"; items и additions ПУСТЫ, per100 содержит КБЖУ именно блюда со всеми включёнными соусами/начинкой, без двойного учёта.
-Если нет достаточных знаний о КБЖУ готового блюда, возврати ОДИН dish с mode:"ingredients", kind:"recipe", per100:null, items:[{ "name":"Название ингредиента","portion":"его объём/счёт","weight_g":60,"volume_ml":null,"weight_estimated":true,"weight_basis":"оценка ИИ","per100":{"k":200,"p":10,"f":8,"c":14},"confidence":"medium"}]. Для КАЖДОГО названного компонента обязательно дай собственный weight_g и собственный per100 на 100 г ингредиента. Если дополнения представлены в additions, все они тоже обязаны иметь weight_g и per100. Ингредиент никогда не должен считаться одновременно в items и additions. Масса готового блюда weight_g должна равняться сумме масс ингредиентов; если неизвестна — оставь null, приложение суммирует известные составляющие.
-Каждый отдельно съеденный продукт из перечисления — отдельный dish. Для «2 яйца, 20 г печени трески и соус тартар 10г» верни ТРИ dishes с весами: яйца оценка ИИ, печень 20, соус 10. Для «2 блина, каждый с начинкой из чайной ложки творожного сыра и кусочком слабосоленой семги» верни ОДНО блюдо, включающее все три продукта; количества начинки суммарно на оба блина. Не пропускай основную часть блюда. Не добавляй неупомянутую еду. Если вес указан явно («20 г», «0,2 кг»), перенеси его БЕЗ ИЗМЕНЕНИЯ и weight_estimated:false, в остальных случаях оцени вес самостоятельно и weight_estimated:true. Для жидкостей при возможности добавь volume_ml, но КБЖУ всегда на 100 ГРАММ, не на 100 мл.
-Для ФОТО самостоятельно определи: это изображение еды или текст с меню/этикетки/рецепта. При фото еды используй input_mode:"photo_food" и оцени вес и per100 по видимой пище. При фото с текстом используй input_mode:"photo_text", перепиши относящийся к питанию текст в recognized_text, отдельно в consumed_description напиши ТОЛЬКО фразу с названиями и количеством еды (без строк с калориями и пищевой ценностью); затем разбери его ТОЧНО ТАК ЖЕ, как пользовательский текст. Если на этикетке прямо написано КБЖУ на 100 г, бери именно эти значения. Если написано на порцию или на 100 мл, самостоятельно переведи в 100 г с необходимой оценкой массы; не называй такие значения точными. Не считай все позиции сфотографированного меню съеденными без указания пользователя. Пожалуйста, не путай вес порции и вес продукта на 100 г.
-Поля k,p,f,c: ккал, белки г, жиры г, углеводы г. Реалистичные числа на 100 г: k 0..900, p,f,c 0..100; не придумывай значения, если невозможно оценить, укажи null и пометь в uncertain. Если НЕ МОЖЕШЬ назвать достоверные КБЖУ целого блюда, ОБЯЗАТЕЛЬНО разложи на ингредиенты. Макс. 8 блюд, до 15 составляющих. Ответ на русском.`;
+import {PROMPT} from './prompt.js';
 
 const page = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Моя еда — тест ИИ</title><style>body{font:16px -apple-system,system-ui,sans-serif;max-width:680px;margin:30px auto;padding:0 18px;color:#193e20;background:#f4fbef}h1{font-size:24px}.panel{background:white;border-radius:22px;padding:22px;box-shadow:0 3px 20px #17371116}label{display:block;margin:20px 0 8px;font-weight:600}input,textarea{font:inherit;max-width:100%;box-sizing:border-box}input[type=file]{width:100%}textarea{width:100%;min-height:90px;padding:12px;border:1px solid #bdd9bc;border-radius:10px}button{background:#2f9716;color:white;border:0;border-radius:12px;padding:15px 20px;font-size:17px;font-weight:700;margin-top:18px}button:disabled{opacity:.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f8ee;border-radius:12px;padding:16px}.note{color:#65766b;font-size:14px}</style></head><body><div class="panel"><h1>Моя еда — облачный тест</h1><p>Обработка фото выполняется в Cloudflare, не на iPhone.</p><form id="f"><label>Фотография (необязательно для текстового теста)</label><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"><label>Описание / уточнение</label><textarea name="text" placeholder="Например, торт Наполеон или обед с гарниром"></textarea><button id="go">Распознать</button></form><p class="note">Тестовая версия: фото автоматически уменьшается до 1024 пикселей. Файлы не сохраняются в нашем Worker, но отправляются в сервис Cloudflare Workers AI. Не публикуйте адрес широко.</p><pre id="out" hidden></pre></div><script>document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();const b=document.getElementById('go'),o=document.getElementById('out');b.disabled=true;o.hidden=false;o.textContent='Подготовка изображения…';try{const data=new FormData(e.target);const file=data.get('photo');if(file&&file.size){const bmp=await createImageBitmap(file);const scale=Math.min(1,1024/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);bmp.close?.();const blob=await new Promise(ok=>c.toBlob(ok,'image/jpeg',0.78));if(!blob)throw Error('Не удалось уменьшить фото');data.set('photo',new File([blob],'meal.jpg',{type:'image/jpeg'}))}o.textContent='Распознавание…';const r=await fetch('/analyze',{method:'POST',body:data});const j=await r.json();o.textContent=JSON.stringify(j,null,2)}catch(err){o.textContent='Ошибка: '+err.message}finally{b.disabled=false}})</script></body></html>`;
 
@@ -109,7 +103,7 @@ function normalizeFood(obj){
    per100:normalizePer100(x),
    confidence:['high','medium','low'].includes(x.confidence)?x.confidence:'medium'
  })) : [];
- let dishes=Array.isArray(obj.dishes)?obj.dishes.slice(0,8).map(x=>{
+ let dishes=Array.isArray(obj.dishes)?obj.dishes.slice(0,16).map(x=>{
    const items=normItems(x?.items),additions=normItems(x?.additions),main=String(x?.main||x?.name||'').slice(0,100).trim();
    const mainItem=items.find(z=>z.name.toLowerCase()===main.toLowerCase())|| (items.length===1?items[0]:null);
    const kind=['prepared','platter','recipe'].includes(x?.kind)?x.kind:'prepared';
@@ -129,328 +123,102 @@ function normalizeFood(obj){
  }).filter(x=>x.name||x.items.length):[];
  if(!dishes.length){const items=normItems(obj.items);if(items.length)dishes=[{name:String(obj.name||'Блюдо').slice(0,100),kind:'recipe',mode:'ingredients',weight_g:null,per100:null,main:items[0].name,main_portion:items[0].portion,main_weight_g:items[0].weight_g,main_volume_ml:items[0].volume_ml,main_weight_basis:items[0].weight_basis,additions:[],items}];}
  if(!dishes.length)throw Error('Нейросеть не выделила ни одного блюда');
- return {dishes,items:dishes.flatMap(x=>x.items),input_mode:['text','photo_food','photo_text'].includes(obj.input_mode)?obj.input_mode:'text',recognized_text:String(obj.recognized_text||'').slice(0,1000),consumed_description:String(obj.consumed_description||'').slice(0,500),uncertain:Array.isArray(obj.uncertain)?obj.uncertain.slice(0,10).map(x=>String(x).slice(0,160)):[]};
+ return {dishes,items:dishes.flatMap(x=>x.items),input_mode:['text','photo_food','photo_text'].includes(obj.input_mode)?obj.input_mode:'text',recognized_text:String(obj.recognized_text||'').slice(0,1000),consumed_description:String(obj.consumed_description||'').slice(0,500),uncertain:Array.isArray(obj.uncertain)?obj.uncertain.slice(0,10).map(x=>String(x).slice(0,160)):[],status:obj.status==='partial'?'partial':'complete',warnings:Array.isArray(obj.warnings)?obj.warnings.slice(0,12).map(x=>String(x).slice(0,180)):[]};
 }
-function missingAINutrition(data){
- const missing=[];
- for(let i=0;i<(data.dishes||[]).length;i++){
-  const d=data.dishes[i];
-  if(d.mode==='whole'){
-   if(!isCompletePer100(d.per100)||!massNumber(d.weight_g??d.main_weight_g))missing.push({dish_index:i,mode:'whole',name:d.name,weight_g:d.weight_g??d.main_weight_g});
-  }else{
-   const all=[...(d.items||[]),...(d.additions||[])];
-   if(!all.length)missing.push({dish_index:i,mode:'ingredients',name:d.name,missing:'ingredients'});
-   for(const item of all){if(!isCompletePer100(item.per100)||!massNumber(item.weight_g))missing.push({dish_index:i,mode:'ingredients',name:item.name,weight_g:item.weight_g,per100:item.per100});}
+// AI owns food recognition and estimation. Source lookups are tools, not a second opinion.
+const AI_TOOLS = [
+ {type:'function',function:{name:'search_nutrition',description:'Find food nutrition per 100g in public databases. Give several food names in one call, then choose useful values without cross-checking or rejecting model estimates.',parameters:{type:'object',properties:{queries:{type:'array',items:{type:'string'},description:'Food names or ingredients; at most 8'}},required:['queries']}}},
+ {type:'function',function:{name:'search_official_menu',description:'For any order from Вкусно — и точка / мак, look up official menu items, sizes and portion nutrition in the available menu snapshot. Mandatory for restaurant orders.',parameters:{type:'object',properties:{queries:{type:'array',items:{type:'string'},description:'Names or phrases for menu products'}},required:['queries']}}},
+ {type:'function',function:{name:'web_search',description:'Search the public web for up-to-date producer or restaurant nutritional data. May be unavailable; continue from own estimated knowledge if unavailable.',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}}}
+];
+function readToolCall(call){
+ const name=call?.function?.name||call?.name||'';
+ let args=call?.function?.arguments??call?.arguments??{};
+ if(typeof args==='string'){try{args=JSON.parse(args)}catch(_){args={query:args}}}
+ return {name,args:args&&typeof args==='object'?args:{}};
+}
+async function runFoodTool(call,env){
+ const {name,args}=readToolCall(call);
+ try {
+  if(name==='search_nutrition'){
+   const queries=[...new Set((Array.isArray(args.queries)?args.queries:args.query?[args.query]:[]).map(x=>String(x||'').trim().slice(0,80)).filter(x=>x.length>=2))].slice(0,8);
+   const results=await Promise.all(queries.map(async query=>{
+    try {const found=await searchNutrition(query,env,{fast:true});
+     return {query,items:(found.items||[]).slice(0,5).map(x=>({name:x.name,name_ru:x.name_ru||null,brand:x.brand||null,k:x.k,p:x.p,f:x.f,c:x.c,source:x.source,source_id:x.fdcId||x.source_id||null,url:x.reference_url||null})),available:!!found.ok};
+    }catch(e){return {query,items:[],note:'Справочник временно недоступен: '+String(e?.message||e).slice(0,110)}}
+   }));return {tool:name,results};
   }
+  if(name==='search_official_menu'){
+   const queries=[...new Set((Array.isArray(args.queries)?args.queries:args.query?[args.query]:[]).map(x=>String(x||'').trim().slice(0,90)).filter(Boolean))].slice(0,8);
+   return {tool:name,source:'Вкусно — и точка',official_pdf:CHAIN_OFFICIAL_PDF,snapshot_date:CHAIN_PDF_DATE,
+    notice:'Каталог — локальный снимок официальной таблицы с отдельными обновлёнными позициями. Не называй данные актуальными без подтверждения свежего PDF.',
+    results:queries.map(query=>({query,items:chainFind(query,4).map(x=>({name:x.name,portion:x.portion,weight_g:x.w,per100:x.w>0?{k:x.k*100/x.w,p:x.p*100/x.w,f:x.f*100/x.w,c:x.c*100/x.w}:null,source_date:x.source_date||CHAIN_PDF_DATE,url:CHAIN_OFFICIAL_PDF}))}))};
+  }
+  if(name==='web_search'){
+   if(typeof env.AI?.websearch!=='function')return {tool:name,items:[],note:'Веб-поиск недоступен, используй приблизительную оценку ИИ'};
+   const response=await env.AI.websearch({gatewayId:'default',query:String(args.query||'').slice(0,240),limit:4});
+   if(!response.ok)throw Error('Поиск HTTP '+response.status);
+   const found=await response.json();return {tool:name,items:(found.items||[]).slice(0,4).map(x=>({title:x.title,url:x.url,description:String(x.description||'').slice(0,360)}))};
+  }
+  return {tool:name,error:'Неизвестный инструмент'};
+ }catch(e){return {tool:name,items:[],note:'Источник временно недоступен: '+String(e?.message||e).slice(0,220)+'. Продолжай с примерными КБЖУ без ошибки.'};}
+}
+async function runFoodAI(messages,env){
+ const trace=[];let result;
+ const modelOptions={chat_template_kwargs:{enable_thinking:false},temperature:0.15,max_completion_tokens:5000};
+ // Tool calls are optional. One tool round is sufficient for ordinary estimates.
+ result=await env.AI.run(MODEL,{messages,tools:AI_TOOLS,tool_choice:'auto',parallel_tool_calls:true,...modelOptions});
+ for(let round=0;round<2;round++){
+  const calls=result?.tool_calls||result?.choices?.[0]?.message?.tool_calls||[];
+  if(!calls.length)break;
+  const results=await Promise.all(calls.slice(0,3).map(async call=>({name:readToolCall(call).name,result:await runFoodTool(call,env)})));
+  for(const entry of results){trace.push({name:entry.name,queries:(entry.result.results||[]).map(x=>x.query),count:(entry.result.items||[]).length,note:entry.result.note||null});
+   // Cloudflare binding accepts tool-role messages with a name (documented for function calling).
+   messages.push({role:'tool',name:entry.name,content:JSON.stringify(entry.result).slice(0,12000)});
+  }
+  result=await env.AI.run(MODEL,{messages,tools:round===0?AI_TOOLS:undefined,tool_choice:round===0?'auto':undefined,...modelOptions});
  }
- return missing;
-}
-async function retryMissingAINutrition(data,source,env,originalMessages){
- const missing=missingAINutrition(data);
- if(!missing.length)return {retried:false,missing:0};
- // Ask the SAME multimodal model to regenerate a complete answer from original
- // input, never filling nutritional values from the external directories.
- const suffix=' ПРЕДЫДУЩИЙ ОТВЕТ БЫЛ НЕПОЛНЫМ. Обязательно укажи для КАЖДОГО целого блюда или КАЖДОГО ингредиента weight_g и ЧЕТЫРЕ ЧИСЛА per100:{k,p,f,c} НА 100 ГРАММ. Не оставляй ни один продукт без КБЖУ. Ответ только JSON. Отсутствующие значения: '+JSON.stringify(missing).slice(0,1200);
- const corrected=originalMessages.map(message=>typeof message.content==='string'?{...message,content:message.content+suffix}:{...message,content:message.content.map(part=>part.type==='text'?{...part,text:part.text+suffix}:part)});
- try{
-  const result=await env.AI.run(MODEL,{messages:corrected,chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},max_completion_tokens:4000,temperature:0});
-  const rerun=parseFoodResponse(result).data;
-  // Only accept a complete replacement which keeps all original dishes.
-  const complete=missingAINutrition(rerun).length===0&&rerun.dishes.length>=data.dishes.length;
-  if(complete){data.dishes=rerun.dishes;data.items=rerun.items;data.input_mode=rerun.input_mode;data.recognized_text=rerun.recognized_text;data.consumed_description=rerun.consumed_description;return {retried:true,repaired:true,missing:0};}
-  return {retried:true,repaired:false,missing:missingAINutrition(rerun).length};
- }catch(e){return {retried:true,repaired:false,missing:missing.length,error:String(e?.message||e)};}
-}
-
-// Explicit enumeration coverage is a STRUCTURAL check, not a portion estimator.
-// Splitting clauses never extracts grams or assigns weights: only the AI does that.
-const COVERAGE_STOP=new Set('и или с со на по в во из для без к под при г гр кг мл л шт штука штуки штук порция порции порцию примерно около приблизительно два две один одна одно несколько каждый каждая каждое каждого каждом каждой каждые каждым каждой начинкой начинка начинку начинке чайной чайная чайную чайный ложкой ложки ложка ложечкой кусочком кусочек кусочками кусочка куском кусочек каждого всех'.split(' '));
-// A dependent description after a comma specifies the contents of the SAME food,
-// not another eaten serving. No quantities or food masses are derived from it.
-const DEPENDENT_SOURCE=/^(?:(?:в|на|у|для)\s+)?кажд(?:ый|ая|ое|ом|ого|ой|ую|ые|ых|ыми)(?:\s|$)|^(?:с|со)\s+(?:начинк|наполнен|добавлен)|^(?:внутри|начинкой|фарширован|наполнен)(?:\s|$)/i;
-function sourceClauses(text){
-  if(!text || !text.trim())return [];
-  const commaParts=String(text).replace(/\r/g,'').split(/,(?!\d)|;|\n+/).map(x=>x.trim()).filter(Boolean);
-  const joined=[];
-  let composed=false;
-  for(const part of commaParts){
-    if(joined.length && DEPENDENT_SOURCE.test(part)){
-      joined[joined.length-1]+= ', '+part;
-      composed=true;
-    }else joined.push(part);
-  }
-  const clauses=[];
-  for(const part of joined){
-    // Do not split the conjunction inside a dependent filling description.
-    const parts=DEPENDENT_SOURCE.test(part.split(',').slice(-1)[0]?.trim()||'')?[part]:part.split(/\s+и\s+/i).map(x=>x.trim()).filter(Boolean);
-    // Independent explicitly quantified servings are separate. Do NOT read any
-    // gram amounts here: all portion weights are AI output only.
-    if(parts.length>1 && parts.length<=4 && parts.every(s=>/\d/.test(s) && /[а-яёa-z]/i.test(s))) clauses.push(...parts);
-    else clauses.push(part);
-  }
-  return (clauses.length>1||composed)&&clauses.length<=8?clauses:[];
-}
-function coverageTokens(phrase){
-  return [...new Set(String(phrase||'').toLowerCase().replaceAll('ё','е')
-    .replace(/\d+(?:[.,]\d+)?/g,' ')
-    .match(/[а-яa-z]+/g)?.filter(t=>t.length>=3 && !COVERAGE_STOP.has(t))
-    .map(t=>t.length>=5?t.slice(0,4):t)||[])];
-}
-function uncoveredClauses(data,clauses){
-  if(!clauses.length)return [];
-  const composed=clauses.length===1 && clauses[0].includes(',') &&
-    DEPENDENT_SOURCE.test(clauses[0].split(',').slice(-1)[0].trim());
-  if(composed){
-    // For one filled dish, validate all named food components against the AI's
-    // actual ingredient list, not against the dish title alone.
-    const needed=coverageTokens(clauses[0]);
-    const dependent=clauses[0].split(',').slice(1).join(',');
-    const minIngredients=/\s+и\s+/i.test(dependent)?3:2;
-    const ok=(data.dishes||[]).length===1 && data.dishes.some(dish=>{
-      const ingredients=[...(dish.items||[]),...(dish.additions||[])];
-      if(dish.mode==='whole' && isCompletePer100(dish.per100)&&massNumber(dish.weight_g??dish.main_weight_g))return true;
-      const distinct=new Set(ingredients.map(x=>coverageTokens(x.name).join('|')).filter(Boolean));
-      if(distinct.size<minIngredients)return false;
-      const present=coverageTokens(ingredients.map(x=>x.name).join(' '));
-      return needed.every(t=>present.some(k=>k===t||k.startsWith(t)||t.startsWith(k)));
-    });
-    return ok?[]:[clauses[0]];
-  }
-  // Distinct, independently enumerated servings still require distinct dishes.
-  const used=new Set();
-  return clauses.filter(clause=>{
-    const needed=coverageTokens(clause);
-    if(!needed.length)return false;
-    const matchedDish=data.dishes.findIndex((dish,index)=>{
-      if(used.has(index))return false;
-      const tokens=coverageTokens([dish.name,dish.main].join(' '));
-      const matched=needed.filter(t=>tokens.some(k=>k===t || k.startsWith(t) || t.startsWith(k))).length;
-      return matched>=Math.max(1,Math.ceil(needed.length*.7));
-    });
-    if(matchedDish<0)return true;
-    used.add(matchedDish);
-    return false;
-  });
-}
-function sameFoodDish(a,b){
-  const x=coverageTokens(a.main||a.name).join('|');
-  const y=coverageTokens(b.main||b.name).join('|');
-  return !!x&&x===y;
-}
-// Normalize a filled dish without inventing masses: the AI's own ingredient
-// weight takes precedence over an inconsistent summary field.
-function alignCompositeMainWeight(dish){
-  if(dish.mode==='whole')return;
-  dish.kind='recipe';
-  const mainTokens=coverageTokens(dish.main);
-  const ingredient=(dish.items||[]).find(x=>{
-    const tokens=coverageTokens(x.name);
-    return !!mainTokens.length&&mainTokens.every(t=>tokens.some(k=>t===k||t.startsWith(k)||k.startsWith(t)));
-  });
-  if(ingredient?.weight_g){
-    dish.main_weight_g=ingredient.weight_g;
-    dish.main_volume_ml=ingredient.volume_ml;
-    dish.main_weight_basis=ingredient.weight_basis;
-  }
-}
-async function recoverMissingDishes(data,source,env){
-  const clauses=sourceClauses(source);
-  // When Gemma merges several explicitly listed servings into one dish,
-  // simply appending the omitted entries would double-count their macros.
-  // In that case rebuild ALL independent entries from model results for
-  // their original fragments, replacing (not supplementing) the wrong group.
-  const grouped=clauses.length>1 && (data.dishes.length<clauses.length || data.dishes.some(d=>
-    clauses.filter(fragment=>uncoveredClauses({dishes:[d]},[fragment]).length===0).length>1));
-  const composed=clauses.length===1 && clauses[0].includes(',') && DEPENDENT_SOURCE.test(clauses[0].split(',').slice(-1)[0].trim());
-  const initiallyMissing=grouped?[...clauses]:uncoveredClauses(data,clauses);
-  const report={checked:clauses.length>0,fragments:clauses,grouping_repaired:grouped,composed,initial_missing:initiallyMissing,restored:[],final_missing:[],attempts:0};
-  if(!initiallyMissing.length){
-    if(composed && data.dishes.length===1)alignCompositeMainWeight(data.dishes[0]);
-    return report;
-  }
-  const added=[];
-  // A short, independent model call for each omitted source clause avoids the
-  // common failure where Gemma's structured answer contains only its last item.
-  // We never derive grams from regexes: the model returns all weights.
-  const repairs=await Promise.all(initiallyMissing.map(async fragment=>{
-    try{
-      const instruction=PROMPT+(composed?' ВАЖНО: это ОДНО составное блюдо с начинкой; верни ОДИН dish kind:recipe, укажи отдельные items для основы и КАЖДОГО ингредиента начинки, общую массу каждого продукта на все штуки. НЕ создавай отдельные dishes для начинки.':' РАСПОЗНАЙ ТОЛЬКО СЛЕДУЮЩИЙ ФРАГМЕНТ исходного перечня продуктов; не добавляй другие части перечня.')+' ИСХОДНЫЙ ФРАГМЕНТ: '+JSON.stringify(fragment)+'; верни все упомянутые в нём продукты и их числовые веса.';
-      const result=await env.AI.run(MODEL,{messages:[{role:'user',content:instruction}],chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},temperature:0,max_completion_tokens:1100});
-      const fixed=parseFoodResponse(result).data;
-      const matched=fixed.dishes.filter(d=>uncoveredClauses({dishes:[d]},[fragment]).length===0);
-      if(!matched.length)throw Error('ИИ повторно пропустил продукт');
-      // Source clauses contain independent servings. The AI chooses the
-      // main component and weight, not the JavaScript code.
-      if(composed)alignCompositeMainWeight(matched[0]);
-      return {fragment,dishes:matched.slice(0,1)};
-    }catch(e){return {fragment,error:String(e?.message||e)}}
-  }));
-  report.attempts=repairs.length;
-  for(const repair of repairs){
-    if(repair.error)continue;
-    for(const d of repair.dishes){
-      if(!added.some(existing=>sameFoodDish(existing,d)) && (grouped || composed || !data.dishes.some(existing=>sameFoodDish(existing,d)))){
-        added.push(d);
-        if(!grouped && !composed)data.dishes.push(d);
-      }
-    }
-    report.restored.push(repair.fragment);
-  }
-  if(grouped||composed)data.dishes=added;
-  data.items=data.dishes.flatMap(x=>x.items);
-  report.final_missing=uncoveredClauses(data,clauses);
-  return report;
-}
-
-// Retry missing *model* masses as one compact prompt. Never parse numeric grams
-// out of the user sentence or use default portion tables in JS.
-async function retryMissingMasses(data,originalText,env){
- const missing=[];
- for(let di=0;di<data.dishes.length;di++){
-  const dish=data.dishes[di];
-  const mainItem=dish.items.find(v=>v.name.toLowerCase()===dish.main.toLowerCase());
-  if(mainItem?.weight_g&&!dish.main_weight_g){dish.main_weight_g=mainItem.weight_g;dish.main_volume_ml=mainItem.volume_ml;dish.main_weight_basis=mainItem.weight_basis;}
-  if(dish.main_weight_g&&mainItem&&!mainItem.weight_g){mainItem.weight_g=dish.main_weight_g;mainItem.volume_ml=dish.main_volume_ml;mainItem.weight_basis=dish.main_weight_basis;}
-  for(let ii=0;ii<dish.items.length;ii++)if(!dish.items[ii].weight_g)missing.push({dish_index:di,item_index:ii,name:dish.items[ii].name,portion:dish.items[ii].portion,dish:dish.name});
-  for(let ai=0;ai<dish.additions.length;ai++){
-   const other=dish.items.find(v=>v.name.toLowerCase()===dish.additions[ai].name.toLowerCase());
-   if(!dish.additions[ai].weight_g&&other?.weight_g){dish.additions[ai].weight_g=other.weight_g;dish.additions[ai].volume_ml=other.volume_ml;dish.additions[ai].weight_estimated=other.weight_estimated;}
-   if(!dish.additions[ai].weight_g)missing.push({dish_index:di,addition_index:ai,name:dish.additions[ai].name,portion:dish.additions[ai].portion,dish:dish.name});
-  }
-  if(dish.main&&!dish.main_weight_g&&!mainItem)missing.push({dish_index:di,main:true,name:dish.main,portion:dish.main_portion,dish:dish.name});
- }
- if(!missing.length||!env.AI)return {retried:false,filled:0,missing:missing.length};
- try{
-  const instruction='ДОПОЛНИ ОТСУТСТВУЮЩИЕ ЧИСЛОВЫЕ ВЕСА ДЛЯ ДНЕВНИКА ПИТАНИЯ. Верни только JSON {"portions":[{"dish_index":0,"item_index":0,"weight_g":110,"volume_ml":null,"weight_estimated":true,"weight_basis":"2 яйца"}]}. Индексы должны СОВПАДАТЬ с данными ниже. Если добавка — addition_index; если основной продукт без item — main:true. Чётко написанные граммы НЕ переоценивай: «20 г» -> weight_g:20, weight_estimated:false; «10 г» -> weight_g:10, weight_estimated:false. «2 яйца» или «бокал пива» — оцени САМ, weight_estimated:true. Никакого определения веса по таблицам, никакого дефолта 100 г; если невозможно — null. Только JSON. Оригинальная фраза: '+originalText.slice(0,400)+'; недостающие поля: '+JSON.stringify(missing);
-  const result=await env.AI.run(MODEL,{messages:[{role:'user',content:instruction}],chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},temperature:0,max_completion_tokens:1000});
-  let answer=result?.choices?.[0]?.message?.content??result?.response??'';
-  if(Array.isArray(answer))answer=answer.map(v=>v?.text||'').join('');
-  const str=typeof answer==='string'?answer:JSON.stringify(answer);
-  const decoded=parseModelJson(str,x=>x&&Array.isArray(x.portions));
-  let filled=0;
-  for(const piece of decoded?.portions||[]){
-   const record=missing.find(x=>x.dish_index===piece.dish_index && x.item_index===piece.item_index && x.addition_index===piece.addition_index && !!x.main===!!piece.main);
-   if(!record)continue;
-   const mass=massNumber(piece.weight_g);if(!mass)continue;
-   const dish=data.dishes[record.dish_index];const target=record.main?dish:record.item_index!==undefined?dish.items[record.item_index]:dish.additions[record.addition_index];
-   if(record.main){dish.main_weight_g=mass;dish.main_volume_ml=massNumber(piece.volume_ml);dish.main_weight_basis=String(piece.weight_basis||'Ответ ИИ').slice(0,180);}
-   else{target.weight_g=mass;target.volume_ml=massNumber(piece.volume_ml);target.weight_basis=String(piece.weight_basis||'Ответ ИИ').slice(0,180);target.weight_estimated=piece.weight_estimated!==false;}
-   filled++;
-  }
-  for(const dish of data.dishes){
-   const mainItem=dish.items.find(v=>v.name.toLowerCase()===dish.main.toLowerCase());
-   if(!dish.main_weight_g&&mainItem?.weight_g){dish.main_weight_g=mainItem.weight_g;dish.main_volume_ml=mainItem.volume_ml;dish.main_weight_basis=mainItem.weight_basis;}
-   if(mainItem&&!mainItem.weight_g&&dish.main_weight_g){mainItem.weight_g=dish.main_weight_g;mainItem.volume_ml=dish.main_volume_ml;mainItem.weight_basis=dish.main_weight_basis;}
-   for(const addition of dish.additions){const item=dish.items.find(v=>v.name.toLowerCase()===addition.name.toLowerCase());if(item?.weight_g&&!addition.weight_g){addition.weight_g=item.weight_g;addition.volume_ml=item.volume_ml;addition.weight_estimated=item.weight_estimated;}}
-  }
-  data.items=data.dishes.flatMap(x=>x.items);
-  return {retried:true,filled,missing:missing.length};
- }catch(e){return {retried:true,filled:0,missing:missing.length,error:String(e?.message||e)};}
+ return {result,tool_trace:trace};
 }
 
 const originalHandler = {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if(url.pathname==='/' && request.method==='GET') return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
-    if(url.pathname==='/health' && request.method==='GET') return asJson({ok:true, ai_binding:!!env.AI, model:MODEL, version:"2.2"});
-    if(url.pathname!=='/analyze' || request.method!=='POST') return asJson({error:'Not found'},404);
-    if(!env.AI) return asJson({error:'Не добавлен Workers AI binding с именем AI'},500);
-    const type=request.headers.get('content-type')||'';
-    if(!type.toLowerCase().includes('multipart/form-data')) return asJson({error:'Нужен multipart/form-data'},415);
-    const length=Number(request.headers.get('content-length')||0);
-    if(length>3_000_000) return asJson({error:'Слишком большой запрос (лимит ~2 МБ для фотографии)'},413);
-    try {
-      const form=await request.formData();
-      const text=String(form.get('text')||'').trim().slice(0,500);
-      const photo=form.get('photo');
-      const messages=[];
-      if(photo && typeof photo==='object' && photo.size) {
-        if(photo.size>2_000_000) return asJson({error:'Фото больше 2 МБ. Уменьшите изображение.'},413);
-        const mime=photo.type.toLowerCase();
-        if(!['image/jpeg','image/png','image/webp'].includes(mime)) return asJson({error:'Нужен JPEG, PNG или WebP'},415);
-        const bytes=new Uint8Array(await photo.arrayBuffer());
-        messages.push({role:'user',content:[
-          {type:'text',text:PROMPT+(text?' Дополнительная информация пользователя: '+text:'')},
-          {type:'image_url',image_url:{url:`data:${mime};base64,${toBase64(bytes)}`}}
-        ]});
-      } else {
-        if(!text) return asJson({error:'Добавьте фото или текст'},400);
-        const fragments=sourceClauses(text);
-        const directive=fragments.length?' ОБЯЗАТЕЛЬНО отрази ВСЕ '+fragments.length+' явно перечисленных части исходной фразы: '+JSON.stringify(fragments)+'; используй составной dish для ингредиентов одного блюда.':'';
-        messages.push({role:'user',content:PROMPT+directive+' Пользователь написал: '+text});
-      }
-      // Cloudflare Gemma 4 defaults to reasoning ON. Disable it to get a short final answer
-      // within the token budget instead of an empty content + truncated reasoning_content.
-      // Request a JSON response directly. If Gemma nevertheless returns
-      // truncated/invalid data, retry ONCE with the same image/text and a
-      // shorter corrective instruction, rather than producing empty dishes.
-      let result=await env.AI.run(MODEL,{
-        messages,
-        chat_template_kwargs:{enable_thinking:false},
-        response_format:{type:'json_object'},
-        max_completion_tokens:3500,
-        temperature:0
-      });
-      let data,recovered=false,firstError='';
-      try {({data}=parseFoodResponse(result));}
-      catch(err){
-        firstError=String(err?.message||err);
-        const corrected=messages.map(message=>{
-          const suffix=' ВАЖНО: ответ должен быть ОДНИМ завершённым JSON-объектом, без второго объекта и без пояснений. Каждый продукт со своей массой weight_g и main_weight_g. Если граммы названы явно, строго перепиши их в числовое поле.';
-          if(typeof message.content==='string')return {...message,content:message.content+suffix};
-          return {...message,content:message.content.map(part=>part.type==='text'?{...part,text:part.text+suffix}:part)};
-        });
-        result=await env.AI.run(MODEL,{
-          messages:corrected,chat_template_kwargs:{enable_thinking:false},
-          response_format:{type:'json_object'},max_completion_tokens:4000,temperature:0
-        });
-        ({data}=parseFoodResponse(result));
-        recovered=true;
-      }
-      // Photo text is a two-stage AI task. The vision model first reads the
-      // writing; then a TEXT model reads that exact OCR output and uses its
-      // stated weights and per-100g label values. No JS extraction of grams,
-      // OCR or portion inference is performed here.
-      let ocr_text_retry={retried:false,used:false};
-      if(photo && photo.size && data.input_mode==='photo_text' && data.recognized_text?.trim()){
-        try{
-          const ocrText=data.recognized_text.slice(0,1000);
-          const correction='Это задача извлечения ТОЧНЫХ чисел с текстовой фотографии, а не угадывания продуктов. Отвечай только одним JSON по схеме в инструкции. Если в тексте написано «Творог, 150 г» — weight_g ОБЯЗАТЕЛЬНО 150, не 200. Если на этикетке указано «КБЖУ на 100 г: 120 ккал; Б 17 г; Ж 5 г; У 2 г» — per100 ОБЯЗАТЕЛЬНО {"k":120,"p":17,"f":5,"c":2}; не заменяй этикетку приблизительными знаниями. Для любых продуктов точно сохраняй написанные граммы и значения на 100 г. Ничего не выдумывай, не применяй стандартных порций там, где есть явное число. input_mode:"photo_text"; recognized_text: перепиши оригинал. Вот ПОЛНЫЙ ТЕКСТ, распознанный с фотографии: '+JSON.stringify(ocrText);
-          const refined=await env.AI.run(MODEL,{messages:[{role:'user',content:PROMPT+'\n'+correction}],chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},max_completion_tokens:2800,temperature:0});
-          const improved=parseFoodResponse(refined).data;
-          if(improved.dishes.length){
-            improved.input_mode='photo_text';improved.recognized_text=ocrText;
-            improved.consumed_description=improved.consumed_description||data.consumed_description;
-            data=improved;ocr_text_retry={retried:true,used:true};
-          }
-        }catch(e){ocr_text_retry={retried:true,used:false,error:String(e?.message||e)};}
-      }
-      // Do not accept a syntactically valid but incomplete model answer.
-      // OCR text often includes commas between a food name and its weight or separate label rows.
-      // It is not a list of independently eaten dishes; never apply the ordinary
-      // comma-separated meal coverage repair to photographed printed text.
-      const sourceForCoverage=(photo && photo.size)?'':text;
-      const coverage=sourceForCoverage?await recoverMissingDishes(data,sourceForCoverage,env):{checked:false,fragments:[],initial_missing:[],restored:[],final_missing:[],attempts:0};
-      if(coverage.final_missing.length){
-        return asJson({ok:false,stage:'coverage',message:'ИИ распознал не все перечисленные продукты. Данные не сохранены; повторите расчёт.',coverage},422);
-      }
-      const portion_retry=await retryMissingMasses(data,sourceForCoverage||text,env);
-      const nutrition_retry=await retryMissingAINutrition(data,sourceForCoverage||text,env,messages);
-      const missingNutrition=missingAINutrition(data);
-      if(missingNutrition.length) return asJson({ok:false,stage:'nutrition',message:'ИИ не указал вес и КБЖУ на 100 г для всех продуктов. Сохранён исходный ввод; повторите расчёт.',missing:missingNutrition,nutrition_retry},422);
-      return asJson({ok:true,model:MODEL,food:data,coverage,portion_retry,nutrition_retry,
-        json_recovery:{retried:recovered,first_error:recovered?firstError:null},ocr_text_retry,usage:{
-        neurons:result?.usage?.neurons ?? null,
-        input_tokens:result?.usage?.prompt_tokens ?? null,
-        output_tokens:result?.usage?.completion_tokens ?? null
-      }});
-    } catch(error) {
-      return asJson({ok:false,stage:'inference',message:String(error?.message||error)},502);
-    }
-  }
+ async fetch(request,env){
+  const url=new URL(request.url);
+  if(url.pathname==='/'&&request.method==='GET')return new Response(page,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'}});
+  if(url.pathname==='/health'&&request.method==='GET')return asJson({ok:true,ai_binding:!!env.AI,model:MODEL,version:'2.3',architecture:'AI-tools-first-no-blocking-audits'});
+  if(url.pathname!=='/analyze'||request.method!=='POST')return asJson({error:'Not found'},404);
+  if(!env.AI)return asJson({error:'Не добавлен Workers AI binding AI'},503);
+  const type=request.headers.get('content-type')||'';
+  if(!type.toLowerCase().includes('multipart/form-data'))return asJson({error:'Нужен multipart/form-data'},415);
+  if(Number(request.headers.get('content-length')||0)>3_000_000)return asJson({error:'Слишком большой запрос'},413);
+  try {
+   const form=await request.formData(),text=String(form.get('text')||'').trim().slice(0,700),photo=form.get('photo');
+   const messages=[{role:'system',content:PROMPT}];
+   if(photo && typeof photo==='object'&&photo.size){
+    if(photo.size>2_000_000)return asJson({error:'Фото больше 2 МБ'},413);
+    const mime=String(photo.type||'').toLowerCase();
+    if(!['image/jpeg','image/png','image/webp'].includes(mime))return asJson({error:'Нужен JPEG, PNG или WebP'},415);
+    const bytes=new Uint8Array(await photo.arrayBuffer());
+    messages.push({role:'user',content:[{type:'text',text:'Распознай продукты и КБЖУ. Если это фотография с текстом, сначала прочти надпись и затем обработай её как пищевой запрос.'+(text?' Пояснение пользователя: '+text:'')},{type:'image_url',image_url:{url:`data:${mime};base64,${toBase64(bytes)}`}}]});
+   }else{
+    if(!text)return asJson({error:'Добавьте фото или текст'},400);
+    messages.push({role:'user',content:'Обработай весь запрос целиком, включая отдельно перечисленные продукты. Не пропускай известные позиции. Текст пользователя: '+text});
+   }
+   const {result,tool_trace}=await runFoodAI(messages,env);
+   let data,recovered=false;
+   try{({data}=parseFoodResponse(result));}
+   catch(e){
+    // Only malformed JSON merits one retry. A partial list is a valid result.
+    const cleaned=messages.filter(m=>m.role!=='tool');
+    cleaned.push({role:'user',content:'Повтори только финальный результат: верни один JSON-объект с максимально полным списком. Приблизительные значения разрешены. Не останавливайся из-за одного неизвестного продукта. Ошибка формата: '+String(e?.message||e).slice(0,160)});
+    const retry=await env.AI.run(MODEL,{messages:cleaned,chat_template_kwargs:{enable_thinking:false},response_format:{type:'json_object'},max_completion_tokens:5500,temperature:0.1});
+    ({data}=parseFoodResponse(retry));recovered=true;
+   }
+   // A missing item or per100 number is NOT an HTTP error. Return the useful results.
+   return asJson({ok:true,model:MODEL,food:data,status:data.status,tool_trace,json_recovery:{retried:recovered},usage:{neurons:result?.usage?.neurons??null,input_tokens:result?.usage?.prompt_tokens??null,output_tokens:result?.usage?.completion_tokens??null}});
+  }catch(e){return asJson({ok:false,stage:'inference',message:String(e?.message||e)},502);}
+ }
 };
-
-
 
 // v1.4 — nutrition lookup. OFF is primarily for packaged foods;
 // USDA FoodData Central complements it for generic ingredients and prepared dishes.

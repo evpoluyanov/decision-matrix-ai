@@ -165,11 +165,12 @@ function refreshFavoriteStars(){for(const d of dishes){const b=document.querySel
  $('tabFaves').classList.toggle('favoriteActive',dishes.some(d=>!!favoriteFor(d)))}
 function setStatus(txt=''){$('operationStatus').textContent=txt}
 function hasMissingNutrition(i){return MACRO_KEYS.some(k=>i[k]===null || i[k]===undefined)}
-function canSaveDish(d){return !!d.name.trim() && (d.items.length?d.items.every(i=>Number(i.grams)>0&&Number.isFinite(+i.grams)&&!hasMissingNutrition(i)):Number(d.manual?.grams)>0)}
+function canSaveDish(d){return !!d.name.trim() && (d.items.length?d.items.every(i=>Number(i.grams)>0&&Number.isFinite(+i.grams)&&!hasMissingNutrition(i)):Number(d.manual?.grams)>0&&MACRO_KEYS.every(k=>d.manual?.[k]!==null&&d.manual?.[k]!==undefined&&Number.isFinite(Number(d.manual[k]))))}
 function updateDishSummary(d){const elTotal=document.querySelector(`[data-dish-total="${d.id}"]`);if(!elTotal)return;const t=totalsFor(d);
- elTotal.textContent=`Итого · Вес: ${one(t.grams)} г · К: ${num(t.k)} · Б: ${one(t.p)} · Ж: ${one(t.f)} · У: ${one(t.c)}`;
+ const display=(k)=>!d.items.length&&d.manual?.[k]==null?'—':k==='k'?num(t[k]):one(t[k]);
+  elTotal.textContent=`Итого · Вес: ${one(t.grams)} г · К: ${display('k')} · Б: ${display('p')} · Ж: ${display('f')} · У: ${display('c')}`;
  const summary=document.querySelector(`[data-dish-warning="${d.id}"]`);
- if(summary){const noWeight=d.items.some(i=>!(Number(i.grams)>0));const unknown=d.items.some(hasMissingNutrition);
+ if(summary){const noWeight=d.items.length?d.items.some(i=>!(Number(i.grams)>0)):!(Number(d.manual?.grams)>0);const unknown=d.items.length?d.items.some(hasMissingNutrition):MACRO_KEYS.some(k=>d.manual?.[k]==null);
   summary.textContent=noWeight?'Заполните вес каждого ингредиента.':unknown?'Часть КБЖУ не определена — итог может быть неполным. Проверьте красные поля.':'';
  }
  const btnSave=document.querySelector(`[data-dish-save="${d.id}"]`);if(btnSave)btnSave.disabled=!canSaveDish(d);
@@ -200,7 +201,7 @@ function editWholeDish(d){
  line.append(weight.wrap);for(const k of MACRO_KEYS){const field=nutritionField(macroLabels[k],d.manual.grams>0?d.manual[k]:null,5);fields[k]=field.input;
   field.input.addEventListener('input',()=>{const val=field.input.value===''?0:Number(field.input.value.replace(',','.'));if(!Number.isFinite(val)||val<0)return;d.manual[k]=val;if(d.manual.grams>0&&d.per100)d.per100[k]=val*100/d.manual.grams;updateDishSummary(d);refreshFavoriteStars()});group.append(field.wrap)}
  weight.input.addEventListener('input',()=>{const w=weight.input.value===''?0:Number(weight.input.value.replace(',','.'));if(!Number.isFinite(w)||w<0||w>10000)return;
-  const old=d.manual.grams;const scale=old>0?w/old:0;for(const k of MACRO_KEYS){d.manual[k]=d.per100&&Number.isFinite(d.per100[k])?d.per100[k]*w/100:(old>0?d.manual[k]*scale:0);fields[k].value=w>0?toDisplay(d.manual[k]):''}d.manual.grams=w;updateDishSummary(d);refreshFavoriteStars();});
+  const old=d.manual.grams;const scale=old>0?w/old:0;for(const k of MACRO_KEYS){d.manual[k]=d.per100&&d.per100[k]!=null&&Number.isFinite(Number(d.per100[k]))?d.per100[k]*w/100:(old>0&&d.manual[k]!=null?d.manual[k]*scale:null);fields[k].value=w>0&&d.manual[k]!=null?toDisplay(d.manual[k]):''}d.manual.grams=w;updateDishSummary(d);refreshFavoriteStars();});
  line.append(group);panel.append(line);return panel;
 }
 function getDraft(d){if(!draftsByDish.has(d.id))draftsByDish.set(d.id,{name:'',grams:100,per100:{k:null,p:null,f:null,c:null},options:[],status:'',busy:false,ready:false,source:''});return draftsByDish.get(d.id)}
@@ -659,121 +660,57 @@ function detailItemsForPlan(plan,found,source){
 // New AI-first architecture: the model supplies ALL portion weights and per-100g
 // macros. Local code only multiplies per100 * weight/100; directories are for
 // an independent comparison AFTER the result has been rendered.
-function validAIMacros(per100){
- return !!per100 && MACRO_KEYS.every(k=>
-  per100[k]!==undefined&&per100[k]!==null&&Number.isFinite(Number(per100[k]))&&Number(per100[k])>=0);
-}
-function aiMacroRecord(per100){return Object.fromEntries(MACRO_KEYS.map(k=>[k,Number(per100[k])]))}
+function validAIMacros(per100){return !!per100&&MACRO_KEYS.every(k=>per100[k]!==null&&per100[k]!==undefined&&Number.isFinite(Number(per100[k]))&&Number(per100[k])>=0)}
+function aiMacroRecord(per100){return Object.fromEntries(MACRO_KEYS.map(k=>[k,per100?.[k]!==null&&per100?.[k]!==undefined&&Number.isFinite(Number(per100[k]))?Number(per100[k]):null]))}
 function aiComponentDeduplicate(group){
- const seen=new Map(),output=[];
- for(const raw of [...(group.items||[]),...(group.additions||[])]){
-  const name=String(raw?.name||'').trim(), key=itemKey(name);
-  if(!name||!key)continue;
-  const previous=seen.get(key);
-  if(previous){
-   // Duplicated same component across items/additions represents one portion;
-   // prefer the model record with more complete macros and/or weight.
-   const value=(x)=>Number(x?.weight_g>0)+Number(validAIMacros(x?.per100));
-   if(value(raw)>value(previous)){output[output.indexOf(previous)]=raw;seen.set(key,raw)}
-   continue;
-  }
-  seen.set(key,raw);output.push(raw);
+ const seen=new Set(),output=[];
+ for(const c of [...(group.items||[]),...(group.additions||[])]){
+  const key=itemKey(c?.name||'');if(!key||seen.has(key))continue;
+  seen.add(key);output.push(c);
  }
  return output;
 }
 function aiDishFromResponse(group,source){
  const name=capital(group.name||group.main||'Блюдо');
- const mode=group.mode==='ingredients'?'ingredients':'whole';
- if(mode==='whole'){
-  if(!validAIMacros(group.per100))throw Error('ИИ не вернул КБЖУ на 100 г для '+name);
-  const grams=Number(group.weight_g??group.main_weight_g);
-  if(!(grams>0))throw Error('ИИ не определил массу блюда '+name);
+ if(group.mode!=='ingredients'){
+  const weight=Number(group.weight_g??group.main_weight_g);
+  const grams=Number.isFinite(weight)&&weight>0?weight:0;
   const p100=aiMacroRecord(group.per100);
-  // A whole dish has one single model-per100 estimate; additions are INCLUDED,
-  // never appended to the manual record and counted a second time.
-  const dish=newDish(name,[],[],{grams,...Object.fromEntries(MACRO_KEYS.map(k=>[k,grams*p100[k]/100]))});
-  dish.per100={...p100};dish.nutritionSource='ИИ · оценка блюда на 100 г';
-  dish.aiMode='whole';dish.aiWeightEstimated=group.weight_estimated!==false;
-  dish.aiSourceType=source;
-  devRecord('ИИ: блюдо целиком',{name,source,mode,weight_g:grams,per100:p100,
-   portion_kbju:Object.fromEntries(MACRO_KEYS.map(k=>[k,Math.round((grams*p100[k]/100)*100)/100]))});
-  return dish;
+  const values=Object.fromEntries(MACRO_KEYS.map(k=>[k,grams>0&&p100[k]!==null?grams*p100[k]/100:null]));
+  const d=newDish(name,[],[],{grams,...values});
+  d.per100=p100;d.aiMode='whole';d.aiSourceType=source;
+  d.aiWeightEstimated=group.weight_estimated!==false;
+  d.nutritionSource=group.source?.name||'Оценка ИИ';
+  const missing=MACRO_KEYS.filter(k=>p100[k]===null);
+  d.uncertain=[...(group.warnings||[]),...(missing.length?['Часть КБЖУ приблизительна или не определена — можно уточнить вручную.']:[]),...(grams?[]:['Масса не определена — укажите вес вручную.'])];
+  devRecord('ИИ: готовое блюдо',{name,weight_g:grams,per100:p100,source:d.nutritionSource});
+  return d;
  }
  const components=aiComponentDeduplicate(group);
- if(!components.length)throw Error('ИИ не вернул состав блюда '+name);
  const items=components.map(c=>{
-  if(!validAIMacros(c.per100))throw Error('ИИ не вернул КБЖУ на 100 г для '+c.name);
-  if(!(Number(c.weight_g)>0))throw Error('ИИ не определил массу ингредиента '+c.name);
-  return makeKnownItem(c.name,c.portion,{...aiMacroRecord(c.per100),source:'ИИ · оценка на 100 г'},source,c);
+  const mass=Number(c.weight_g);
+  const safe=Number.isFinite(mass)&&mass>0?mass:0;
+  const p=aiMacroRecord(c.per100);
+  const base=safeWeight(c.name,c.portion||'порция',source,c);
+  return {name:capital(c.name||'Ингредиент'),...base,grams:safe,...p,source:c.source?.name||'Оценка ИИ'};
  });
- const dish=newDish(name,items);dish.aiMode='ingredients';dish.aiSourceType=source;
- const modelWeight=Number(group.weight_g);
- const calculatedWeight=items.reduce((s,x)=>s+Number(x.grams),0);
- if(modelWeight>0 && Math.abs(modelWeight-calculatedWeight)>.5){
-   devRecord('ИИ: различие суммарного веса',{name,model_weight_g:modelWeight,components_weight_g:calculatedWeight,
-    resolution:'Для суммарного веса и КБЖУ используем сумму весов каждого компонента, указанных ИИ'});
- }
- devRecord('ИИ: состав блюда',{name,source,mode,weight_g:calculatedWeight,
-   components:items.map(x=>({name:x.name,weight_g:x.grams,per100:Object.fromEntries(MACRO_KEYS.map(k=>[k,x[k]]))}))});
- return dish;
-}
-function ratioDifference(ai,reference,k){
- const a=Number(ai),b=Number(reference);
- if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<0)return null;
- if(a===0&&b===0)return null;
- if(a===0||b===0){
-  // A zero/reference-positive pair cannot be measured by a ratio.
-  // Report explicitly rather than claiming an invented multiplier.
-  if(Math.max(a,b)<(k==='k'?1:0.5))return null;
-  return {factor:null,zero_conflict:true};
- }
- const factor=Math.max(a/b,b/a);
- return factor>1.5?{factor:Math.round(factor*100)/100,zero_conflict:false}:null;
-}
-async function auditAIPer100(response,source,stillCurrent){
- const dishes=response?.food?.dishes||[];
- const units=[];
- for(const d of dishes){
-  if(d.mode==='whole')units.push({name:d.name,level:'готовое блюдо',ai:d.per100});
-  else for(const x of aiComponentDeduplicate(d))units.push({name:x.name,level:'ингредиент',ai:x.per100});
- }
- const queries=[...new Set(units.map(x=>x.name))].slice(0,12);
- if(!queries.length)return;
- try{
-  const lookup=await batchNutritionQueries(queries);
-  if(!stillCurrent())return;
-  const mismatches=[],checks=[],missing=[];
-  for(const unit of units){
-   // ONLY reference check. No assignment to dish/manual/item macros here.
-   const candidate=nutritionFor(unit.name,lookup,unit.level==='готовое блюдо');
-   if(!candidate||!validAIMacros(candidate.per100||candidate)){
-    missing.push({food:unit.name,level:unit.level,reason:'Нет сопоставимого результата справочника'});continue;
-   }
-   const reference=candidate.per100||candidate;
-   const diffs=[];
-   for(const k of MACRO_KEYS){
-    const delta=ratioDifference(unit.ai?.[k],reference[k],k);
-    if(delta)diffs.push({field:macroNames[k],ai_per100:unit.ai[k],reference_per100:reference[k],...delta});
-   }
-   const record={food:unit.name,level:unit.level,ai_per100:unit.ai,
-    reference_per100:aiMacroRecord(reference),source:candidate.source||'Открытый справочник',
-    reference_name:candidate.name||'',reference_approximate:!!candidate.approximate,differences:diffs};
-   checks.push(record);
-   if(diffs.length)mismatches.push(record);
-  }
-  devRecord('Проверка КБЖУ по справочникам (только диагностика)',{
-   source,threshold:'строго больше 1,5 раза по каждому показателю, на 100 г',checked:checks.length,
-   differences:mismatches,unverified:missing,
-   notice:'Значения ИИ не изменялись. Для нуля и положительного значения отношение не определяется — конфликт указан отдельно.'});
- }catch(e){if(stillCurrent())devRecord('Не удалось проверить КБЖУ по справочникам',{
-  source,error:String(e?.message||e),note:'Значения ИИ оставлены без изменений'});}
+ const d=newDish(name,items);
+ d.aiMode='ingredients';d.aiSourceType=source;
+ d.uncertain=Array.isArray(group.warnings)?group.warnings:[];
+ devRecord('ИИ: состав блюда',{name,components:items.map(c=>({name:c.name,weight_g:c.grams,per100:aiMacroRecord(c)}))});
+ return d;
 }
 async function resolveCloudDishes(response,source='text'){
  const groups=response?.food?.dishes;
  if(!Array.isArray(groups)||!groups.length)throw Error('ИИ не выделил блюда');
- if(response?.food?.input_mode==='photo_text')devRecord('Фото: распознанный текст',{text:response.food.recognized_text});
- const output=groups.slice(0,8).map(g=>aiDishFromResponse(g,source));
- if(!output.length)throw Error('Нет пригодных данных распознавания');
+ if(response.food.input_mode==='photo_text')devRecord('Фото: распознанный текст',{text:response.food.recognized_text});
+ const output=[];
+ for(const g of groups.slice(0,16)){
+  try{output.push(aiDishFromResponse(g,source))}
+  catch(e){devRecord('ИИ: неполная позиция',{name:g?.name||'',reason:String(e?.message||e)});}
+ }
+ if(!output.length)throw Error('Нет распознанных позиций');
+ if(response.food.status==='partial'||response.food.warnings?.length)devRecord('ИИ: частичный результат',{warnings:response.food.warnings});
  return output;
 }
 
@@ -796,13 +733,13 @@ async function recognizePhoto(){
  showPhotoProgress('Анализ фотографии…');$('photoDebug').hidden=true;
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),65000);
  try{
-  const response=await requestCloudFood({file:photoFile,signal:controller.signal});if(run!==activePhotoRun)return;devRecord('Фото: нейросеть',{food:response.food,usage:response.usage,portion_retry:response.portion_retry,nutrition_retry:response.nutrition_retry,json_recovery:response.json_recovery});
+  const response=await requestCloudFood({file:photoFile,signal:controller.signal});if(run!==activePhotoRun)return;devRecord('Фото: нейросеть',{food:response.food,tools:response.tool_trace,usage:response.usage,json_recovery:response.json_recovery});
   showPhotoProgress('Расчёт КБЖУ по ответу ИИ…');
   const result=await resolveCloudDishes(response,'photo');if(!result.length)throw Error('Не удалось определить блюда');
   // Do not show intermediate empty ingredients while nutrition calls are still running.
   if(run!==activePhotoRun)return;
-  dishes=result;pendingSource='photo';renderDishes();status.textContent='Распознавание завершено';
-  void auditAIPer100(response,'photo',()=>run===activePhotoRun);
+  dishes=result;pendingSource='photo';renderDishes();status.textContent=response.food?.status==='partial'?'Показаны распознанные продукты; недостающие можно добавить вручную.':'Распознавание завершено';
+  // AI output displayed directly. No background directory comparisons.
   if(response.food?.uncertain?.length)$('photoCandidates').textContent='Уточните: '+response.food.uncertain.join('; ');
   else $('photoCandidates').replaceChildren();
   scrollToDish();
@@ -819,15 +756,15 @@ $('parseBtn').addEventListener('click',async()=>{
  try{
   const response=await requestCloudFood({text,signal:controller.signal});
   if(run!==activeTextRun)return;
-  devRecord('Текст: нейросеть',{input:text,food:response.food,coverage:response.coverage,usage:response.usage,nutrition_retry:response.nutrition_retry});
+  devRecord('Текст: нейросеть',{input:text,food:response.food,tools:response.tool_trace,usage:response.usage,warnings:response.food?.warnings});
   $('textAIStatus').textContent='Расчёт порций по данным ИИ…';
   const found=await resolveCloudDishes(response,'text');
   if(!found.length)throw Error('ИИ не выделил блюда');
   if(run!==activeTextRun)return;
-  $('textAIStatus').textContent='Распознавание — подбор КБЖУ…';
+  $('textAIStatus').textContent='Результаты готовы…';
   if(run!==activeTextRun)return;
-  dishes=found;pendingSource='text';renderDishes();$('textAIStatus').textContent='';scrollToDish();
-  void auditAIPer100(response,'text',()=>run===activeTextRun);
+  dishes=found;pendingSource='text';renderDishes();$('textAIStatus').textContent=response.food?.status==='partial'?'Показаны распознанные продукты. Остальные можно добавить вручную.':'';scrollToDish();
+  // AI output displayed directly. No background directory comparisons.
  }catch(e){if(run!==activeTextRun)return;
   $('textDebug').hidden=false;$('textDebugLog').textContent=String(e.message||e);
   devRecord('Ошибка разбора текста',{input:text,error:String(e.message||e)});
@@ -839,7 +776,7 @@ $('parseBtn').addEventListener('click',async()=>{
    // No guessed dishes when AI is unavailable: the offline text splitter
    // cannot infer portion weights and may corrupt product names ("г печени").
    // Preserve the original input for an immediate retry instead.
-   $('textAIStatus').textContent=networkFailed?'Не удалось соединиться с ИИ. Текст сохранён — проверьте сеть и повторите расчёт.':'Не удалось полностью распознать продукты. Текст сохранён — повторите расчёт.';
+   $('textAIStatus').textContent=networkFailed?'Не удалось соединиться с ИИ. Текст сохранён — проверьте сеть и повторите расчёт.':'Ответ ИИ недоступен. Текст сохранён — повторите расчёт.';
    dishes=[];pendingSource=null;renderDishes();
   }
  }finally{clearTimeout(timeout);if(run===activeTextRun){btn.disabled=false;$('parseBtnLabel').hidden=false;$('parseSpinner').hidden=true;$('textProgressWrap').hidden=true}}

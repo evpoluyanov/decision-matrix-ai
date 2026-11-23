@@ -1,47 +1,36 @@
 import assert from 'node:assert/strict';
 import worker from '../worker/worker.js';
 const endpoint='https://food-ai-inference.evpoluyanov.workers.dev/analyze';
+const whole=(name,grams,per100)=>({name,mode:'whole',weight_g:grams,per100,items:[]});
 const per=(k,p,f,c)=>({k,p,f,c});
-const whole=(name,weight,macros)=>({name,kind:'prepared',mode:'whole',weight_g:weight,main:name,main_portion:'одна порция',main_weight_g:weight,weight_estimated:true,per100:macros,items:[],additions:[]});
-const component=(name,weight,macros)=>({name,portion:'примерная порция',weight_g:weight,per100:macros,weight_estimated:true,weight_basis:'ИИ'});
-const recipe={name:'Блины с творожным сыром и семгой',kind:'recipe',mode:'ingredients',weight_g:150,main:'Блины',main_portion:'2 штуки',main_weight_g:100,items:[component('Блины',100,per(215,6,9,26))],additions:[component('Творожный сыр',20,per(240,6,22,4)),component('Слабосоленая семга',30,per(205,20,13,0))]};
-function modelResponse(food){return {choices:[{message:{content:JSON.stringify(food)}}],usage:{neurons:1,prompt_tokens:100,completion_tokens:300}}}
-async function invoke(food,{text='Суп 200 г',photo=false}={}){
- let count=0, prompts=[];
- const AI={run:async(_model,args)=>{count++;prompts.push(JSON.stringify(args.messages||[]));return modelResponse(food)}};
- const f=new FormData();if(text)f.set('text',text);if(photo)f.set('photo',new File([Uint8Array.from([255,216,255,217])],'photo.jpg',{type:'image/jpeg'}));
- const r=await worker.fetch(new Request(endpoint,{method:'POST',body:f}),{AI});
- return {status:r.status,data:await r.json(),count,prompts};
-}
-let x=await invoke({input_mode:'text',dishes:[whole('Суп',200,per(80,4,3,11))],uncertain:[]});
-assert.equal(x.status,200,JSON.stringify(x.data));
-assert.equal(x.data.food.dishes[0].per100.k,80);
-assert.equal(x.data.food.dishes[0].weight_g,200);
-assert.equal(x.data.food.dishes[0].mode,'whole');
-assert.equal(x.count,1);
-console.log('PASS: AI supplies weight and 100g macros for complete dish');
-x=await invoke({input_mode:'text',dishes:[recipe],uncertain:[]},{text:'2 блина, каждый с начинкой из чайной ложки творожного сыра и кусочком слабосоленой семги'});
-assert.equal(x.status,200,JSON.stringify(x.data));
-assert.equal(x.data.food.dishes.length,1);
-assert.equal(x.data.food.dishes[0].mode,'ingredients');
-assert.equal(x.data.food.dishes[0].additions.length,2);
-assert.equal(x.data.food.dishes[0].additions[0].per100.f,22);
-assert.equal(x.count,1);
-console.log('PASS: composed food with separate per-100g ingredient records');
-const foods=[whole('Яйца',100,per(143,12.6,9.5,.7)),whole('Печень трески',20,per(400,9,39,2)),whole('Соус тартар',10,per(299,1.3,24.6,17.9))];
-x=await invoke({input_mode:'text',dishes:foods,uncertain:[]},{text:'2 яйца, 20 г печени трески и соус тартар 10г'});
-assert.equal(x.status,200,JSON.stringify(x.data));assert.equal(x.data.food.dishes.length,3);
-assert.equal(x.data.food.dishes[1].weight_g,20);
-console.log('PASS: independent foods retain model weights and per100 macros');
-x=await invoke({input_mode:'photo_text',recognized_text:'Йогурт натуральный, 125 г',consumed_description:'Йогурт натуральный, 125 г',dishes:[whole('Йогурт натуральный',125,per(65,4,3,5))],uncertain:[]},{text:'',photo:true});
-assert.equal(x.status,200,JSON.stringify(x.data));
-assert.equal(x.data.food.input_mode,'photo_text');assert.match(x.data.food.recognized_text,/Йогурт/);
-assert.equal(x.data.food.dishes[0].per100.k,65);
-assert.equal(x.data.coverage.checked,false,'OCR labels must not be split into dishes at the comma before grams');
-assert.match(x.prompts[0],/ФОТО/);
-assert.equal(x.count,2);
-assert.match(x.prompts[1],/ТЕКСТ/);
-console.log('PASS: photographed text gets a second AI-only exact-label pass');
-x=await invoke({input_mode:'photo_food',recognized_text:null,dishes:[whole('Яблоко',150,per(52,.3,.2,14))],uncertain:[]},{text:'',photo:true});
-assert.equal(x.status,200,JSON.stringify(x.data));assert.equal(x.data.food.input_mode,'photo_food');
-console.log('PASS: food photograph uses the same per100 contract');
+const wrap=(body)=>({choices:[{message:{content:JSON.stringify(body)}}],usage:{neurons:1}});
+const complex='Блинчики с творогом (2шт), 20 г сметаны, 4 гренки, 100 г мортаделлы, 30 г сыра, 15 г масла 85% жирности, 10г меда, 20 г грецких орехов';
+async function call(AI,text=complex){const form=new FormData();form.set('text',text);const r=await worker.fetch(new Request(endpoint,{method:'POST',body:form}),{AI});return {status:r.status,body:await r.json()};}
+const partial={status:'partial',input_mode:'text',dishes:[whole('Блинчики с творогом',140,per(215,8,10,25)),whole('Сметана',20,per(205,3,20,3)),whole('Мёд',10,{k:320,p:null,f:0,c:80})],warnings:['Не удалось оценить орехи']};
+let times=0;
+let r=await call({run:async()=>{times++;return wrap(partial)}});
+assert.equal(r.status,200,JSON.stringify(r.body));
+assert.equal(r.body.ok,true);assert.equal(r.body.food.dishes.length,3);assert.equal(r.body.status,'partial');
+assert.equal(r.body.food.dishes[2].per100.p,null);assert.equal(times,1);
+console.log('PASS: partial list and missing per100 accepted, not HTTP 422, no recheck');
+let toolArgs=[];
+const toolAI={run:async(_model,options)=>{
+ toolArgs.push(options);
+ if(toolArgs.length===1)return {tool_calls:[{name:'search_official_menu',arguments:{queries:['Чизбургер']}}]};
+ return wrap({status:'complete',input_mode:'text',dishes:[whole('Чизбургер',109,per(270,13,10,30))]});
+ }};
+r=await call(toolAI,'В маке чизбургер');
+assert.equal(r.status,200,JSON.stringify(r.body));
+assert.equal(r.body.food.dishes[0].name,'Чизбургер');
+assert.equal(r.body.tool_trace[0].name,'search_official_menu');
+assert.equal(toolArgs.length,2);
+assert.ok(toolArgs[1].messages.find(m=>m.role==='tool'&&m.name==='search_official_menu'));
+console.log('PASS: AI calls actual official menu lookup and uses resulting tool context');
+// Valid ingredient recipe must be shown even with one missing component's nutrition.
+const recipe={status:'partial',input_mode:'text',dishes:[{name:'Блины с рыбой',mode:'ingredients',weight_g:150,items:[{name:'Блины',weight_g:100,per100:per(210,7,8,26)},{name:'Сёмга',weight_g:50,per100:{k:null,p:null,f:null,c:null}}]}]};
+r=await call({run:async()=>wrap(recipe)},'Блины с сёмгой');assert.equal(r.status,200);
+assert.equal(r.body.food.dishes[0].items.length,2);
+console.log('PASS: partial ingredient data retained');
+// One-step multimodal model analysis passes photo as image; model owns OCR and mode selection.
+const AI={run:async(_model,opts)=>{assert.ok(Array.isArray(opts.messages.find(x=>x.role==='user').content));return wrap({status:'complete',input_mode:'photo_text',recognized_text:'Творог 150 г',dishes:[whole('Творог',150,per(120,17,5,2))]})}};
+const form=new FormData();form.set('photo',new File([Uint8Array.from([255,216,255,217])],'test.jpg',{type:'image/jpeg'}));const res=await worker.fetch(new Request(endpoint,{method:'POST',body:form}),{AI});const data=await res.json();assert.equal(res.status,200,JSON.stringify(data));assert.equal(data.food.input_mode,'photo_text');console.log('PASS: photo text processed by model in same logic');
