@@ -1,0 +1,8 @@
+# Deploy to existing Cloudflare Worker. Do not put API keys here.
+name = "food-ai-inference"
+main = "worker.js"
+compatibility_date = "2026-11-23"
+keep_vars = true
+
+[ai]
+binding = "AI"
