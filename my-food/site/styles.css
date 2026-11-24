@@ -211,3 +211,14 @@ input,textarea,select,.section textarea,.dishNameInput,.ingredientNameInput,.add
 html{scroll-padding-bottom:110px;}
 input,textarea{scroll-margin-block:35px 115px;}
 .section textarea,.editField input,.ingredientNameInput,.dishNameInput,.addIngredientName{font-size:16px!important;}
+
+/* v0.10.2: annotated photos, batch save, bottom clear action */
+.photoControls{margin-top:10px}
+.photoControls label{margin-top:10px}
+.photoControls textarea{min-height:64px;resize:vertical}
+#recognizePhotoBtn{display:block;width:100%;margin-top:9px}
+#recognizePhotoBtn:disabled{opacity:.62}
+.batchActions{border-top:1px solid #e0eede;padding-top:16px;margin-top:17px;display:flex;flex-direction:column;align-items:stretch;gap:5px}
+.saveAllButton{min-height:53px;border:1px solid #285976;border-radius:13px;background:#285976;color:white;font-size:17px;font-weight:800;box-shadow:0 3px 8px #28597623}
+.saveAllButton:disabled{opacity:.42;box-shadow:none}
+.clearAllLink{border:0;background:transparent;align-self:center;color:#657a69;text-decoration:underline;text-underline-offset:4px;padding:12px 20px;font-size:13px;font-weight:600}

@@ -87,6 +87,7 @@ const one=n=>(Math.round((Number(n)||0)*10)/10).toLocaleString('ru-RU');
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 let db, photoUrl=null, photoFile=null, dishes=[], favoritesCache=[], activePhotoRun=0, activeTextRun=0;
 let pendingSource=null; // text/photo: keep original input until ALL recognised dishes are saved or cleared
+let savingAll=false;
 let selectedDay=today(), calendarBase=new Date(), addDrafts=new Map();
 const NORMS={k:2100,p:160,f:70,c:200};
 const known=FOOD.flatMap(f=>f.aliases.map(a=>({a:clean(a),f}))).sort((a,b)=>b.a.length-a.a.length);
@@ -152,6 +153,7 @@ function parseOffline(text){
 function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('my-food-diary-v1',2);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('entries'))db.createObjectStore('entries',{keyPath:'id'});if(!db.objectStoreNames.contains('favorites'))db.createObjectStore('favorites',{keyPath:'id'})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 function all(store){return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
 function put(store,data){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(data);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+function putMany(store,rows){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite'),objects=tx.objectStore(store);for(const row of rows)objects.put(row);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Сохранение прервано'))})}
 function erase(store,key){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
 function summaryLabel(items){return (items||[]).slice(0,3).map(x=>capital(x.name)).join(' + ')||'Блюдо'}
 function favoriteKey(d){return JSON.stringify([itemKey(d.name||''),(d.items||[]).map(x=>[itemKey(x.name),Number(x.grams)||0,...MACRO_KEYS.map(k=>numInput(x[k]))]),d.items?.length?null:totalsFor(d)])}
@@ -166,6 +168,7 @@ function refreshFavoriteStars(){for(const d of dishes){const b=document.querySel
 function setStatus(txt=''){$('operationStatus').textContent=txt}
 function hasMissingNutrition(i){return MACRO_KEYS.some(k=>i[k]===null || i[k]===undefined)}
 function canSaveDish(d){return !!d.name.trim() && (d.items.length?d.items.every(i=>Number(i.grams)>0&&Number.isFinite(+i.grams)&&!hasMissingNutrition(i)):Number(d.manual?.grams)>0&&MACRO_KEYS.every(k=>d.manual?.[k]!==null&&d.manual?.[k]!==undefined&&Number.isFinite(Number(d.manual[k]))))}
+function updateSaveAllButton(){const btn=$('saveAllDishes');if(btn)btn.disabled=savingAll||!dishes.some(canSaveDish)}
 function updateDishSummary(d){const elTotal=document.querySelector(`[data-dish-total="${d.id}"]`);if(!elTotal)return;const t=totalsFor(d);
  const display=(k)=>!d.items.length&&d.manual?.[k]==null?'—':k==='k'?num(t[k]):one(t[k]);
   elTotal.textContent=`Итого · Вес: ${one(t.grams)} г · К: ${display('k')} · Б: ${display('p')} · Ж: ${display('f')} · У: ${display('c')}`;
@@ -173,7 +176,7 @@ function updateDishSummary(d){const elTotal=document.querySelector(`[data-dish-t
  if(summary){const noWeight=d.items.length?d.items.some(i=>!(Number(i.grams)>0)):!(Number(d.manual?.grams)>0);const unknown=d.items.length?d.items.some(hasMissingNutrition):MACRO_KEYS.some(k=>d.manual?.[k]==null);
   summary.textContent=noWeight?'Заполните вес каждого ингредиента.':unknown?'Часть КБЖУ не определена — итог может быть неполным. Проверьте красные поля.':'';
  }
- const btnSave=document.querySelector(`[data-dish-save="${d.id}"]`);if(btnSave)btnSave.disabled=!canSaveDish(d);
+ const btnSave=document.querySelector(`[data-dish-save="${d.id}"]`);if(btnSave)btnSave.disabled=savingAll||!canSaveDish(d);updateSaveAllButton();
 }
 function removeUnknown(d,u){d.unresolved=d.unresolved.filter(x=>x.id!==u.id);renderDishes()}
 function editFieldGroup(item,d){
@@ -261,10 +264,10 @@ function renderDishes(focusDishId=null){const holder=$('dishesList');holder.repl
   const actions=el('div','dishActions'),star=button('☆','iconFavorite',()=>toggleFavorite(d)),save=button('Сохранить','primary',()=>saveDish(d));star.dataset.dishStar=d.id;save.dataset.dishSave=d.id;actions.append(star,save);card.append(actions);holder.append(card);updateDishSummary(d);
   if(focusDishId===d.id){dishName.focus();selectAllEditor(dishName)}
  }
- refreshFavoriteStars();
+ refreshFavoriteStars();updateSaveAllButton();
 }
-function releasePhotoPreview(){activePhotoRun++;if(photoUrl){URL.revokeObjectURL(photoUrl);photoUrl=null;} photoFile=null;const image=$('photoPreview');image.hidden=true;image.removeAttribute('src');$('photoAIStatus').textContent='';$('photoCandidates').replaceChildren();$('photoProgressWrap').hidden=true;}
-async function saveDish(d){if(!canSaveDish(d))return;
+function releasePhotoPreview(){activePhotoRun++;if(photoUrl){URL.revokeObjectURL(photoUrl);photoUrl=null;} photoFile=null;const image=$('photoPreview');image.hidden=true;image.removeAttribute('src');$('photoAIStatus').textContent='';$('photoCandidates').replaceChildren();$('photoProgressWrap').hidden=true;$('photoControls').hidden=true;$('photoComment').value='';$('recognizePhotoBtn').disabled=false;}
+async function saveDish(d){if(savingAll||!canSaveDish(d))return;
  const idx=dishes.findIndex(x=>x.id===d.id);const nextId=dishes[idx+1]?.id||dishes[idx-1]?.id||null;
  try{await put('entries',{id:id(),name:capital(d.name),items:cloneItems(d.items),manual:d.items.length?null:{...d.manual},date:today(),created:new Date().toISOString()});
   dishes=dishes.filter(x=>x.id!==d.id);draftsByDish.delete(d.id);
@@ -273,6 +276,23 @@ async function saveDish(d){if(!canSaveDish(d))return;
   renderDishes();selectedDay=today();await refresh();setStatus('');if(dishes.length)scrollToDish(nextId);}
  catch(e){setStatus('Не удалось сохранить: '+e.message)}
 }
+async function saveAllDishes(){
+ if(savingAll)return;
+ const ready=dishes.filter(canSaveDish);
+ if(!ready.length){setStatus('Заполните недостающий вес или КБЖУ перед сохранением.');return;}
+ savingAll=true;updateSaveAllButton();
+ try{
+  const stamp=new Date().toISOString(),date=today();
+  await putMany('entries',ready.map(d=>({id:id(),name:capital(d.name),items:cloneItems(d.items),manual:d.items.length?null:{...d.manual},date,created:stamp})));
+  const savedIds=new Set(ready.map(d=>d.id));
+  dishes=dishes.filter(d=>!savedIds.has(d.id));for(const d of ready)draftsByDish.delete(d.id);
+  if(!dishes.length){if(pendingSource==='text')$('foodText').value='';if(pendingSource==='photo')releasePhotoPreview();pendingSource=null;}
+  renderDishes();selectedDay=today();await refresh();
+  setStatus(dishes.length?`Сохранено: ${ready.length}. Осталось заполнить: ${dishes.length}.`:'');
+ }catch(e){setStatus('Не удалось сохранить: '+String(e?.message||e));}
+ finally{savingAll=false;updateSaveAllButton();}
+}
+$('saveAllDishes').addEventListener('click',saveAllDishes);
 function renderDateStrip(){const strip=$('dateStrip');strip.replaceChildren();const more=button('···','dateMore',()=>{const wrap=$('calendarWrap');wrap.hidden=!wrap.hidden;calendarBase=dateFromKey(selectedDay);renderCalendar()});strip.append(more);
  for(let ago=6;ago>=0;ago--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-ago);const key=dayKey(d);
   const tag=d.toLocaleDateString('ru-RU',{weekday:'short'}).replace('.','').slice(0,2).replace(/^./,x=>x.toUpperCase());const b=el('button','dateChip'+(key===selectedDay?' chosen':''));b.type='button';b.append(el('small','',tag),el('strong','',String(d.getDate())));b.addEventListener('click',()=>{selectedDay=key;$('calendarWrap').hidden=true;refresh()});strip.append(b)}}
@@ -320,7 +340,9 @@ $('tabPhoto').addEventListener('click',()=>{setTab('Photo');const input=$('photo
 $('photoInput').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;
  if(!file.type.startsWith('image/')){$('photoAIStatus').textContent='Выберите изображение';return}
  $('photoAIStatus').textContent='';const processed=await preparePhotoBlob(file);if(processed.size>2e6){$('photoAIStatus').textContent='Изображение слишком большое';return}
- if(photoUrl)URL.revokeObjectURL(photoUrl);photoFile=processed;photoUrl=URL.createObjectURL(processed);$('photoPreview').src=photoUrl;$('photoPreview').hidden=false;recognizePhoto()});
+ if(photoUrl)URL.revokeObjectURL(photoUrl);photoFile=processed;photoUrl=URL.createObjectURL(processed);$('photoPreview').src=photoUrl;$('photoPreview').hidden=false;$('photoControls').hidden=false;$('recognizePhotoBtn').disabled=false;
+ // After selecting a photo, show its preview and comment input instead of calling AI immediately.
+ if(dishes.length){dishes=[];draftsByDish.clear();pendingSource=null;renderDishes();}});
 async function preparePhotoBlob(file){const src=URL.createObjectURL(file);try{const image=new Image();image.src=src;await image.decode();const ratio=Math.min(1,900/Math.max(image.naturalWidth,image.naturalHeight));
  const c=document.createElement('canvas');c.width=Math.round(image.naturalWidth*ratio);c.height=Math.round(image.naturalHeight*ratio);c.getContext('2d').drawImage(image,0,0,c.width,c.height);const blob=await new Promise(ok=>c.toBlob(ok,'image/jpeg',.75));c.width=0;c.height=0;return blob||file;
  }catch(e){console.warn(e);return file}finally{URL.revokeObjectURL(src)}}
@@ -728,12 +750,14 @@ function showPhotoProgress(phase){
  $('photoProgressText').textContent=phase;
 }
 async function recognizePhoto(){
+ if(!photoFile)return;
+ const comment=$('photoComment').value.trim();$('recognizePhotoBtn').disabled=true;
  const run=++activePhotoRun,bar=$('photoProgressWrap'),status=$('photoAIStatus');
  pendingSource=null;dishes=[];draftsByDish.clear();renderDishes();
  showPhotoProgress('Анализ фотографии…');$('photoDebug').hidden=true;
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),65000);
  try{
-  const response=await requestCloudFood({file:photoFile,signal:controller.signal});if(run!==activePhotoRun)return;devRecord('Фото: нейросеть',{food:response.food,tools:response.tool_trace,usage:response.usage,json_recovery:response.json_recovery});
+  const response=await requestCloudFood({text:comment,file:photoFile,signal:controller.signal});if(run!==activePhotoRun)return;devRecord('Фото: нейросеть',{comment,food:response.food,tools:response.tool_trace,usage:response.usage,json_recovery:response.json_recovery});
   showPhotoProgress('Расчёт КБЖУ по ответу ИИ…');
   const result=await resolveCloudDishes(response,'photo');if(!result.length)throw Error('Не удалось определить блюда');
   // Do not show intermediate empty ingredients while nutrition calls are still running.
@@ -744,8 +768,9 @@ async function recognizePhoto(){
   else $('photoCandidates').replaceChildren();
   scrollToDish();
  }catch(e){if(run!==activePhotoRun)return;status.textContent='Ошибка распознавания';$('photoDebug').hidden=false;$('photoDebugLog').textContent=String(e.message||e)+'\n'+CLOUD_AI_ENDPOINT;
- }finally{clearTimeout(timeout);if(run===activePhotoRun)bar.hidden=true}
+ }finally{clearTimeout(timeout);if(run===activePhotoRun){bar.hidden=true;$('recognizePhotoBtn').disabled=false;}}
 }
+$('recognizePhotoBtn').addEventListener('click',recognizePhoto);
 $('parseBtn').addEventListener('click',async()=>{
  const text=$('foodText').value.trim();if(!text)return;
  const run=++activeTextRun,btn=$('parseBtn');btn.disabled=true;$('parseBtnLabel').hidden=true;$('parseSpinner').hidden=false;
@@ -795,7 +820,7 @@ $('copyDiagnostic').addEventListener('click',async()=>{
  try{await navigator.clipboard.writeText(out);$('technicalCopyStatus').textContent='Скопировано';}
  catch(e){$('technicalCopyStatus').textContent='Не удалось скопировать: '+e.message;}
 });
-// Select the entire value whenever an editable text/number field is tapped.
+// Select all only on entering a DIFFERENT text/number field. A subsequent tap in the same focused field places the caret.
 // iOS Safari does not support setSelectionRange for input[type=number],
 // so numeric macro fields use type=text + inputmode=decimal.
 function selectAllEditor(target){
@@ -807,10 +832,6 @@ function selectAllEditor(target){
  };
  // iOS WebKit may restore the caret *after* pointerup or the synthetic click.
  apply();requestAnimationFrame(()=>{apply();requestAnimationFrame(apply)});setTimeout(apply,50);
-}
-function selectAllOnTap(e){
- const target=e.target instanceof Element?e.target.closest('input:not([type=file]):not([type=hidden]),textarea'):null;
- if(target)selectAllEditor(target);
 }
 // iOS Safari/WebKit: keep the currently edited field inside the *visual*
 // viewport, not only inside the layout viewport behind the software keyboard.
@@ -842,9 +863,6 @@ if(window.visualViewport){
  window.visualViewport.addEventListener('scroll',scheduleEditorVisibility,{passive:true});
 }
 
-document.addEventListener('pointerup',selectAllOnTap,true);
-document.addEventListener('touchend',selectAllOnTap,{capture:true,passive:true});
-document.addEventListener('click',selectAllOnTap,true);
 document.addEventListener('pointerdown',(event)=>{
  const focused=document.activeElement;
  const isTyping=focused&&(focused.tagName==='INPUT'||focused.tagName==='TEXTAREA'||focused.isContentEditable);

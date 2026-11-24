@@ -95,12 +95,18 @@ function normalizePer100(raw){
 }
 function isCompletePer100(per100){return !!per100&&['k','p','f','c'].every(x=>Number.isFinite(per100[x])&&per100[x]>=0)}
 function normalizeFood(obj){
+ const normSource=value=>{
+  if(!value)return null;
+  if(typeof value==='string')return {name:value.slice(0,120),url:null,type:'reference'};
+  if(typeof value!=='object')return null;
+  return {name:String(value.name||'Оценка ИИ').slice(0,120),url:typeof value.url==='string'&&/^https:\/\//i.test(value.url)?value.url.slice(0,600):null,type:String(value.type||'ai_estimate').slice(0,40)};
+ };
  if(!obj || (!Array.isArray(obj.dishes)&&!Array.isArray(obj.items)))throw Error('Модель не вернула dishes[] или items[]');
  const normItems=(items)=>Array.isArray(items)?items.slice(0,20).filter(x=>x&&typeof x.name==='string'&&x.name.trim()).map(x=>({
    name:x.name.slice(0,100).trim(),portion:String(x.portion||'1 порция').slice(0,100),
    weight_g:massNumber(x.weight_g??x.grams),volume_ml:massNumber(x.volume_ml),
    weight_estimated:x.weight_estimated!==false,weight_basis:String(x.weight_basis||'').slice(0,180),
-   per100:normalizePer100(x),
+   per100:normalizePer100(x),source:normSource(x.source),
    confidence:['high','medium','low'].includes(x.confidence)?x.confidence:'medium'
  })) : [];
  let dishes=Array.isArray(obj.dishes)?obj.dishes.slice(0,16).map(x=>{
@@ -113,7 +119,7 @@ function normalizeFood(obj){
    const ownWeight=massNumber(x?.weight_g);
    return {name:String(x?.name||'Блюдо').slice(0,100).trim(),kind,mode,
      weight_g:ownWeight,
-     per100:normalizePer100(x),main,
+     per100:normalizePer100(x),source:normSource(x?.source),main,
      main_portion:String(x?.main_portion||mainItem?.portion||'1 порция').slice(0,100).trim(),
      main_weight_g:(mode==='ingredients' ? mainItem?.weight_g??massNumber(x?.main_weight_g) : ownWeight??massNumber(x?.main_weight_g)??mainItem?.weight_g)??null,
      main_volume_ml:massNumber(x?.main_volume_ml)??mainItem?.volume_ml??null,
@@ -128,7 +134,7 @@ function normalizeFood(obj){
 // AI owns food recognition and estimation. Source lookups are tools, not a second opinion.
 const AI_TOOLS = [
  {type:'function',function:{name:'search_nutrition',description:'Find food nutrition per 100g in public databases. Give several food names in one call, then choose useful values without cross-checking or rejecting model estimates.',parameters:{type:'object',properties:{queries:{type:'array',items:{type:'string'},description:'Food names or ingredients; at most 8'}},required:['queries']}}},
- {type:'function',function:{name:'search_official_menu',description:'For any order from Вкусно — и точка / мак, look up official menu items, sizes and portion nutrition in the available menu snapshot. Mandatory for restaurant orders.',parameters:{type:'object',properties:{queries:{type:'array',items:{type:'string'},description:'Names or phrases for menu products'}},required:['queries']}}},
+ {type:'function',function:{name:'search_official_menu',description:'For orders explicitly from Вкусно — и точка / мак or with recognizable menu items resembling McDonald’s / Вкусно — и точка, look up official items, sizes and portion nutrition in the available menu snapshot before generic estimates.',parameters:{type:'object',properties:{queries:{type:'array',items:{type:'string'},description:'Names or phrases for menu products'}},required:['queries']}}},
  {type:'function',function:{name:'web_search',description:'Search the public web for up-to-date producer or restaurant nutritional data. May be unavailable; continue from own estimated knowledge if unavailable.',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}}}
 ];
 function readToolCall(call){

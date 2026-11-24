@@ -62,6 +62,8 @@ jobs:
           node my-food/tests/test-ai-first.mjs
           node my-food/tests/test-ai-first-app.mjs
           node my-food/tests/test-worker-nutrition.mjs
+      - name: User workflow tests
+        run: node my-food/tests/test-ui-workflow.mjs
       - name: Require Cloudflare credentials
         if: steps.components.outputs.worker == 'true' || steps.components.outputs.pages == 'true'
         env:
@@ -108,5 +110,5 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS --max-time 25 -o /tmp/my-food-index.html https://drop-443886b1-4e5.evpoluyanov.workers.dev/
-          grep -q 'v0.10.1' /tmp/my-food-index.html
-          echo 'PWA v0.10.1 deployed and accessible'
+          grep -q 'v0.10.2' /tmp/my-food-index.html
+          echo 'PWA v0.10.2 deployed and accessible'
