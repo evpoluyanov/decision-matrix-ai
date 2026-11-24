@@ -97,6 +97,7 @@ function findFood(t){let s=clean(t);return known.find(o=>s.includes(o.a))?.f||nu
 // Portion sizes are estimates, not gram measurements inferred directly from pixels.
 const MACRO_KEYS=['k','p','f','c'];
 const CLOUD_AI_ENDPOINT='https://food-ai-inference.evpoluyanov.workers.dev/analyze';
+const AI_REQUEST_TIMEOUT_MS=5*60*1000; // 5 minutes for both photo and text
 const FOOD_SEARCH_API='https://food-ai-inference.evpoluyanov.workers.dev/nutrition-search';
 const FOOD_BATCH_API='https://food-ai-inference.evpoluyanov.workers.dev/nutrition-batch';
 const CHAIN_ORDER_API='https://food-ai-inference.evpoluyanov.workers.dev/order-analyze';
@@ -755,7 +756,7 @@ async function recognizePhoto(){
  const run=++activePhotoRun,bar=$('photoProgressWrap'),status=$('photoAIStatus');
  pendingSource=null;dishes=[];draftsByDish.clear();renderDishes();
  showPhotoProgress('Анализ фотографии…');$('photoDebug').hidden=true;
- const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),65000);
+ const requestStarted=Date.now(),controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),AI_REQUEST_TIMEOUT_MS);
  try{
   const response=await requestCloudFood({text:comment,file:photoFile,signal:controller.signal});if(run!==activePhotoRun)return;devRecord('Фото: нейросеть',{comment,food:response.food,tools:response.tool_trace,usage:response.usage,json_recovery:response.json_recovery});
   showPhotoProgress('Расчёт КБЖУ по ответу ИИ…');
@@ -767,7 +768,12 @@ async function recognizePhoto(){
   if(response.food?.uncertain?.length)$('photoCandidates').textContent='Уточните: '+response.food.uncertain.join('; ');
   else $('photoCandidates').replaceChildren();
   scrollToDish();
- }catch(e){if(run!==activePhotoRun)return;status.textContent='Ошибка распознавания';$('photoDebug').hidden=false;$('photoDebugLog').textContent=String(e.message||e)+'\n'+CLOUD_AI_ENDPOINT;
+ }catch(e){if(run!==activePhotoRun)return;
+   const timedOut=controller.signal.aborted,elapsedSeconds=Math.round((Date.now()-requestStarted)/1000);
+   const message=timedOut?'Превышено время ожидания ответа ИИ (5 минут). Повторите запрос.':String(e?.message||e);
+   status.textContent=timedOut?message:'Ошибка распознавания';
+   $('photoDebug').hidden=false;$('photoDebugLog').textContent=message+'\n'+CLOUD_AI_ENDPOINT;
+   devRecord('Ошибка распознавания фото',{comment,error:message,timed_out:timedOut,elapsed_seconds:elapsedSeconds,timeout_seconds:AI_REQUEST_TIMEOUT_MS/1000});
  }finally{clearTimeout(timeout);if(run===activePhotoRun){bar.hidden=true;$('recognizePhotoBtn').disabled=false;}}
 }
 $('recognizePhotoBtn').addEventListener('click',recognizePhoto);
@@ -777,7 +783,7 @@ $('parseBtn').addEventListener('click',async()=>{
  pendingSource=null;dishes=[];draftsByDish.clear();renderDishes();
  $('textDebug').hidden=true;$('textAIStatus').textContent='Распознавание — анализ текста…';
  $('textProgressWrap').hidden=false;$('textProgressBar').removeAttribute('value');
- const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),65000);
+ const requestStarted=Date.now(),controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),AI_REQUEST_TIMEOUT_MS);
  try{
   const response=await requestCloudFood({text,signal:controller.signal});
   if(run!==activeTextRun)return;
@@ -791,10 +797,15 @@ $('parseBtn').addEventListener('click',async()=>{
   dishes=found;pendingSource='text';renderDishes();$('textAIStatus').textContent=response.food?.status==='partial'?'Показаны распознанные продукты. Остальные можно добавить вручную.':'';scrollToDish();
   // AI output displayed directly. No background directory comparisons.
  }catch(e){if(run!==activeTextRun)return;
-  $('textDebug').hidden=false;$('textDebugLog').textContent=String(e.message||e);
-  devRecord('Ошибка разбора текста',{input:text,error:String(e.message||e)});
+  const timedOut=controller.signal.aborted,elapsedSeconds=Math.round((Date.now()-requestStarted)/1000);
+  const errorText=timedOut?'Превышено время ожидания ответа ИИ (5 минут). Повторите запрос.':String(e?.message||e);
+  $('textDebug').hidden=false;$('textDebugLog').textContent=errorText;
+  devRecord('Ошибка разбора текста',{input:text,error:errorText,timed_out:timedOut,elapsed_seconds:elapsedSeconds,timeout_seconds:AI_REQUEST_TIMEOUT_MS/1000});
   const networkFailed=/^(?:Load failed|Failed to fetch|NetworkError|The network connection was lost)$/i.test(String(e?.message||''));
-  if(isChainText(text)){
+  if(timedOut){
+   $('textAIStatus').textContent=errorText;
+   dishes=[];pendingSource=null;renderDishes();
+  }else if(isChainText(text)){
    $('textAIStatus').textContent='Не удалось получить меню. Повторите запрос.';
    dishes=[];renderDishes();
   }else{
